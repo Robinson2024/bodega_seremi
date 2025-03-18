@@ -1,6 +1,6 @@
 from django.db import models
 
-# Modelo para los productos en la bodega
+# Modelo para los productos en la bodega, incluye información de proveedor y transacciones de entrada y salida de productos
 class Producto(models.Model):
     CATEGORIAS = (
         ('Insumos_Aseo', 'Insumos Aseo'),
@@ -23,7 +23,7 @@ class Producto(models.Model):
     def __str__(self):
         return f"{self.descripcion} (Código: {self.codigo_barra})"
 
-# Modelo para registrar transacciones (entradas y salidas)
+# Modelo para registrar transacciones (entradas y salidas) de productos en la bodega
 class Transaccion(models.Model):
     TIPO_TRANSACCION = (
         ('entrada', 'Entrada'),
@@ -42,7 +42,7 @@ class Transaccion(models.Model):
     def __str__(self):
         return f"{self.tipo} - {self.producto.descripcion} ({self.cantidad})"
 
-# Modelo para las actas de entrega
+# Modelo para las actas de entrega de productos
 class ActaEntrega(models.Model):
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, verbose_name="Producto")
     numero_acta = models.IntegerField(verbose_name="Número de Acta")
@@ -56,7 +56,7 @@ class ActaEntrega(models.Model):
     def __str__(self):
         return f"Acta {self.numero_acta} - {self.producto.descripcion}"
 
-# Modelo para los funcionarios
+# Modelo para los funcionarios de la institución que pueden retirar productos de la bodega (jefes de departamento y subdepartamento)
 class Funcionario(models.Model):
     DEPARTAMENTOS = (
         ('Administracion_y_Finanzas', 'Departamento de Administración y Finanzas'),

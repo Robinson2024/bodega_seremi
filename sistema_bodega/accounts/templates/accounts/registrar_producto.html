@@ -1,0 +1,242 @@
+{% extends 'accounts/home.html' %}
+{% load widget_tweaks %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="text-center" style="color: #1a3c5e;">Registrar Producto</h2>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    <form method="post" class="mt-4">
+        {% csrf_token %}
+        <div class="form-group">
+            {{ form.codigo_barra.label_tag }}
+            {{ form.codigo_barra }}
+            {% if form.codigo_barra.errors %}
+                <div class="text-danger">{{ form.codigo_barra.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{ form.descripcion.label_tag }}
+            {{ form.descripcion }}
+            {% if form.descripcion.errors %}
+                <div class="text-danger">{{ form.descripcion.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{ form.stock.label_tag }}
+            {{ form.stock }}
+            {% if form.stock.errors %}
+                <div class="text-danger">{{ form.stock.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{ form.categoria.label_tag }}
+            {{ form.categoria }}
+            {% if form.categoria.errors %}
+                <div class="text-danger">{{ form.categoria.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{ form.rut_proveedor.label_tag }}
+            {{ form.rut_proveedor|add_class:"form-control rut-input" }}
+            {% if form.rut_proveedor.errors %}
+                <div class="text-danger">{{ form.rut_proveedor.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{ form.guia_despacho.label_tag }}
+            {{ form.guia_despacho }}
+            {% if form.guia_despacho.errors %}
+                <div class="text-danger">{{ form.guia_despacho.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{ form.numero_factura.label_tag }}
+            {{ form.numero_factura }}
+            {% if form.numero_factura.errors %}
+                <div class="text-danger">{{ form.numero_factura.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{ form.orden_compra.label_tag }}
+            {{ form.orden_compra }}
+            {% if form.orden_compra.errors %}
+                <div class="text-danger">{{ form.orden_compra.errors }}</div>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{% url 'home' %}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+<style>
+    .form-group label {
+        color: #1a3c5e;
+        font-weight: 500;
+    }
+    .form-group input, .form-group select {
+        border: 1px solid #1a3c5e;
+        border-radius: 5px;
+        padding: 8px;
+        width: 100%;
+    }
+    .btn-primary {
+        background-color: #3b82f6;
+        border-color: #3b82f6;
+    }
+    .btn-primary:hover {
+        background-color: #2563eb;
+    }
+    .btn-secondary {
+        background-color: #6b7280;
+        border-color: #6b7280;
+    }
+    .btn-secondary:hover {
+        background-color: #4b5563;
+    }
+    .alert {
+        margin-top: 10px;
+    }
+    .text-danger {
+        font-size: 0.9em;
+        margin-top: 5px;
+    }
+    .rut-input:invalid:not(:focus):not(:placeholder-shown) {
+        border-color: #dc3545;
+        background-color: #fff3f3;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const rutInput = document.querySelector('.rut-input');
+
+        // Función para validar el RUT
+        function validarRut(rut) {
+            rut = rut.replace(/\./g, '').replace(/\-/g, '').toUpperCase();
+            var rutLimpio = rut.slice(0, -1);
+            var dv = rut.slice(-1);
+
+            if (rutLimpio.length < 2) return false;
+
+            var suma = 0;
+            var multiplo = 2;
+
+            for (var i = rutLimpio.length - 1; i >= 0; i--) {
+                suma += rutLimpio.charAt(i) * multiplo;
+                multiplo = (multiplo == 7) ? 2 : multiplo + 1;
+            }
+
+            var dvEsperado = 11 - (suma % 11);
+            if (dvEsperado == 11) dvEsperado = 0;
+            if (dvEsperado == 10) dvEsperado = 'K';
+
+            return dv == dvEsperado;
+        }
+
+        // Función para reconocer si es un pasaporte
+        function esPasaporte(rut) {
+            return /^[a-zA-Z]{2}/.test(rut);
+        }
+
+        // Función para formatear el RUT con puntos y guion
+        function formatearRut(rut) {
+            rut = rut.replace(/\./g, '').replace(/\-/g, '').toUpperCase();
+            var rutLimpio = rut.slice(0, -1);
+            var dv = rut.slice(-1);
+            var rutFormateado = '';
+
+            for (var i = rutLimpio.length - 1; i >= 0; i--) {
+                rutFormateado = rutLimpio.charAt(i) + rutFormateado;
+                if (i > 0 && (rutLimpio.length - i) % 3 === 0) {
+                    rutFormateado = '.' + rutFormateado;
+                }
+            }
+
+            return rutFormateado + '-' + dv;
+        }
+
+        // Función para limpiar el RUT (quitar puntos) antes de enviarlo
+        function cleanRut(rut) {
+            return rut.replace(/[^0-9K-]/g, '').toUpperCase();
+        }
+
+        // Evento oninput para permitir entrada en tiempo real
+        rutInput.oninput = function(e) {
+            let value = this.value;
+            console.log('Valor antes de procesar:', value); // Depuración
+
+            // Permitir números, guion y K
+            let cleanedValue = value.replace(/[^0-9-K]/gi, '');
+            let parts = cleanedValue.split('-');
+            let body = parts[0] || '';
+            let dv = parts[1] || '';
+
+            // Limitar cuerpo a 8 dígitos
+            body = body.replace(/[^0-9]/g, '').slice(0, 8);
+
+            // Permitir guion y dígito verificador (0-9 o K)
+            if (parts.length > 1) {
+                dv = dv.replace(/[^0-9K]/gi, '').slice(0, 1);
+            } else if (value.includes('-')) {
+                dv = ''; // Mantener el guion si no hay dígito verificador aún
+            }
+
+            // Reconstruir el valor
+            let formattedValue = body;
+            if (body) {
+                // Formatear el cuerpo con puntos
+                let tempBody = '';
+                for (let i = body.length - 1; i >= 0; i--) {
+                    tempBody = body[i] + tempBody;
+                    if (i > 0 && (body.length - i) % 3 === 0) {
+                        tempBody = '.' + tempBody;
+                    }
+                }
+                formattedValue = tempBody;
+
+                // Agregar el guion y el dígito verificador si existe
+                if (value.includes('-')) {
+                    formattedValue += '-';
+                    if (dv) {
+                        formattedValue += dv.toUpperCase();
+                    }
+                }
+            }
+
+            this.value = formattedValue;
+            console.log('Valor después de procesar:', formattedValue); // Depuración
+            this.setCustomValidity(''); // Evitar validación mientras se escribe
+        };
+
+        // Validación y formateo al perder el foco
+        rutInput.addEventListener('blur', function() {
+            let value = this.value;
+            if (!value) return;
+
+            let cleanedValue = cleanRut(value);
+            if (validarRut(cleanedValue)) {
+                this.value = formatearRut(cleanedValue);
+            } else if (!esPasaporte(cleanedValue)) {
+                console.log('El RUT ingresado no es válido');
+                this.value = ''; // Limpiar si no es válido
+            }
+        });
+
+        // Limpiar el RUT antes de enviar al backend
+        document.querySelector('form').addEventListener('submit', function(e) {
+            let rawValue = rutInput.value;
+            let cleanValue = cleanRut(rawValue);
+            console.log('Valor enviado al backend:', cleanValue); // Depuración
+            rutInput.value = cleanValue; // Enviar sin puntos
+        });
+    });
+</script>
+{% endblock %}

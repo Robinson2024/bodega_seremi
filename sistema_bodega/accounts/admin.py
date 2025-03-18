@@ -3,7 +3,7 @@ from .models import Producto, Transaccion, ActaEntrega, Funcionario
 
 # Personalizar la vista de Producto en el panel de administración
 class ProductoAdmin(admin.ModelAdmin):
-    list_display = ('codigo_barra', 'descripcion', 'stock', 'categoria', 'fecha_ingreso')  # Campos que se mostrarán en la lista
+    list_display = ('codigo_barra', 'descripcion', 'stock', 'categoria', 'rut_proveedor', 'guia_despacho', 'numero_factura', 'orden_compra')  # Campos que se mostrarán en la lista
     list_filter = ('categoria', 'fecha_ingreso')  # Filtros en la barra lateral
     search_fields = ('codigo_barra', 'descripcion')  # Campos por los que se puede buscar
     ordering = ('-fecha_ingreso',)  # Ordenar por fecha de ingreso descendente
