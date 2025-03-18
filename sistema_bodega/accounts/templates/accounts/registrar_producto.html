@@ -3,11 +3,11 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-5">
-    <h2 class="text-center" style="color: #1a3c5e;">Registrar Producto</h2>
+<div class="container mt-4">
+    <h2 class="text-center text-primary mb-4" style="color: #1a3c5e; font-weight: 600;">Registrar Producto</h2>
     {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center" role="alert">
                 {{ message }}
                 <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                     <span aria-hidden="true">×</span>
@@ -15,82 +15,144 @@
             </div>
         {% endfor %}
     {% endif %}
-    <form method="post" class="mt-4">
-        {% csrf_token %}
-        <div class="form-group">
-            {{ form.codigo_barra.label_tag }}
-            {{ form.codigo_barra }}
-            {% if form.codigo_barra.errors %}
-                <div class="text-danger">{{ form.codigo_barra.errors }}</div>
-            {% endif %}
+    <div class="card form-card shadow-sm">
+        <div class="card-body">
+            <form method="post" class="needs-validation" novalidate>
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="input-group input-group-sm">
+                            {{ form.codigo_barra|add_class:"form-control" }}
+                            <div class="input-group-append">
+                                <span class="input-group-text">Código de Barra</span>
+                            </div>
+                        </div>
+                        {% if form.codigo_barra.errors %}
+                            <div class="text-danger small">{{ form.codigo_barra.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="input-group input-group-sm">
+                            {{ form.descripcion|add_class:"form-control" }}
+                            <div class="input-group-append">
+                                <span class="input-group-text">Descripción</span>
+                            </div>
+                        </div>
+                        {% if form.descripcion.errors %}
+                            <div class="text-danger small">{{ form.descripcion.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="input-group input-group-sm">
+                            {{ form.stock|add_class:"form-control" }}
+                            <div class="input-group-append">
+                                <span class="input-group-text">Stock</span>
+                            </div>
+                        </div>
+                        {% if form.stock.errors %}
+                            <div class="text-danger small">{{ form.stock.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="input-group input-group-sm">
+                            {{ form.categoria|add_class:"form-control" }}
+                            <div class="input-group-append">
+                                <span class="input-group-text">Categoría</span>
+                            </div>
+                        </div>
+                        {% if form.categoria.errors %}
+                            <div class="text-danger small">{{ form.categoria.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="input-group input-group-sm">
+                            {{ form.rut_proveedor|add_class:"form-control rut-input" }}
+                            <div class="input-group-append">
+                                <span class="input-group-text">RUT Proveedor</span>
+                            </div>
+                        </div>
+                        {% if form.rut_proveedor.errors %}
+                            <div class="text-danger small">{{ form.rut_proveedor.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="input-group input-group-sm">
+                            {{ form.guia_despacho|add_class:"form-control" }}
+                            <div class="input-group-append">
+                                <span class="input-group-text">Guía Despacho</span>
+                            </div>
+                        </div>
+                        {% if form.guia_despacho.errors %}
+                            <div class="text-danger small">{{ form.guia_despacho.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="input-group input-group-sm">
+                            {{ form.numero_factura|add_class:"form-control" }}
+                            <div class="input-group-append">
+                                <span class="input-group-text">Núm. Factura</span>
+                            </div>
+                        </div>
+                        {% if form.numero_factura.errors %}
+                            <div class="text-danger small">{{ form.numero_factura.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="input-group input-group-sm">
+                            {{ form.orden_compra|add_class:"form-control" }}
+                            <div class="input-group-append">
+                                <span class="input-group-text">Orden Compra</span>
+                            </div>
+                        </div>
+                        {% if form.orden_compra.errors %}
+                            <div class="text-danger small">{{ form.orden_compra.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary btn-sm mr-2">Guardar</button>
+                    <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">Cancelar</a>
+                </div>
+            </form>
         </div>
-        <div class="form-group">
-            {{ form.descripcion.label_tag }}
-            {{ form.descripcion }}
-            {% if form.descripcion.errors %}
-                <div class="text-danger">{{ form.descripcion.errors }}</div>
-            {% endif %}
-        </div>
-        <div class="form-group">
-            {{ form.stock.label_tag }}
-            {{ form.stock }}
-            {% if form.stock.errors %}
-                <div class="text-danger">{{ form.stock.errors }}</div>
-            {% endif %}
-        </div>
-        <div class="form-group">
-            {{ form.categoria.label_tag }}
-            {{ form.categoria }}
-            {% if form.categoria.errors %}
-                <div class="text-danger">{{ form.categoria.errors }}</div>
-            {% endif %}
-        </div>
-        <div class="form-group">
-            {{ form.rut_proveedor.label_tag }}
-            {{ form.rut_proveedor|add_class:"form-control rut-input" }}
-            {% if form.rut_proveedor.errors %}
-                <div class="text-danger">{{ form.rut_proveedor.errors }}</div>
-            {% endif %}
-        </div>
-        <div class="form-group">
-            {{ form.guia_despacho.label_tag }}
-            {{ form.guia_despacho }}
-            {% if form.guia_despacho.errors %}
-                <div class="text-danger">{{ form.guia_despacho.errors }}</div>
-            {% endif %}
-        </div>
-        <div class="form-group">
-            {{ form.numero_factura.label_tag }}
-            {{ form.numero_factura }}
-            {% if form.numero_factura.errors %}
-                <div class="text-danger">{{ form.numero_factura.errors }}</div>
-            {% endif %}
-        </div>
-        <div class="form-group">
-            {{ form.orden_compra.label_tag }}
-            {{ form.orden_compra }}
-            {% if form.orden_compra.errors %}
-                <div class="text-danger">{{ form.orden_compra.errors }}</div>
-            {% endif %}
-        </div>
-        <button type="submit" class="btn btn-primary">Guardar</button>
-        <a href="{% url 'home' %}" class="btn btn-secondary">Cancelar</a>
-    </form>
+    </div>
 </div>
 <style>
-    .form-group label {
+    .form-card {
+        background-color: #ffffff;
+        border-radius: 10px;
+        padding: 20px;
+        max-width: 800px;
+        margin: 0 auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .input-group-text {
+        background-color: #e9ecef; /* Gris uniforme */
+        border: 1px solid #ced4da; /* Borde consistente */
         color: #1a3c5e;
         font-weight: 500;
+        border-left: none; /* Evitar doble borde */
+        padding: 0.375rem 0.75rem; /* Ajuste de padding para simetría */
     }
-    .form-group input, .form-group select {
-        border: 1px solid #1a3c5e;
-        border-radius: 5px;
-        padding: 8px;
-        width: 100%;
+    .input-group .form-control {
+        border-right: none; /* Unificar borde con el input-group-text */
+        border-radius: 5px 0 0 5px; /* Ajustar bordes redondeados */
+    }
+    .input-group.input-group-sm .form-control {
+        height: calc(1.5em + 0.5rem + 2px);
+        font-size: 0.9rem;
     }
     .btn-primary {
         background-color: #3b82f6;
         border-color: #3b82f6;
+        padding: 5px 15px;
+        font-size: 0.9rem;
     }
     .btn-primary:hover {
         background-color: #2563eb;
@@ -98,20 +160,29 @@
     .btn-secondary {
         background-color: #6b7280;
         border-color: #6b7280;
+        padding: 5px 15px;
+        font-size: 0.9rem;
     }
     .btn-secondary:hover {
         background-color: #4b5563;
     }
     .alert {
         margin-top: 10px;
+        border-radius: 5px;
     }
     .text-danger {
-        font-size: 0.9em;
+        font-size: 0.8rem;
         margin-top: 5px;
     }
     .rut-input:invalid:not(:focus):not(:placeholder-shown) {
         border-color: #dc3545;
         background-color: #fff3f3;
+    }
+    @media (max-width: 768px) {
+        .col-md-6 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
     }
 </style>
 <script>
@@ -141,11 +212,6 @@
             return dv == dvEsperado;
         }
 
-        // Función para reconocer si es un pasaporte
-        function esPasaporte(rut) {
-            return /^[a-zA-Z]{2}/.test(rut);
-        }
-
         // Función para formatear el RUT con puntos y guion
         function formatearRut(rut) {
             rut = rut.replace(/\./g, '').replace(/\-/g, '').toUpperCase();
@@ -171,7 +237,7 @@
         // Evento oninput para permitir entrada en tiempo real
         rutInput.oninput = function(e) {
             let value = this.value;
-            console.log('Valor antes de procesar:', value); // Depuración
+            console.log('Valor antes de procesar:', value);
 
             // Permitir números, guion y K
             let cleanedValue = value.replace(/[^0-9-K]/gi, '');
@@ -212,8 +278,8 @@
             }
 
             this.value = formattedValue;
-            console.log('Valor después de procesar:', formattedValue); // Depuración
-            this.setCustomValidity(''); // Evitar validación mientras se escribe
+            console.log('Valor después de procesar:', formattedValue);
+            this.setCustomValidity('');
         };
 
         // Validación y formateo al perder el foco
@@ -224,9 +290,9 @@
             let cleanedValue = cleanRut(value);
             if (validarRut(cleanedValue)) {
                 this.value = formatearRut(cleanedValue);
-            } else if (!esPasaporte(cleanedValue)) {
+            } else {
                 console.log('El RUT ingresado no es válido');
-                this.value = ''; // Limpiar si no es válido
+                this.value = '';
             }
         });
 
@@ -234,8 +300,8 @@
         document.querySelector('form').addEventListener('submit', function(e) {
             let rawValue = rutInput.value;
             let cleanValue = cleanRut(rawValue);
-            console.log('Valor enviado al backend:', cleanValue); // Depuración
-            rutInput.value = cleanValue; // Enviar sin puntos
+            console.log('Valor enviado al backend:', cleanValue);
+            rutInput.value = cleanValue;
         });
     });
 </script>

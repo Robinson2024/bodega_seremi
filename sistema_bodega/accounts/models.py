@@ -10,7 +10,7 @@ class Producto(models.Model):
         ('Folletoria', 'Folletoría'),
         ('Otros', 'Otros'),
     )
-    codigo_barra = models.CharField(max_length=50, unique=True, verbose_name="Código de Barra")
+    codigo_barra = models.CharField(max_length=50, unique=True, verbose_name="Código de Barra", error_messages={'unique': 'Este Código de Barra ya existe. Por favor, ingrese un valor diferente.'})
     descripcion = models.CharField(max_length=200, verbose_name="Descripción")
     stock = models.IntegerField(default=0, verbose_name="Stock")
     categoria = models.CharField(max_length=50, choices=CATEGORIAS, verbose_name="Categoría")
