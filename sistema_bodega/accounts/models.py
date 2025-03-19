@@ -30,13 +30,13 @@ class Transaccion(models.Model):
         ('salida', 'Salida'),
     )
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, verbose_name="Producto")
-    tipo = models.CharField(max_length=10, choices=TIPO_TRANSACCION, verbose_name="Tipo de Transacción")
-    cantidad = models.IntegerField(verbose_name="Cantidad")
+    tipo = models.CharField(max_length=10, choices=TIPO_TRANSACCION, default='entrada', verbose_name="Tipo de Transacción")
+    cantidad = models.PositiveIntegerField(verbose_name="Cantidad")
     rut_proveedor = models.CharField(max_length=12, blank=True, null=True, verbose_name="Rut del Proveedor")
     guia_despacho = models.CharField(max_length=50, blank=True, null=True, verbose_name="Guía de Despacho")
     numero_factura = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número de Factura")
     orden_compra = models.CharField(max_length=50, blank=True, null=True, verbose_name="Orden de Compra")
-    fecha = models.DateField(auto_now_add=True, verbose_name="Fecha")
+    fecha = models.DateTimeField(auto_now_add=True, verbose_name="Fecha")
     observacion = models.TextField(blank=True, null=True, verbose_name="Observación")
 
     def __str__(self):

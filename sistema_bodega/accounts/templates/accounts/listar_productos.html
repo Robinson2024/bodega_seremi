@@ -1,0 +1,194 @@
+{% extends 'accounts/home.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center mb-4" style="color: #1a3c5e; font-weight: 600;">Lista de Productos</h2>
+
+    <!-- Formulario de búsqueda automática -->
+    <div class="card form-card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="form-row justify-content-center">
+                <div class="form-group col-md-4 mb-2">
+                    <label for="codigo_barra" class="mr-2" style="color: #1a3c5e;">Código de Barra:</label>
+                    <input type="text" id="codigo_barra" class="form-control form-control-sm" value="{{ query_codigo }}" placeholder="Ej. 12345">
+                </div>
+                <div class="form-group col-md-4 mb-2">
+                    <label for="descripcion" class="mr-2" style="color: #1a3c5e;">Descripción:</label>
+                    <input type="text" id="descripcion" class="form-control form-control-sm" value="{{ query_descripcion }}" placeholder="Ej. Mascarillas">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mostrar mensajes de éxito de manera prominente -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-success alert-dismissible fade show text-center mb-4" role="alert" style="position: relative; z-index: 1000;">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Tabla de productos -->
+    <div class="card table-card shadow-sm">
+        <div class="card-body">
+            <div id="loading" class="text-center" style="display: none; color: #64748b;">Cargando...</div>
+            <div id="table-container">
+                {% if productos %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead style="background-color: #1a3c5e; color: white;">
+                                <tr>
+                                    <th>Código de Barra</th>
+                                    <th>Descripción</th>
+                                    <th>Stock</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="product-table-body">
+                                {% for producto in productos %}
+                                    <tr>
+                                        <td>{{ producto.codigo_barra }}</td>
+                                        <td>{{ producto.descripcion }}</td>
+                                        <td>{{ producto.stock }}</td>
+                                        <td>
+                                            <!-- Enlace temporal para "Agregar Stock", se ajustará en pasos futuros -->
+                                            <a href="{% url 'agregar-stock-detalle' producto.codigo_barra %}" class="btn btn-sm btn-success" style="background-color: #10b981; border-color: #10b981;">
+                                                Agregar Stock
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-center" style="color: #64748b;">No se encontraron productos.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Función para actualizar la tabla con búsqueda automática
+    function updateProductList() {
+        const codigoBarra = document.getElementById('codigo_barra').value.trim();
+        const descripcion = document.getElementById('descripcion').value.trim();
+        const loading = document.getElementById('loading');
+        const tableContainer = document.getElementById('table-container');
+
+        // Mostrar loading mientras se carga
+        loading.style.display = 'block';
+        tableContainer.style.display = 'none';
+
+        // Construir la URL con parámetros
+        const url = `/accounts/agregar-stock/?codigo_barra=${encodeURIComponent(codigoBarra)}&descripcion=${encodeURIComponent(descripcion)}`;
+
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+        .then(response => response.text())
+        .then(html => {
+            // Crear un contenedor temporal para parsear el HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newTableBody = doc.querySelector('#product-table-body');
+
+            // Actualizar el cuerpo de la tabla
+            const tableBody = document.getElementById('product-table-body');
+            if (newTableBody) {
+                tableBody.innerHTML = newTableBody.innerHTML;
+            } else {
+                tableBody.innerHTML = '<tr><td colspan="4">No se encontraron productos.</td></tr>';
+            }
+
+            // Mostrar el contenedor de la tabla y ocultar loading
+            tableContainer.style.display = 'block';
+            loading.style.display = 'none';
+        })
+        .catch(error => {
+            console.error('Error al cargar los productos:', error);
+            tableContainer.style.display = 'block';
+            loading.style.display = 'none';
+            const tableBody = document.getElementById('product-table-body');
+            tableBody.innerHTML = '<tr><td colspan="4">Error al cargar los productos.</td></tr>';
+        });
+    }
+
+    // Escuchar cambios en los campos de entrada
+    document.getElementById('codigo_barra').addEventListener('input', function() {
+        updateProductList();
+    });
+
+    document.getElementById('descripcion').addEventListener('input', function() {
+        updateProductList();
+    });
+
+    // Cargar la lista inicial al cargar la página
+    window.addEventListener('load', function() {
+        updateProductList();
+    });
+</script>
+
+<style>
+    .form-card, .table-card {
+        background-color: #ffffff;
+        border-radius: 10px;
+        padding: 20px;
+        max-width: 100%;
+        margin: 0 auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .form-control-sm {
+        height: calc(1.5em + 0.5rem + 2px);
+        font-size: 0.9rem;
+    }
+    .btn-success {
+        background-color: #10b981;
+        border-color: #10b981;
+        padding: 5px 10px;
+        font-size: 0.9rem;
+    }
+    .btn-success:hover {
+        background-color: #059669;
+    }
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .table-hover tbody tr:hover {
+        background-color: #f1f5f9;
+    }
+    .alert-success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+        padding: 15px;
+        font-size: 1rem;
+        font-weight: 500;
+    }
+    @media (max-width: 768px) {
+        .form-row {
+            flex-direction: column;
+            align-items: center;
+        }
+        .form-group {
+            width: 100%;
+            text-align: center;
+        }
+        .form-group label {
+            margin-bottom: 5px;
+        }
+        .form-group input {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
