@@ -1,0 +1,311 @@
+{% extends 'accounts/home.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center mb-4" style="color: #1a3c5e; font-weight: 600;">Salida de Productos</h2>
+
+    <!-- Mostrar mensajes -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center mb-4" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Lista de productos a retirar -->
+    <div class="card form-card shadow-sm mb-4">
+        <div class="card-body">
+            <h4 class="text-center mb-3" style="color: #1a3c5e;">Productos a Retirar</h4>
+            {% if productos_salida %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead style="background-color: #1a3c5e; color: white;">
+                            <tr>
+                                <th>Código</th>
+                                <th>Nro. SISCOM</th>
+                                <th>Stock</th>
+                                <th>Cantidad</th>
+                                <th>Observación</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salida-table-body">
+                            {% for item in productos_salida %}
+                                <tr>
+                                    <td>{{ item.codigo_barra }}</td>
+                                    <td>{{ item.numero_siscom }}</td>
+                                    <td>{{ item.stock }}</td>
+                                    <td>{{ item.cantidad }}</td>
+                                    <td>{{ item.observacion|default:"-" }}</td>
+                                    <td>
+                                        <form method="post" style="display:inline;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="codigo_barra" value="{{ item.codigo_barra }}">
+                                            <button type="submit" name="eliminar_producto" class="btn btn-sm btn-danger">Eliminar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <form method="post" class="text-center">
+                    {% csrf_token %}
+                    <button type="submit" name="siguiente" class="btn btn-primary btn-sm">Siguiente</button>
+                </form>
+            {% else %}
+                <p class="text-center" style="color: #64748b;">No hay productos seleccionados para la salida.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Formulario de búsqueda automática -->
+    <div class="card form-card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="form-row justify-content-center">
+                <div class="form-group col-md-4 mb-2">
+                    <label for="codigo_barra" class="mr-2" style="color: #1a3c5e;">Código de Barra:</label>
+                    <input type="text" id="codigo_barra" class="form-control form-control-sm" value="{{ query_codigo }}" placeholder="Ej. 12345">
+                </div>
+                <div class="form-group col-md-4 mb-2">
+                    <label for="descripcion" class="mr-2" style="color: #1a3c5e;">Descripción:</label>
+                    <input type="text" id="descripcion" class="form-control form-control-sm" value="{{ query_descripcion }}" placeholder="Ej. Mascarillas">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de productos disponibles -->
+    <div class="card table-card shadow-sm">
+        <div class="card-body">
+            <div id="loading" class="text-center" style="display: none; color: #64748b;">Cargando...</div>
+            <div id="table-container">
+                {% if productos %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead style="background-color: #1a3c5e; color: white;">
+                                <tr>
+                                    <th>Código de Barra</th>
+                                    <th>Descripción</th>
+                                    <th>Stock</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="product-table-body">
+                                {% for producto in productos %}
+                                    <tr>
+                                        <td>{{ producto.codigo_barra }}</td>
+                                        <td>{{ producto.descripcion }}</td>
+                                        <td>{{ producto.stock }}</td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-success agregar-producto" data-codigo="{{ producto.codigo_barra }}" data-stock="{{ producto.stock }}">Agregar</button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-center" style="color: #64748b;">No se encontraron productos.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario oculto para agregar productos -->
+    <form method="post" id="agregar-producto-form" style="display: none;">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <input type="hidden" name="agregar_producto" value="1">
+    </form>
+</div>
+
+<script>
+    // Función para actualizar la tabla con búsqueda automática
+    function updateProductList() {
+        const codigoBarra = document.getElementById('codigo_barra').value.trim();
+        const descripcion = document.getElementById('descripcion').value.trim();
+        const loading = document.getElementById('loading');
+        const tableContainer = document.getElementById('table-container');
+
+        loading.style.display = 'block';
+        tableContainer.style.display = 'none';
+
+        const url = `/accounts/salida-productos/?codigo_barra=${encodeURIComponent(codigoBarra)}&descripcion=${encodeURIComponent(descripcion)}`;
+
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newTableBody = doc.querySelector('#product-table-body');
+
+            const tableBody = document.getElementById('product-table-body');
+            if (newTableBody) {
+                tableBody.innerHTML = newTableBody.innerHTML;
+            } else {
+                tableBody.innerHTML = '<tr><td colspan="4">No se encontraron productos.</td></tr>';
+            }
+
+            tableContainer.style.display = 'block';
+            loading.style.display = 'none';
+
+            // Reasignar eventos a los botones "Agregar"
+            asignarEventosAgregar();
+        })
+        .catch(error => {
+            console.error('Error al cargar los productos:', error);
+            tableContainer.style.display = 'block';
+            loading.style.display = 'none';
+            const tableBody = document.getElementById('product-table-body');
+            tableBody.innerHTML = '<tr><td colspan="4">Error al cargar los productos.</td></tr>';
+        });
+    }
+
+    // Función para asignar eventos a los botones "Agregar"
+    function asignarEventosAgregar() {
+        const botonesAgregar = document.querySelectorAll('.agregar-producto');
+        botonesAgregar.forEach(boton => {
+            boton.addEventListener('click', function() {
+                const codigo = this.getAttribute('data-codigo');
+                const stock = parseInt(this.getAttribute('data-stock'));
+
+                // Validar stock
+                if (stock === 0) {
+                    alert('No se puede retirar este producto porque no tiene stock.');
+                    return;
+                }
+
+                // Rellenar el formulario oculto
+                const form = document.getElementById('agregar-producto-form');
+                const codigoInput = form.querySelector('input[name="codigo_barra"]');
+                const cantidadInput = form.querySelector('input[name="cantidad"]');
+                const numeroSiscomInput = form.querySelector('input[name="numero_siscom"]');
+                const observacionInput = form.querySelector('textarea[name="observacion"]');
+
+                codigoInput.value = codigo;
+
+                // Solicitar datos al usuario
+                const numeroSiscom = prompt('Ingrese el Número de Siscom:');
+                if (!numeroSiscom || !/^\d+$/.test(numeroSiscom)) {
+                    alert('El Número de Siscom debe ser un número entero.');
+                    return;
+                }
+
+                let cantidad = prompt('Ingrese la Cantidad a retirar:');
+                if (!cantidad || !/^\d+$/.test(cantidad)) {
+                    alert('La cantidad debe ser un número entero positivo.');
+                    return;
+                }
+                cantidad = parseInt(cantidad);
+                if (cantidad > stock) {
+                    alert(`Stock insuficiente. Stock disponible: ${stock}`);
+                    cantidad = stock;
+                }
+                if (cantidad <= 0) {
+                    alert('La cantidad debe ser mayor que 0.');
+                    return;
+                }
+
+                const observacion = prompt('Ingrese una Observación (opcional):') || '';
+
+                numeroSiscomInput.value = numeroSiscom;
+                cantidadInput.value = cantidad;
+                observacionInput.value = observacion;
+
+                // Enviar el formulario
+                form.submit();
+            });
+        });
+    }
+
+    // Escuchar cambios en los campos de entrada
+    document.getElementById('codigo_barra').addEventListener('input', function() {
+        updateProductList();
+    });
+
+    document.getElementById('descripcion').addEventListener('input', function() {
+        updateProductList();
+    });
+
+    // Cargar la lista inicial al cargar la página
+    window.addEventListener('load', function() {
+        updateProductList();
+        asignarEventosAgregar();
+    });
+</script>
+
+<style>
+    .form-card, .table-card {
+        background-color: #ffffff;
+        border-radius: 10px;
+        padding: 20px;
+        max-width: 100%;
+        margin: 0 auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .form-control-sm {
+        height: calc(1.5em + 0.5rem + 2px);
+        font-size: 0.9rem;
+    }
+    .btn-success {
+        padding: 5px 10px;
+        font-size: 0.9rem;
+    }
+    .btn-danger {
+        padding: 5px 10px;
+        font-size: 0.9rem;
+    }
+    .btn-primary {
+        background-color: #3b82f6;
+        border-color: #3b82f6;
+        padding: 5px 15px;
+        font-size: 0.9rem;
+    }
+    .btn-primary:hover {
+        background-color: #2563eb;
+    }
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .table-hover tbody tr:hover {
+        background-color: #f1f5f9;
+    }
+    .alert-success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+    .alert-error {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+    @media (max-width: 768px) {
+        .form-row {
+            flex-direction: column;
+            align-items: center;
+        }
+        .form-group {
+            width: 100%;
+            text-align: center;
+        }
+        .form-group label {
+            margin-bottom: 5px;
+        }
+        .form-group input {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
