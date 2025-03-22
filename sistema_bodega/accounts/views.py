@@ -1,23 +1,26 @@
-# accounts/views.py
 from django.shortcuts import render, redirect
 from django.contrib.auth.views import LoginView
 from django.contrib.auth import authenticate, login
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from .forms import ProductoForm, TransaccionForm, SalidaProductoForm, ActaEntregaForm
+from .forms import ProductoForm, TransaccionForm, ActaEntregaForm
 from .models import Producto, Transaccion, ActaEntrega, Funcionario
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import cm
+from reportlab.lib.units import cm, inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from datetime import datetime
 import os
+import urllib.parse  # Para codificar el nombre del archivo
 
 @login_required
 def home(request):
+    # Limpiar la sesión si existe productos_salida
+    if 'productos_salida' in request.session:
+        del request.session['productos_salida']
     return render(request, 'accounts/home.html')
 
 class CustomLoginView(LoginView):
@@ -37,9 +40,13 @@ class CustomLoginView(LoginView):
 
     def get_success_url(self):
         return '/'
-    
+
 @login_required
 def registrar_producto(request):
+    # Limpiar la sesión si existe productos_salida
+    if 'productos_salida' in request.session:
+        del request.session['productos_salida']
+        
     if request.method == 'POST':
         form = ProductoForm(request.POST)
         if form.is_valid():
@@ -54,6 +61,10 @@ def registrar_producto(request):
 
 @login_required
 def listar_productos(request):
+    # Limpiar la sesión si existe productos_salida
+    if 'productos_salida' in request.session:
+        del request.session['productos_salida']
+        
     productos = Producto.objects.all()
     query_codigo = request.GET.get('codigo_barra', '')
     query_descripcion = request.GET.get('descripcion', '')
@@ -62,9 +73,6 @@ def listar_productos(request):
         productos = productos.filter(codigo_barra=query_codigo)
     if query_descripcion:
         productos = productos.filter(descripcion__icontains=query_descripcion)
-
-    print(f"Productos filtrados: {productos}")
-    print(f"Filtro código: {query_codigo}, Filtro descripción: {query_descripcion}")
 
     context = {
         'productos': productos,
@@ -75,6 +83,10 @@ def listar_productos(request):
 
 @login_required
 def agregar_stock_detalle(request, codigo_barra):
+    # Limpiar la sesión si existe productos_salida
+    if 'productos_salida' in request.session:
+        del request.session['productos_salida']
+        
     try:
         producto = Producto.objects.get(codigo_barra=codigo_barra)
     except Producto.DoesNotExist:
@@ -87,9 +99,20 @@ def agregar_stock_detalle(request, codigo_barra):
             transaccion = form.save(commit=False)
             transaccion.producto = producto
             transaccion.tipo = 'entrada'
+            # Asignar los valores del formulario a la transacción
+            transaccion.rut_proveedor = form.cleaned_data['rut_proveedor'] or ''
+            transaccion.guia_despacho = form.cleaned_data['guia_despacho'] or ''
+            transaccion.numero_factura = form.cleaned_data['numero_factura'] or ''
+            transaccion.orden_compra = form.cleaned_data['orden_compra'] or ''
+            # No asignamos observacion, ya que el campo no está en el formulario
+            # transaccion.observacion = ''  # Opcional: asignar un valor vacío si es necesario
             transaccion.save()
 
             producto.stock += form.cleaned_data['cantidad']
+            producto.rut_proveedor = form.cleaned_data['rut_proveedor'] or ''
+            producto.guia_despacho = form.cleaned_data['guia_despacho'] or ''
+            producto.numero_factura = form.cleaned_data['numero_factura'] or ''
+            producto.orden_compra = form.cleaned_data['orden_compra'] or ''
             producto.save()
 
             messages.success(request, f'Stock agregado exitosamente. Nueva cantidad: {producto.stock}')
@@ -106,10 +129,7 @@ def agregar_stock_detalle(request, codigo_barra):
 
 @login_required
 def salida_productos(request):
-    # Lista de productos a retirar (almacenada en la sesión)
     productos_salida = request.session.get('productos_salida', [])
-
-    # Obtener todos los productos disponibles
     productos = Producto.objects.all()
     query_codigo = request.GET.get('codigo_barra', '')
     query_descripcion = request.GET.get('descripcion', '')
@@ -119,57 +139,90 @@ def salida_productos(request):
     if query_descripcion:
         productos = productos.filter(descripcion__icontains=query_descripcion)
 
-    # Si se envía un formulario para agregar un producto a la salida
-    if request.method == 'POST' and 'agregar_producto' in request.POST:
-        form = SalidaProductoForm(request.POST)
-        if form.is_valid():
+    if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        action = request.POST.get('action')
+        if action == 'update_data':
             codigo_barra = request.POST.get('codigo_barra')
-            try:
-                producto = Producto.objects.get(codigo_barra=codigo_barra)
-                # Verificar si el producto ya está en la lista de salida
-                if any(item['codigo_barra'] == codigo_barra for item in productos_salida):
-                    messages.error(request, 'Este producto ya está en la lista de salida.')
-                elif producto.stock == 0:
-                    messages.error(request, 'No se puede retirar este producto porque no tiene stock.')
-                else:
-                    productos_salida.append({
-                        'codigo_barra': producto.codigo_barra,
-                        'descripcion': producto.descripcion,
-                        'stock': producto.stock,
-                        'numero_siscom': form.cleaned_data['numero_siscom'],
-                        'cantidad': form.cleaned_data['cantidad'],
-                        'observacion': form.cleaned_data['observacion'],
-                    })
-                    request.session['productos_salida'] = productos_salida
-                    messages.success(request, 'Producto agregado a la lista de salida.')
-            except Producto.DoesNotExist:
-                messages.error(request, 'Producto no encontrado.')
-        else:
-            messages.error(request, 'Error al agregar el producto. Verifica los datos.')
+            numero_siscom = request.POST.get('numero_siscom', '')
+            cantidad = request.POST.get('cantidad', '')
+            observacion = request.POST.get('observacion', '')
+
+            for item in productos_salida:
+                if item['codigo_barra'] == codigo_barra:
+                    item['numero_siscom'] = numero_siscom
+                    item['cantidad'] = cantidad
+                    item['observacion'] = observacion
+                    break
+
+            request.session['productos_salida'] = productos_salida
+            request.session.modified = True
+            return JsonResponse({'success': True})
+
+    if request.method == 'POST' and 'agregar_producto' in request.POST:
+        codigo_barra = request.POST.get('codigo_barra')
+        try:
+            producto = Producto.objects.get(codigo_barra=codigo_barra)
+            if any(item['codigo_barra'] == codigo_barra for item in productos_salida):
+                messages.error(request, 'Este producto ya está en la lista de salida.')
+            elif producto.stock == 0:
+                messages.error(request, 'No se puede retirar este producto porque no tiene stock.')
+            else:
+                productos_salida.append({
+                    'codigo_barra': producto.codigo_barra,
+                    'descripcion': producto.descripcion,
+                    'stock': producto.stock,
+                    'numero_siscom': '',
+                    'cantidad': '',
+                    'observacion': '',
+                })
+                request.session['productos_salida'] = productos_salida
+                request.session.modified = True
+                messages.success(request, 'Producto agregado a la lista de salida.')
+        except Producto.DoesNotExist:
+            messages.error(request, 'Producto no encontrado.')
         return redirect('salida-productos')
 
-    # Si se elimina un producto de la lista de salida
     if request.method == 'POST' and 'eliminar_producto' in request.POST:
         codigo_barra = request.POST.get('codigo_barra')
         productos_salida = [item for item in productos_salida if item['codigo_barra'] != codigo_barra]
         request.session['productos_salida'] = productos_salida
-        messages.success(request, 'Producto eliminado de la lista de salida.')
+        request.session.modified = True
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True})
         return redirect('salida-productos')
 
-    # Si se presiona "Siguiente"
     if request.method == 'POST' and 'siguiente' in request.POST:
         if not productos_salida:
             messages.error(request, 'Debes agregar al menos un producto para continuar.')
             return redirect('salida-productos')
+
+        for item in productos_salida:
+            if not item['numero_siscom'] or not item['numero_siscom'].isdigit():
+                messages.error(request, f"El Número de SISCOM para el producto {item['codigo_barra']} debe ser un número entero.")
+                return redirect('salida-productos')
+
+            try:
+                cantidad = int(item['cantidad'])
+                if cantidad <= 0:
+                    messages.error(request, f"La cantidad para el producto {item['codigo_barra']} debe ser un número positivo.")
+                    return redirect('salida-productos')
+                if cantidad > item['stock']:
+                    messages.error(request, f"La cantidad a retirar ({cantidad}) para el producto {item['codigo_barra']} no puede superar el stock actual ({item['stock']}).")
+                    return redirect('salida-productos')
+                item['cantidad'] = cantidad
+            except ValueError:
+                messages.error(request, f"La cantidad para el producto {item['codigo_barra']} debe ser un número entero.")
+                return redirect('salida-productos')
+
+        request.session['productos_salida'] = productos_salida
+        request.session.modified = True
         return redirect('salida-productos-seleccion')
 
-    form = SalidaProductoForm()
     context = {
         'productos': productos,
         'query_codigo': query_codigo,
         'query_descripcion': query_descripcion,
         'productos_salida': productos_salida,
-        'form': form,
     }
     return render(request, 'accounts/salida_productos.html', context)
 
@@ -183,120 +236,312 @@ def salida_productos_seleccion(request):
     if request.method == 'POST':
         form = ActaEntregaForm(request.POST)
         if form.is_valid():
-            # Crear transacciones de salida y actualizar el stock
-            for item in productos_salida:
-                producto = Producto.objects.get(codigo_barra=item['codigo_barra'])
-                transaccion = Transaccion(
-                    producto=producto,
-                    tipo='salida',
-                    cantidad=item['cantidad'],
-                    observacion=item['observacion'],
+            try:
+                # Procesar cada producto en la salida
+                for item in productos_salida:
+                    try:
+                        producto = Producto.objects.get(codigo_barra=item['codigo_barra'])
+                        transaccion = Transaccion(
+                            producto=producto,
+                            tipo='salida',
+                            cantidad=int(item['cantidad']),
+                            observacion=item['observacion'] or '',  # Asegurarse de que observacion no sea None
+                        )
+                        transaccion.save()
+                        producto.stock -= int(item['cantidad'])
+                        producto.save()
+                    except Producto.DoesNotExist:
+                        messages.error(request, f'Producto con código {item["codigo_barra"]} no encontrado.')
+                        return redirect('salida-productos-seleccion')
+
+                # Generar el número del acta
+                ultimo_acta = ActaEntrega.objects.order_by('-numero_acta').first()
+                numero_acta = 1 if not ultimo_acta else ultimo_acta.numero_acta + 1
+
+                # Guardar el acta para cada producto
+                for item in productos_salida:
+                    acta = ActaEntrega(
+                        numero_acta=numero_acta,
+                        departamento=form.cleaned_data['departamento'],
+                        responsable=form.cleaned_data['responsable'],
+                        generador='Administrador' if request.user.username == 'admin' else 'Gersonns Matus',
+                        producto=Producto.objects.get(codigo_barra=item['codigo_barra']),
+                        cantidad=int(item['cantidad']),
+                    )
+                    acta.save()
+
+                # Generar el PDF
+                response = HttpResponse(content_type='application/pdf')
+                # Codificar el nombre del archivo para asegurarnos de que sea válido
+                filename = f"Acta_Entrega_Nro_{numero_acta}.pdf"
+                encoded_filename = urllib.parse.quote(filename)
+                # Usar 'attachment' para forzar la descarga y asegurar que el nombre del archivo se muestre correctamente
+                response['Content-Disposition'] = f'attachment; filename="{encoded_filename}"'
+                response['Content-Type'] = 'application/pdf; charset=utf-8'
+
+                # Configurar el documento PDF con márgenes
+                doc = SimpleDocTemplate(
+                    response,
+                    pagesize=letter,
+                    leftMargin=0.75*inch,
+                    rightMargin=0.75*inch,
+                    topMargin=0.5*inch,
+                    bottomMargin=0.5*inch
                 )
-                transaccion.save()
-                producto.stock -= item['cantidad']
-                producto.save()
+                styles = getSampleStyleSheet()
 
-            # Generar el número correlativo del acta
-            ultimo_acta = ActaEntrega.objects.order_by('-numero_acta').first()
-            numero_acta = 1 if not ultimo_acta else ultimo_acta.numero_acta + 1
+                # Definir estilos personalizados (todos en negrita)
+                styles.add(ParagraphStyle(
+                    name='TitleCustom',
+                    fontName='Helvetica-Bold',  # Negrita
+                    fontSize=14,
+                    alignment=1,  # Centrado
+                    spaceAfter=10,
+                    leading=16
+                ))
+                styles.add(ParagraphStyle(
+                    name='NormalBold',
+                    fontName='Helvetica-Bold',  # Negrita
+                    fontSize=10,
+                    spaceAfter=4,
+                    leading=12
+                ))
+                styles.add(ParagraphStyle(
+                    name='NormalCustom',
+                    fontName='Helvetica-Bold',  # Negrita
+                    fontSize=10,
+                    spaceAfter=4,
+                    leading=12
+                ))
+                # Estilo para el número del acta (grande, en negrita, dentro de un cuadro)
+                styles.add(ParagraphStyle(
+                    name='ActaNumber',
+                    fontName='Helvetica-Bold',  # Negrita
+                    fontSize=20,  # Ajustado a 20 para que quepa bien en el cuadro
+                    alignment=1,  # Centrado dentro del cuadro
+                    textColor=colors.black,  # Texto negro
+                    spaceAfter=0,
+                    leading=24
+                ))
+                # Estilo para las firmas (más formal con Times Roman)
+                styles.add(ParagraphStyle(
+                    name='Signature',
+                    fontName='Times-Roman',  # Fuente más formal
+                    fontSize=10,
+                    alignment=1,  # Centrado
+                    spaceBefore=10,
+                    spaceAfter=4,
+                    leading=12
+                ))
+                styles.add(ParagraphStyle(
+                    name='SignatureTitle',
+                    fontName='Times-Bold',  # Negrita y formal
+                    fontSize=10,
+                    alignment=1,  # Centrado
+                    spaceBefore=4,
+                    spaceAfter=4,
+                    leading=12
+                ))
+                styles.add(ParagraphStyle(
+                    name='SignatureCargo',
+                    fontName='Times-Italic',  # Itálica para el cargo, más elegante
+                    fontSize=9,
+                    alignment=1,  # Centrado
+                    spaceBefore=2,
+                    spaceAfter=2,
+                    leading=11
+                ))
+                # Estilo para las celdas de la tabla (en negrita)
+                styles.add(ParagraphStyle(
+                    name='TableCell',
+                    fontName='Helvetica-Bold',  # Negrita
+                    fontSize=9,
+                    leading=11,
+                    wordWrap='CJK',  # Permite que el texto se ajuste automáticamente
+                ))
 
-            # Crear el acta de entrega
-            acta = form.save(commit=False)
-            acta.numero_acta = numero_acta
-            acta.departamento = form.cleaned_data['departamento']
-            acta.funcionario = form.cleaned_data['funcionario']
-            acta.jefe_subdepartamento = form.cleaned_data['jefe_subdepartamento']
-            acta.responsable = 'Administrador' if request.user.username == 'admin' else 'Gersonns Matus'
-            acta.save()
+                elements = []
 
-            # Guardar los productos en el acta (usamos el primer producto como referencia, pero guardamos todos en el PDF)
-            acta.producto = Producto.objects.get(codigo_barra=productos_salida[0]['codigo_barra'])
-            acta.cantidad = productos_salida[0]['cantidad']
-            acta.save()
+                # --- Encabezado ---
+                # Crear una tabla para posicionar el logo y el número del acta
+                logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images', 'seremi_logo.png')
+                logo = None
+                if os.path.exists(logo_path):
+                    logo = Image(logo_path, width=3*cm, height=3*cm)
+                    logo.hAlign = 'LEFT'
+                else:
+                    logo = Paragraph("Logo no encontrado", styles['NormalCustom'])
 
-            # Generar el PDF
-            response = HttpResponse(content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="acta_entrega_{numero_acta}.pdf"'
+                # Número del acta (con "N°", dentro de un cuadro)
+                acta_number = Paragraph(f"N° {numero_acta}", styles['ActaNumber'])
+                acta_number_table = Table([[acta_number]], colWidths=[1.5*inch], rowHeights=[0.5*inch])
+                acta_number_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), colors.white),  # Fondo blanco
+                    ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),  # Texto negro
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),  # Negrita
+                    ('FONTSIZE', (0, 0), (-1, -1), 20),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),  # Bordes negros
+                    ('BOX', (0, 0), (-1, -1), 1, colors.black),   # Borde exterior negro
+                ]))
 
-            # Crear el PDF
-            doc = SimpleDocTemplate(response, pagesize=letter)
-            styles = getSampleStyleSheet()
-            elements = []
+                # Tabla para alinear el logo a la izquierda y el número del acta a la derecha
+                header_table = Table([
+                    [logo, acta_number_table]
+                ], colWidths=[3*inch, 4.5*inch])  # Ajustar los anchos para que el número quede a la derecha
+                header_table.setStyle(TableStyle([
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                    ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+                ]))
+                elements.append(header_table)
 
-            # Encabezado
-            logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images', 'seremi_logo.png')
-            logo = Image(logo_path, width=2*cm, height=2*cm)
-            elements.append(logo)
+                # Título centrado (sin el número del acta)
+                elements.append(Spacer(1, 0.2*cm))
+                title = Paragraph("ACTA DE ENTREGA MATERIALES O INSUMOS", styles['TitleCustom'])
+                elements.append(title)
 
-            elements.append(Spacer(1, 0.5*cm))
-            title = Paragraph(f"ACTA DE ENTREGA MATERIALES O INSUMOS", styles['Title'])
-            elements.append(title)
+                # Fecha
+                elements.append(Spacer(1, 0.3*cm))
+                fecha = Paragraph(
+                    f"En Temuco con fecha {datetime.now().strftime('%d-%m-%Y')} se procede a realizar la entrega de los siguientes artículos a:",
+                    styles['NormalCustom']
+                )
+                elements.append(fecha)
 
-            elements.append(Spacer(1, 0.2*cm))
-            numero = Paragraph(f"N° {numero_acta}", styles['Normal'])
-            elements.append(numero)
+                # Sección y Responsable
+                elements.append(Spacer(1, 0.2*cm))
+                departamento_info = Paragraph(
+                    f"Sección: {form.cleaned_data['departamento']}",
+                    styles['NormalCustom']
+                )
+                elements.append(departamento_info)
 
-            elements.append(Spacer(1, 0.5*cm))
-            fecha = Paragraph(f"En Temuco con fecha {datetime.now().strftime('%d-%m-%Y')} se procede a realizar la entrega de los siguientes artículos a:", styles['Normal'])
-            elements.append(fecha)
+                elements.append(Spacer(1, 0.1*cm))
+                responsable_info = Paragraph(
+                    f"Responsable: {form.cleaned_data['responsable']}",
+                    styles['NormalCustom']
+                )
+                elements.append(responsable_info)
 
-            elements.append(Spacer(1, 0.5*cm))
-            funcionario_info = Paragraph(f"Funcionario: {acta.funcionario}", styles['Normal'])
-            elements.append(funcionario_info)
+                # --- Tabla de productos ---
+                elements.append(Spacer(1, 0.5*cm))
+                elements.append(Paragraph("Datos de Productos", styles['NormalBold']))
+                elements.append(Spacer(1, 0.2*cm))
 
-            elements.append(Spacer(1, 0.2*cm))
-            departamento_info = Paragraph(f"Sección: {acta.departamento}", styles['Normal'])
-            elements.append(departamento_info)
+                # Preparar los datos de la tabla
+                data = [['Descripción', 'Nro. SISCOM', 'Cantidad Entregada', 'Observación']]
+                for item in productos_salida:
+                    # Envolver el texto de la observación en un Paragraph para permitir el ajuste automático
+                    observacion = Paragraph(item['observacion'] or '-', styles['TableCell'])
+                    data.append([
+                        item['descripcion'],
+                        item['numero_siscom'],
+                        str(item['cantidad']),
+                        observacion,
+                    ])
 
-            # Tabla de productos
-            elements.append(Spacer(1, 1*cm))
-            data = [['Descripción', 'Nro. SISCOM', 'Cantidad Entregada', 'Observación']]
-            for item in productos_salida:
-                data.append([
-                    item['descripcion'],
-                    item['numero_siscom'],
-                    str(item['cantidad']),
-                    item['observacion'] or '-',
-                ])
+                # Configurar la tabla
+                table = Table(data, colWidths=[2.5*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                    ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica-Bold'),  # Negrita para las celdas
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),  # Bordes en todas las celdas
+                    ('BOX', (0, 0), (-1, -1), 1, colors.black),   # Borde exterior de la tabla
+                    ('VALIGN', (0, 1), (-1, -1), 'TOP'),          # Alinear el contenido al inicio de la celda
+                ]))
+                elements.append(table)
 
-            table = Table(data)
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 10),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ]))
-            elements.append(table)
+                # --- Firmas ---
+                # Usar un Spacer más grande para bajar las firmas
+                elements.append(Spacer(1, 4*inch))  # Manteniendo el valor de 4*inch
 
-            # Firmas (en la última página)
-            elements.append(Spacer(1, 2*cm))
-            firma_encargado = Paragraph(f"{'Administrador' if request.user.username == 'admin' else 'Gersonns Matus'}<br/>ENCARGADO BODEGA", styles['Normal'])
-            firma_receptor = Paragraph(f"{acta.jefe_subdepartamento}<br/>JEFE SUBDEPTO. ADMINISTRACIÓN INTERNA", styles['Normal'])
-            firma_table = Table([[firma_encargado, firma_receptor]], colWidths=[200, 200])
-            firma_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ]))
-            elements.append(firma_table)
+                # Firma 1: Encargado Bodega
+                firma_encargado = Paragraph(
+                    f"{acta.generador}",
+                    styles['Signature']
+                )
+                firma_encargado_title = Paragraph(
+                    "ENCARGADO BODEGA",
+                    styles['SignatureTitle']
+                )
+                firma_encargado_line = Paragraph(
+                    "_____________________________",
+                    styles['Signature']
+                )
 
-            # Construir el PDF
-            doc.build(elements)
+                # Firma 2: Recepcciona Conforme
+                firma_receptor = Paragraph(
+                    f"Sr./Sra. {acta.responsable}",
+                    styles['Signature']
+                )
+                firma_receptor_title = Paragraph(
+                    "RECEPCIONA CONFORME",
+                    styles['SignatureTitle']
+                )
 
-            # Limpiar la sesión
-            request.session['productos_salida'] = []
-            messages.success(request, 'Acta generada exitosamente.')
-            return response
+                # Determinar el cargo dinámicamente según el responsable
+                responsable_lower = acta.responsable.lower()
+                if 'secretaria' in responsable_lower:
+                    cargo = "SECRETARIA DEL DEPARTAMENTO"
+                elif 'jefe' in responsable_lower or 'jefatura' in responsable_lower:
+                    cargo = "JEFE DEL DEPARTAMENTO"
+                else:
+                    cargo = "RESPONSABLE DEL DEPARTAMENTO"
+
+                firma_receptor_cargo = Paragraph(
+                    cargo,
+                    styles['SignatureCargo']
+                )
+                firma_receptor_line = Paragraph(
+                    "_____________________________",
+                    styles['Signature']
+                )
+
+                # Tabla de firmas (dos columnas)
+                firma_table = Table([
+                    [firma_encargado, firma_receptor],
+                    [firma_encargado_title, firma_receptor_title],
+                    ['', firma_receptor_cargo],
+                    [firma_encargado_line, firma_receptor_line]
+                ], colWidths=[3*inch, 3*inch])
+                firma_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('LEADING', (0, 0), (-1, -1), 12),
+                ]))
+                elements.append(firma_table)
+
+                # Construir el documento
+                doc.build(elements)
+
+                # Limpiar la sesión
+                if 'productos_salida' in request.session:
+                    del request.session['productos_salida']
+                
+                return response
+
+            except Exception as e:
+                # Registrar el error para depuración
+                print(f"Error al generar el acta: {str(e)}")
+                messages.error(request, f'Error al generar el acta: {str(e)}')
+                return redirect('salida-productos-seleccion')
         else:
             messages.error(request, 'Error al generar el acta. Verifica los datos.')
+            # Mostrar errores específicos del formulario para depuración
+            print(f"Errores del formulario: {form.errors}")
     else:
         form = ActaEntregaForm()
 
@@ -308,8 +553,33 @@ def salida_productos_seleccion(request):
 @login_required
 def funcionarios_por_departamento(request):
     departamento = request.GET.get('departamento', '')
-    funcionarios = Funcionario.objects.filter(departamento=departamento, es_jefe=False)
-    data = {
-        'funcionarios': [{'nombre': f.nombre} for f in funcionarios]
-    }
-    return JsonResponse(data)
+    if not departamento:
+        return JsonResponse({'error': 'Departamento no especificado'}, status=400)
+
+    # Generamos las opciones de responsable dinámicamente (igual que en el frontend y el formulario)
+    responsables = [
+        {'nombre': 'Jefatura ' + departamento},
+        {'nombre': 'Jefatura ' + departamento + '(s)'},
+        {'nombre': 'Secretaria ' + departamento},
+        {'nombre': 'Secretaria ' + departamento + '(s)'},
+    ]
+
+    # Ajustes específicos para el Departamento de Salud Pública
+    if departamento == 'Departamento de Salud Pública':
+        responsables = [
+            {'nombre': 'Jefe Salud Pública'},
+            {'nombre': 'Jefe Salud Pública(s)'},
+            {'nombre': 'Secretaria Subrogante Salud Pública'},
+            {'nombre': 'Secretaria Subrogante Salud Pública(s)'},
+        ]
+
+    return JsonResponse({'funcionarios': responsables})
+
+@login_required
+def listar_actas(request):
+    # Limpiar la sesión si existe productos_salida
+    if 'productos_salida' in request.session:
+        del request.session['productos_salida']
+        
+    actas = ActaEntrega.objects.all().order_by('-numero_acta')
+    return render(request, 'accounts/listar_actas.html', {'actas': actas})

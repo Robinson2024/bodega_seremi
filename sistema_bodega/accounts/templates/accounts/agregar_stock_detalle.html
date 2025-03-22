@@ -85,17 +85,6 @@
                             <div class="text-danger small">{{ form.orden_compra.errors }}</div>
                         {% endif %}
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="input-group input-group-sm">
-                            {{ form.observacion|add_class:"form-control" }}
-                            <div class="input-group-append">
-                                <span class="input-group-text">Observación</span>
-                            </div>
-                        </div>
-                        {% if form.observacion.errors %}
-                            <div class="text-danger small">{{ form.observacion.errors }}</div>
-                        {% endif %}
-                    </div>
                 </div>
                 <div class="text-center">
                     <button type="submit" class="btn btn-primary btn-sm mr-2">Agregar Stock</button>

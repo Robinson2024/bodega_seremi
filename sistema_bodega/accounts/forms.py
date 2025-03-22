@@ -81,30 +81,6 @@ class ProductoForm(forms.ModelForm):
         model = Producto
         fields = ['codigo_barra', 'descripcion', 'stock', 'categoria', 'rut_proveedor', 'guia_despacho', 'numero_factura', 'orden_compra']
 
-    def clean_rut_proveedor(self):
-        rut = self.cleaned_data.get('rut_proveedor')
-        if not rut:
-            raise ValidationError('El RUT del proveedor es obligatorio.')
-
-        rut = rut.replace('.', '').replace(' ', '').upper()
-        print(f"Raw RUT input: {rut}")
-
-        parts = rut.split('-')
-        if len(parts) != 2:
-            raise ValidationError('El RUT debe incluir un guion (formato XXXXXXXX-X).')
-        body = parts[0]
-        dv = parts[1]
-
-        if not body.isdigit() or len(body) < 1 or len(body) > 8:
-            raise ValidationError('El cuerpo del RUT debe contener entre 1 y 8 dígitos.')
-
-        calculated_dv = calcularDigitoVerificador(body)
-        print(f"Body: {body}, Calculated DV: {calculated_dv}, Input DV: {dv}")
-        if dv not in '0123456789K' or dv != calculated_dv:
-            raise ValidationError('El dígito verificador no es válido para este RUT.')
-
-        return rut
-
 class TransaccionForm(forms.ModelForm):
     cantidad = forms.IntegerField(
         validators=[
@@ -155,15 +131,9 @@ class TransaccionForm(forms.ModelForm):
         label='Orden de Compra'
     )
 
-    observacion = forms.CharField(
-        widget=forms.Textarea,
-        required=False,
-        label='Observación'
-    )
-
     class Meta:
         model = Transaccion
-        fields = ['cantidad', 'rut_proveedor', 'guia_despacho', 'numero_factura', 'orden_compra', 'observacion']
+        fields = ['cantidad', 'rut_proveedor', 'guia_despacho', 'numero_factura', 'orden_compra']
 
     def clean_rut_proveedor(self):
         rut = self.cleaned_data.get('rut_proveedor')
@@ -189,82 +159,94 @@ class TransaccionForm(forms.ModelForm):
 
         return rut
 
-class SalidaProductoForm(forms.Form):
-    codigo_barra = forms.CharField(
-        max_length=50,
-        widget=forms.HiddenInput(),
-        label='Código de Barra'
-    )
-
-    numero_siscom = forms.CharField(
-        max_length=50,
-        validators=[
-            RegexValidator(
-                regex=r'^\d+$',
-                message='El número de Siscom solo puede contener números enteros.'
-            )
-        ],
-        label='Número de Siscom'
-    )
-
-    cantidad = forms.IntegerField(
-        validators=[
-            MinValueValidator(1, message='La cantidad debe ser un número positivo.')
-        ],
-        label='Cantidad'
-    )
-
-    observacion = forms.CharField(
-        widget=forms.Textarea,
-        max_length=300,
-        required=False,
-        label='Observación'
-    )
-
-    def __init__(self, *args, **kwargs):
-        self.producto = kwargs.pop('producto', None)
-        super().__init__(*args, **kwargs)
-
-    def clean_cantidad(self):
-        cantidad = self.cleaned_data.get('cantidad')
-        codigo_barra = self.cleaned_data.get('codigo_barra')
-        try:
-            producto = Producto.objects.get(codigo_barra=codigo_barra)
-            if cantidad > producto.stock:
-                raise ValidationError(f'La cantidad a retirar ({cantidad}) no puede superar el stock actual ({producto.stock}).')
-        except Producto.DoesNotExist:
-            raise ValidationError('Producto no encontrado.')
-        return cantidad
-
 class ActaEntregaForm(forms.ModelForm):
+    DEPARTAMENTOS = [
+        ('Seremi de Salud', 'Seremi de Salud'),
+        ('Gabinete', 'Gabinete'),
+        ('Departamento Jurídico', 'Departamento Jurídico'),
+        ('Compin Cautín', 'Compin Cautín'),
+        ('Departamento de Acción Sanitaria (DAS)', 'Departamento de Acción Sanitaria (DAS)'),
+        ('Departamento de Administración y Finanzas (DAF)', 'Departamento de Administración y Finanzas (DAF)'),
+        ('Departamento de Gestión y Desarrollo de Personas', 'Departamento de Gestión y Desarrollo de Personas'),
+        ('Departamento de Salud Pública', 'Departamento de Salud Pública'),
+        ('Oficina Provincial Malleco (OPM)', 'Oficina Provincial Malleco (OPM)'),
+    ]
+
     departamento = forms.ChoiceField(
-        choices=Funcionario.DEPARTAMENTOS,
+        choices=DEPARTAMENTOS,
         label='Departamento'
     )
 
-    funcionario = forms.ChoiceField(
-        label='Funcionario'
-    )
-
-    jefe_subdepartamento = forms.ChoiceField(
-        choices=[
-            ('Jessica Bulnes', 'Jessica Bulnes'),
-            ('Isolde Gotschlich', 'Isolde Gotschlich'),
-        ],
-        label='Jefe del Subdepartamento'
+    responsable = forms.ChoiceField(
+        label='Responsable',
+        choices=[]  # Inicialmente vacío, se llenará dinámicamente
     )
 
     class Meta:
         model = ActaEntrega
-        fields = ['departamento', 'funcionario', 'jefe_subdepartamento']
+        fields = ['departamento', 'responsable']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['funcionario'].choices = [('', 'Seleccione un departamento primero')]
+        # Inicialmente, el campo responsable tiene una opción por defecto
+        self.fields['responsable'].choices = [('', 'Seleccione un departamento primero')]
+
+        # Si se ha enviado un departamento (en un POST), generamos las opciones de responsable
         if 'departamento' in self.data:
             try:
                 departamento = self.data.get('departamento')
-                funcionarios = Funcionario.objects.filter(departamento=departamento, es_jefe=False)
-                self.fields['funcionario'].choices = [(f.nombre, f.nombre) for f in funcionarios]
+                # Generamos las opciones de responsable dinámicamente
+                responsables = [
+                    ('Jefatura ' + departamento, 'Jefatura ' + departamento),
+                    ('Jefatura ' + departamento + '(s)', 'Jefatura ' + departamento + '(s)'),
+                    ('Secretaria ' + departamento, 'Secretaria ' + departamento),
+                    ('Secretaria ' + departamento + '(s)', 'Secretaria ' + departamento + '(s)'),
+                ]
+
+                # Ajustes específicos para el Departamento de Salud Pública
+                if departamento == 'Departamento de Salud Pública':
+                    responsables = [
+                        ('Jefe Salud Pública', 'Jefe Salud Pública'),
+                        ('Jefe Salud Pública(s)', 'Jefe Salud Pública(s)'),
+                        ('Secretaria Subrogante Salud Pública', 'Secretaria Subrogante Salud Pública'),
+                        ('Secretaria Subrogante Salud Pública(s)', 'Secretaria Subrogante Salud Pública(s)'),
+                    ]
+
+                self.fields['responsable'].choices = responsables
             except (ValueError, TypeError):
                 pass
+
+    def clean(self):
+        cleaned_data = super().clean()
+        departamento = cleaned_data.get('departamento')
+        responsable = cleaned_data.get('responsable')
+
+        if not departamento:
+            raise ValidationError('Debe seleccionar un departamento.')
+
+        if not responsable:
+            raise ValidationError('Debe seleccionar un responsable.')
+
+        # Validamos que el responsable sea una opción válida para el departamento seleccionado
+        responsables = [
+            ('Jefatura ' + departamento, 'Jefatura ' + departamento),
+            ('Jefatura ' + departamento + '(s)', 'Jefatura ' + departamento + '(s)'),
+            ('Secretaria ' + departamento, 'Secretaria ' + departamento),
+            ('Secretaria ' + departamento + '(s)', 'Secretaria ' + departamento + '(s)'),
+        ]
+
+        if departamento == 'Departamento de Salud Pública':
+            responsables = [
+                ('Jefe Salud Pública', 'Jefe Salud Pública'),
+                ('Jefe Salud Pública(s)', 'Jefe Salud Pública(s)'),
+                ('Secretaria Subrogante Salud Pública', 'Secretaria Subrogante Salud Pública'),
+                ('Secretaria Subrogante Salud Pública(s)', 'Secretaria Subrogante Salud Pública(s)'),
+            ]
+
+        # Verificamos que el responsable esté en la lista de opciones válidas
+        if responsable and (responsable, responsable) not in responsables:
+            raise ValidationError({
+                'responsable': f'Escoja una opción válida. "{responsable}" no es una de las opciones disponibles.'
+            })
+
+        return cleaned_data

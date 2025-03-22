@@ -1,13 +1,14 @@
 {% extends 'accounts/home.html' %}
-{% load widget_tweaks %}
 {% load static %}
 
 {% block content %}
 <div class="container mt-4">
-    <h2 class="text-center text-primary mb-4" style="color: #1a3c5e; font-weight: 600;">Seleccionar Responsables</h2>
+    <h2 class="text-center mb-4" style="color: #1a3c5e; font-weight: 600;">Generar Acta de Entrega</h2>
+
+    <!-- Mostrar mensajes -->
     {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center" role="alert">
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center mb-4" role="alert">
                 {{ message }}
                 <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                     <span aria-hidden="true">×</span>
@@ -15,150 +16,364 @@
             </div>
         {% endfor %}
     {% endif %}
-    <div class="card form-card shadow-sm">
+
+    <!-- Lista de productos a retirar -->
+    <div class="card form-card shadow-sm mb-4">
         <div class="card-body">
-            <form method="post" class="needs-validation" novalidate>
+            <h4 class="text-center mb-3" style="color: #1a3c5e;">Productos Seleccionados</h4>
+            {% if productos_salida %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead style="background-color: #1a3c5e; color: white;">
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Nro. SISCOM</th>
+                                <th>Cantidad</th>
+                                <th>Observación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in productos_salida %}
+                                <tr>
+                                    <td>{{ item.codigo_barra }}</td>
+                                    <td>{{ item.descripcion }}</td>
+                                    <td>{{ item.numero_siscom }}</td>
+                                    <td>{{ item.cantidad }}</td>
+                                    <td>{{ item.observacion|default_if_none:'-' }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-center" style="color: #64748b;">No hay productos seleccionados.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Formulario para seleccionar departamento y responsable -->
+    <div class="card form-card shadow-sm mb-4">
+        <div class="card-body">
+            <h4 class="text-center mb-4" style="color: #1a3c5e;">Seleccionar Responsable</h4>
+            <form method="post" id="acta-form" class="needs-validation" novalidate>
                 {% csrf_token %}
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <div class="input-group input-group-sm">
-                            {{ form.departamento|add_class:"form-control" }}
-                            <div class="input-group-append">
-                                <span class="input-group-text">Departamento</span>
-                            </div>
+                <div class="row justify-content-center">
+                    <div class="col-md-4 mb-3">
+                        <label for="id_departamento" class="form-label" style="color: #1a3c5e; font-weight: 500;">Departamento:</label>
+                        <div class="select-wrapper">
+                            {{ form.departamento }}
                         </div>
                         {% if form.departamento.errors %}
                             <div class="text-danger small">{{ form.departamento.errors }}</div>
                         {% endif %}
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="input-group input-group-sm">
-                            {{ form.funcionario|add_class:"form-control" }}
-                            <div class="input-group-append">
-                                <span class="input-group-text">Funcionario</span>
-                            </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="id_responsable" class="form-label" style="color: #1a3c5e; font-weight: 500;">Responsable:</label>
+                        <div class="select-wrapper">
+                            {{ form.responsable }}
+                            <span class="loading-spinner" id="responsable-loading" style="display: none;">Cargando...</span>
                         </div>
-                        {% if form.funcionario.errors %}
-                            <div class="text-danger small">{{ form.funcionario.errors }}</div>
+                        {% if form.responsable.errors %}
+                            <div class="text-danger small">{{ form.responsable.errors }}</div>
                         {% endif %}
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <div class="input-group input-group-sm">
-                            {{ form.jefe_subdepartamento|add_class:"form-control" }}
-                            <div class="input-group-append">
-                                <span class="input-group-text">Jefe del Subdepartamento</span>
-                            </div>
-                        </div>
-                        {% if form.jefe_subdepartamento.errors %}
-                            <div class="text-danger small">{{ form.jefe_subdepartamento.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="text-center">
-                    <button type="submit" class="btn btn-primary btn-sm mr-2">Generar Acta de Entrega</button>
-                    <a href="{% url 'salida-productos' %}" class="btn btn-secondary btn-sm">Cancelar</a>
+                <div class="text-center mt-4">
+                    <!-- Botón Cancelar como enlace -->
+                    <a href="{% url 'salida-productos' %}" class="btn btn-cancel-custom btn-sm mr-3" id="cancelButton">Cancelar</a>
+                    <button type="submit" class="btn btn-primary-custom btn-sm" id="generateButton">Generar Acta de Entrega</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const departamentoSelect = document.querySelector('[name="departamento"]');
-        const funcionarioSelect = document.querySelector('[name="funcionario"]');
 
-        departamentoSelect.addEventListener('change', function() {
-            const departamento = this.value;
-            if (!departamento) {
-                funcionarioSelect.innerHTML = '<option value="">Seleccione un departamento primero</option>';
-                return;
-            }
-
-            fetch(`/accounts/funcionarios-por-departamento/?departamento=${encodeURIComponent(departamento)}`, {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            })
-            .then(response => response.json())
-            .then(data => {
-                funcionarioSelect.innerHTML = '';
-                if (data.funcionarios.length === 0) {
-                    funcionarioSelect.innerHTML = '<option value="">No hay funcionarios disponibles</option>';
-                } else {
-                    data.funcionarios.forEach(funcionario => {
-                        const option = document.createElement('option');
-                        option.value = funcionario.nombre;
-                        option.textContent = funcionario.nombre;
-                        funcionarioSelect.appendChild(option);
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error al cargar los funcionarios:', error);
-                funcionarioSelect.innerHTML = '<option value="">Error al cargar funcionarios</option>';
-            });
-        });
-    });
-</script>
 <style>
     .form-card {
         background-color: #ffffff;
         border-radius: 10px;
         padding: 20px;
-        max-width: 800px;
+        max-width: 100%;
         margin: 0 auto;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
-    .input-group-text {
-        background-color: #e9ecef;
+
+    /* Estilos para los menús desplegables */
+    .select-wrapper {
+        position: relative;
+    }
+
+    .select-wrapper select {
+        width: 100%;
+        height: calc(1.5em + 0.75rem + 2px);
+        padding: 0.375rem 1.75rem 0.375rem 0.75rem;
+        font-size: 0.9rem;
+        color: #495057;
+        background-color: #fff;
         border: 1px solid #ced4da;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+    }
+
+    .select-wrapper select:focus {
+        border-color: #1d4ed8;
+        box-shadow: 0 0 0 0.2rem rgba(29, 78, 216, 0.25);
+        outline: none;
+    }
+
+    .select-wrapper select:hover {
+        border-color: #1d4ed8;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Flecha personalizada para el menú desplegable */
+    .select-wrapper::after {
+        content: '\25BC';
+        position: absolute;
+        top: 50%;
+        right: 12px;
+        transform: translateY(-50%);
+        font-size: 0.8rem;
         color: #1a3c5e;
+        pointer-events: none;
+    }
+
+    /* Estilo para el indicador de carga */
+    .loading-spinner {
+        position: absolute;
+        top: 50%;
+        right: 30px;
+        transform: translateY(-50%);
+        font-size: 0.8rem;
+        color: #64748b;
+    }
+
+    /* Estilos para las etiquetas */
+    .form-label {
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    /* Estilos para los botones */
+    .btn-primary-custom {
+        background-color: #1d4ed8;
+        border-color: #1d4ed8;
+        padding: 8px 20px;
+        font-size: 0.9rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary-custom:hover {
+        background-color: #1e40af;
+        border-color: #1e40af;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .btn-cancel-custom {
+        background-color: #f87171;
+        border-color: #f87171;
+        padding: 8px 20px;
+        font-size: 0.9rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-cancel-custom:hover {
+        background-color: #ef4444;
+        border-color: #ef4444;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+        color: white;
+    }
+
+    /* Estilos para la tabla */
+    .table th {
+        background-color: #1a3c5e;
+        color: white;
         font-weight: 500;
-        border-left: none;
-        padding: 0.375rem 0.75rem;
+        vertical-align: middle;
     }
-    .input-group .form-control {
-        border-right: none;
-        border-radius: 5px 0 0 5px;
+
+    .table td {
+        vertical-align: middle;
     }
-    .input-group.input-group-sm .form-control {
-        height: calc(1.5em + 0.5rem + 2px);
-        font-size: 0.9rem;
+
+    .table-hover tbody tr:hover {
+        background-color: #f1f5f9;
     }
-    .btn-primary {
-        background-color: #3b82f6;
-        border-color: #3b82f6;
-        padding: 5px 15px;
-        font-size: 0.9rem;
-    }
-    .btn-primary:hover {
-        background-color: #2563eb;
-    }
-    .btn-secondary {
-        background-color: #6b7280;
-        border-color: #6b7280;
-        padding: 5px 15px;
-        font-size: 0.9rem;
-    }
-    .btn-secondary:hover {
-        background-color: #4b5563;
-    }
-    .alert {
-        margin-top: 10px;
-        border-radius: 5px;
-    }
+
+    /* Estilos para los mensajes de error */
     .text-danger {
         font-size: 0.8rem;
         margin-top: 5px;
     }
+
+    /* Estilos para los mensajes de alerta */
+    .alert-success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+
+    .alert-error {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+
+    /* Responsividad */
     @media (max-width: 768px) {
-        .col-md-6 {
+        .form-row {
+            flex-direction: column;
+            align-items: center;
+        }
+        .form-group {
+            width: 100%;
+            text-align: center;
+        }
+        .col-md-4 {
             flex: 0 0 100%;
             max-width: 100%;
         }
+        .btn-primary-custom, .btn-cancel-custom {
+            width: 100%;
+            margin-bottom: 10px;
+        }
     }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const departamentoSelect = document.getElementById('id_departamento');
+    const responsableSelect = document.getElementById('id_responsable');
+    const loadingSpinner = document.getElementById('responsable-loading');
+    const form = document.getElementById('acta-form');
+    const generateButton = document.getElementById('generateButton');
+    const cancelButton = document.getElementById('cancelButton');
+
+    // Función para mostrar el indicador de carga
+    function showLoading() {
+        loadingSpinner.style.display = 'inline';
+        responsableSelect.disabled = true;
+    }
+
+    // Función para ocultar el indicador de carga
+    function hideLoading() {
+        loadingSpinner.style.display = 'none';
+        responsableSelect.disabled = false;
+    }
+
+    // Cargar responsables dinámicamente
+    departamentoSelect.addEventListener('change', function() {
+        const departamento = this.value;
+        if (!departamento) {
+            responsableSelect.innerHTML = '<option value="">Seleccione un departamento primero</option>';
+            return;
+        }
+
+        showLoading();
+
+        fetch(`/accounts/funcionarios-por-departamento/?departamento=${encodeURIComponent(departamento)}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en la solicitud al servidor');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.funcionarios) {
+                responsableSelect.innerHTML = '<option value="">Seleccione un responsable</option>';
+                data.funcionarios.forEach(funcionario => {
+                    const option = document.createElement('option');
+                    option.value = funcionario.nombre;
+                    option.textContent = funcionario.nombre;
+                    responsableSelect.appendChild(option);
+                });
+            } else {
+                responsableSelect.innerHTML = '<option value="">Error al cargar responsables</option>';
+            }
+            hideLoading();
+        })
+        .catch(error => {
+            console.error('Error al cargar los responsables:', error);
+            responsableSelect.innerHTML = '<option value="">Error al cargar responsables</option>';
+            hideLoading();
+            alert('Hubo un problema al cargar los responsables. Por favor, intenta de nuevo.');
+        });
+    });
+
+    // Validación del formulario solo para el botón "Generar Acta"
+    generateButton.addEventListener('click', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+            form.classList.add('was-validated');
+            alert('Por favor, completa todos los campos requeridos.');
+            return;
+        }
+
+        event.preventDefault(); // Evitar el envío predeterminado del formulario
+
+        const formData = new FormData(form);
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(errorData => {
+                    throw new Error(errorData.error || 'Error al generar el acta');
+                });
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Crear un enlace temporal para descargar el PDF
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'acta_entrega.pdf'; // Nombre genérico, el nombre real viene del servidor
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+            // Mostrar mensaje de éxito y redirigir
+            alert('Acta de entrega generada correctamente.');
+            setTimeout(() => {
+                window.location.href = "{% url 'home' %}";
+            }, 1000); // Redirigir después de 1 segundo
+        })
+        .catch(error => {
+            console.error('Error al generar el acta:', error);
+            alert('Error al generar el acta: ' + error.message);
+        });
+    });
+
+    // El botón "Cancelar" no necesita validación, simplemente redirige
+    cancelButton.addEventListener('click', function(event) {
+        // No se necesita prevenir el evento, ya que es un enlace (<a>)
+    });
+});
+</script>
 {% endblock %}
