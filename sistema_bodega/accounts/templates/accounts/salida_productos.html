@@ -51,7 +51,7 @@
                                                 <input type="number" name="cantidad_{{ item.codigo_barra }}" class="form-control form-control-sm cantidad" value="{{ item.cantidad }}" data-codigo="{{ item.codigo_barra }}" data-stock="{{ item.stock }}" min="1" required>
                                             </td>
                                             <td>
-                                                <textarea name="observacion_{{ item.codigo_barra }}" class="form-control form-control-sm observacion" maxlength="300">{{ item.observacion }}</textarea>
+                                                <textarea name="observacion_{{ item.codigo_barra }}" class="form-control form-control-sm observacion" maxlength="300" data-codigo="{{ item.codigo_barra }}" rows="3">{{ item.observacion }}</textarea>
                                             </td>
                                             <td>
                                                 <!-- Botón de eliminación fuera del formulario principal -->
@@ -325,7 +325,7 @@ function addEventListeners() {
     // Guardar Observación y ajustar el tamaño del textarea
     document.querySelectorAll('.observacion').forEach(textarea => {
         textarea.addEventListener('input', function() {
-            const codigo = this.name.split('_')[1];
+            const codigo = this.getAttribute('data-codigo');
             const numeroSiscom = document.querySelector(`input[name="numero_siscom_${codigo}"]`).value;
             const cantidad = document.querySelector(`input[name="cantidad_${codigo}"]`).value;
             const observacion = this.value;

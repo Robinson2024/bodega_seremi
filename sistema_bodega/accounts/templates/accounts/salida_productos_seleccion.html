@@ -40,7 +40,7 @@
                                     <td>{{ item.descripcion }}</td>
                                     <td>{{ item.numero_siscom }}</td>
                                     <td>{{ item.cantidad }}</td>
-                                    <td>{{ item.observacion|default_if_none:'-' }}</td>
+                                    <td>{{ item.observacion|linebreaks|default_if_none:'-' }}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>

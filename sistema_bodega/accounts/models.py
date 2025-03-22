@@ -69,6 +69,8 @@ class ActaEntrega(models.Model):
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     cantidad = models.IntegerField()
     generador = models.CharField(max_length=100)
+    numero_siscom = models.CharField(max_length=50, blank=True, null=True)  # Nuevo campo
+    observacion = models.TextField(blank=True, null=True)  # Nuevo campo
 
     def __str__(self):
         return f"Acta N°{self.numero_acta} - {self.departamento}"
