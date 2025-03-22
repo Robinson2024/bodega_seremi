@@ -62,15 +62,19 @@ class Funcionario(models.Model):
         return f"{self.nombre} - {self.departamento}"
 
 class ActaEntrega(models.Model):
-    numero_acta = models.IntegerField(unique=True)
+    numero_acta = models.IntegerField()  # Eliminamos unique=True
     departamento = models.CharField(max_length=100)
     responsable = models.CharField(max_length=100)
     fecha = models.DateTimeField(auto_now_add=True)
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     cantidad = models.IntegerField()
     generador = models.CharField(max_length=100)
-    numero_siscom = models.CharField(max_length=50, blank=True, null=True)  # Nuevo campo
-    observacion = models.TextField(blank=True, null=True)  # Nuevo campo
+    numero_siscom = models.CharField(max_length=50, blank=True, null=True)
+    observacion = models.TextField(blank=True, null=True)
+
+    class Meta:
+        # Añadimos una restricción de unicidad combinada entre numero_acta y producto
+        unique_together = ('numero_acta', 'producto')
 
     def __str__(self):
         return f"Acta N°{self.numero_acta} - {self.departamento}"
