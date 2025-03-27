@@ -21,7 +21,7 @@
     <div class="card form-card shadow-sm mb-4">
         <div class="card-body">
             <h4 class="text-center mb-4" style="color: #1a3c5e;">Filtrar Actas de Entrega</h4>
-            <form method="get" class="row justify-content-center">
+            <form method="get" class="row justify-content-center" id="search-form">
                 <div class="col-md-3 mb-3">
                     <label for="numero_acta" class="form-label" style="color: #1a3c5e; font-weight: 500;">Número de Acta:</label>
                     <input type="number" name="numero_acta" id="numero_acta" class="form-control" value="{{ query_numero_acta }}" placeholder="Ej: 1">
@@ -44,88 +44,186 @@
     <div class="card form-card shadow-sm mb-4">
         <div class="card-body">
             <h4 class="text-center mb-3" style="color: #1a3c5e;">Actas de Entrega Generadas</h4>
-            {% if actas %}
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead style="background-color: #1a3c5e; color: white;">
-                            <tr>
-                                <th>N° Documento</th>
-                                <th>Fecha Entrega</th>
-                                <th>Entregado a</th>
-                                <th>Acta de Entrega</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for acta in actas %}
+            <div id="loading" class="text-center" style="display: none; color: #64748b;">Cargando...</div>
+            <div id="table-container">
+                {% if actas %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead style="background-color: #1a3c5e; color: white;">
                                 <tr>
-                                    <td>{{ acta.numero_acta }}</td>
-                                    <td>{{ acta.fecha|date:"d/m/Y H:i" }}</td>
-                                    <td>{{ acta.responsable }}</td>
-                                    <td>
-                                        <a href="{% url 'ver-acta-pdf' acta.numero_acta 'inline' %}" class="btn btn-preview-custom btn-sm mr-2" target="_blank">Previsualizar</a>
-                                        <a href="{% url 'ver-acta-pdf' acta.numero_acta 'attachment' %}" class="btn btn-download-custom btn-sm">Descargar</a>
-                                    </td>
+                                    <th>N° Documento</th>
+                                    <th>Fecha Entrega</th>
+                                    <th>Entregado a</th>
+                                    <th>Acta de Entrega</th>
                                 </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody id="actas-table-body">
+                                {% for acta in actas %}
+                                    <tr>
+                                        <td>{{ acta.numero_acta }}</td>
+                                        <td>{{ acta.fecha|date:"d/m/Y H:i" }}</td>
+                                        <td>{{ acta.responsable }}</td>
+                                        <td>
+                                            <a href="{% url 'ver-acta-pdf' acta.numero_acta 'inline' %}" class="btn btn-preview-custom btn-sm mr-2" target="_blank">Previsualizar</a>
+                                            <a href="{% url 'ver-acta-pdf' acta.numero_acta 'attachment' %}" class="btn btn-download-custom btn-sm">Descargar</a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
 
-                <!-- Paginación -->
-                {% if actas.has_other_pages %}
-                    <nav aria-label="Paginación de actas">
-                        <ul class="pagination justify-content-center mt-4">
-                            <!-- Botón "Anterior" -->
-                            {% if actas.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ actas.previous_page_number }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}" aria-label="Anterior">
-                                        <span aria-hidden="true">&laquo; Anterior</span>
-                                    </a>
-                                </li>
-                            {% else %}
-                                <li class="page-item disabled">
-                                    <span class="page-link" aria-label="Anterior">
-                                        <span aria-hidden="true">&laquo; Anterior</span>
-                                    </span>
-                                </li>
-                            {% endif %}
-
-                            <!-- Números de página -->
-                            {% for num in actas.paginator.page_range %}
-                                {% if actas.number == num %}
-                                    <li class="page-item active">
-                                        <span class="page-link">{{ num }} <span class="sr-only">(actual)</span></span>
+                    <!-- Paginación -->
+                    {% if actas.has_other_pages %}
+                        <nav aria-label="Paginación de actas">
+                            <ul class="pagination justify-content-center mt-4">
+                                <!-- Botón "Anterior" -->
+                                {% if actas.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ actas.previous_page_number }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}" aria-label="Anterior">
+                                            <span aria-hidden="true">« Anterior</span>
+                                        </a>
                                     </li>
                                 {% else %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ num }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}">{{ num }}</a>
+                                    <li class="page-item disabled">
+                                        <span class="page-link" aria-label="Anterior">
+                                            <span aria-hidden="true">« Anterior</span>
+                                        </span>
                                     </li>
                                 {% endif %}
-                            {% endfor %}
 
-                            <!-- Botón "Siguiente" -->
-                            {% if actas.has_next %}
+                                <!-- Números de página (limitados a un rango) -->
+                                {% with start=actas.number|add:-5 end=actas.number|add:5 %}
+                                    {% for num in actas.paginator.page_range %}
+                                        {% if num >= start and num <= end %}
+                                            {% if actas.number == num %}
+                                                <li class="page-item active">
+                                                    <span class="page-link">{{ num }} <span class="sr-only">(actual)</span></span>
+                                                </li>
+                                            {% else %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ num }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}">{{ num }}</a>
+                                                </li>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endwith %}
+
+                                <!-- Botón "Siguiente" -->
+                                {% if actas.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ actas.next_page_number }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}" aria-label="Siguiente">
+                                            <span aria-hidden="true">Siguiente »</span>
+                                        </a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link" aria-label="Siguiente">
+                                            <span aria-hidden="true">Siguiente »</span>
+                                        </span>
+                                    </li>
+                                {% endif %}
+
+                                <!-- Botón "Última página" -->
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ actas.next_page_number }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}" aria-label="Siguiente">
-                                        <span aria-hidden="true">Siguiente &raquo;</span>
+                                    <a class="page-link" href="?page={{ actas.paginator.num_pages }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}" aria-label="Última página">
+                                        <span aria-hidden="true">Última página</span>
                                     </a>
                                 </li>
-                            {% else %}
-                                <li class="page-item disabled">
-                                    <span class="page-link" aria-label="Siguiente">
-                                        <span aria-hidden="true">Siguiente &raquo;</span>
-                                    </span>
-                                </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
+                            </ul>
+                        </nav>
+                    {% endif %}
+                {% else %}
+                    <p class="text-center" style="color: #64748b;">No hay actas de entrega generadas.</p>
                 {% endif %}
-            {% else %}
-                <p class="text-center" style="color: #64748b;">No hay actas de entrega generadas.</p>
-            {% endif %}
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+// Función para obtener los parámetros de la URL
+function getQueryParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        page: params.get('page') || '1',
+        numero_acta: params.get('numero_acta') || '',
+        responsable: params.get('responsable') || ''
+    };
+}
+
+// Función para actualizar la tabla con búsqueda automática y paginación
+function updateActasList() {
+    const numeroActa = document.getElementById('numero_acta').value.trim();
+    const responsable = document.getElementById('responsable').value.trim();
+    const params = getQueryParams();
+    const page = params.page; // Mantener la página actual si no se especifica una nueva
+    const loading = document.getElementById('loading');
+    const tableContainer = document.getElementById('table-container');
+
+    loading.style.display = 'block';
+    tableContainer.style.display = 'none';
+
+    // Construir la URL con los parámetros de búsqueda y paginación
+    let url = `/accounts/listar-actas/?page=${page}`;
+    if (numeroActa) url += `&numero_acta=${encodeURIComponent(numeroActa)}`;
+    if (responsable) url += `&responsable=${encodeURIComponent(responsable)}`;
+
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.text())
+    .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newTableContainer = doc.querySelector('#table-container');
+
+        if (newTableContainer) {
+            tableContainer.innerHTML = newTableContainer.innerHTML;
+        } else {
+            tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar las actas.</p>';
+        }
+
+        tableContainer.style.display = 'block';
+        loading.style.display = 'none';
+
+        // Actualizar la URL en el navegador sin recargar la página
+        const newUrl = `/accounts/listar-actas/?page=${page}${numeroActa ? `&numero_acta=${encodeURIComponent(numeroActa)}` : ''}${responsable ? `&responsable=${encodeURIComponent(responsable)}` : ''}`;
+        window.history.pushState({}, '', newUrl);
+    })
+    .catch(error => {
+        console.error('Error al cargar las actas:', error);
+        tableContainer.style.display = 'block';
+        loading.style.display = 'none';
+        tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar las actas.</p>';
+    });
+}
+
+// Escuchar cambios en los campos de entrada de búsqueda
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('numero_acta').addEventListener('input', function() {
+        // Resetear la página a 1 al cambiar los filtros
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', '1');
+        window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
+        updateActasList();
+    });
+
+    document.getElementById('responsable').addEventListener('input', function() {
+        // Resetear la página a 1 al cambiar los filtros
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', '1');
+        window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
+        updateActasList();
+    });
+
+    // Cargar la lista inicial al cargar la página
+    updateActasList();
+});
+</script>
 
 <style>
     .form-card {

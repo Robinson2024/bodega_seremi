@@ -38,7 +38,7 @@
         <div class="card-body">
             <div id="loading" class="text-center" style="display: none; color: #64748b;">Cargando...</div>
             <div id="table-container">
-                {% if productos %}
+                {% if page_obj %}
                     <div class="table-responsive">
                         <table class="table table-striped table-hover">
                             <thead style="background-color: #1a3c5e; color: white;">
@@ -50,7 +50,7 @@
                                 </tr>
                             </thead>
                             <tbody id="product-table-body">
-                                {% for producto in productos %}
+                                {% for producto in page_obj %}
                                     <tr>
                                         <td>{{ producto.codigo_barra }}</td>
                                         <td>{{ producto.descripcion }}</td>
@@ -63,6 +63,55 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Controles de paginación -->
+                    <div class="pagination justify-content-center mt-3">
+                        <ul class="pagination">
+                            <!-- Botón "Anterior" -->
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}">Anterior</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#">Anterior</a>
+                                </li>
+                            {% endif %}
+
+                            <!-- Páginas numeradas -->
+                            {% with start=page_obj.number|add:-5 end=page_obj.number|add:5 %}
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if num >= start and num <= end %}
+                                        {% if num == page_obj.number %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% else %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ num }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endwith %}
+
+                            <!-- Botón "Siguiente" -->
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}">Siguiente</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#">Siguiente</a>
+                                </li>
+                            {% endif %}
+
+                            <!-- Botón "Última página" -->
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}">Última página</a>
+                            </li>
+                        </ul>
+                    </div>
                 {% else %}
                     <p class="text-center" style="color: #64748b;">No se encontraron productos.</p>
                 {% endif %}
@@ -72,17 +121,32 @@
 </div>
 
 <script>
-// Función para actualizar la tabla con búsqueda automática
+// Función para obtener los parámetros de la URL
+function getQueryParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        page: params.get('page') || '1',
+        codigo_barra: params.get('codigo_barra') || '',
+        descripcion: params.get('descripcion') || ''
+    };
+}
+
+// Función para actualizar la tabla con búsqueda automática y paginación
 function updateProductList() {
     const codigoBarra = document.getElementById('codigo_barra').value.trim();
     const descripcion = document.getElementById('descripcion').value.trim();
+    const params = getQueryParams();
+    const page = params.page; // Mantener la página actual si no se especifica una nueva
     const loading = document.getElementById('loading');
     const tableContainer = document.getElementById('table-container');
 
     loading.style.display = 'block';
     tableContainer.style.display = 'none';
 
-    const url = `/accounts/agregar-stock/?codigo_barra=${encodeURIComponent(codigoBarra)}&descripcion=${encodeURIComponent(descripcion)}`;
+    // Construir la URL con los parámetros de búsqueda y paginación
+    let url = `/accounts/agregar-stock/?page=${page}`;
+    if (codigoBarra) url += `&codigo_barra=${encodeURIComponent(codigoBarra)}`;
+    if (descripcion) url += `&descripcion=${encodeURIComponent(descripcion)}`;
 
     fetch(url, {
         method: 'GET',
@@ -94,34 +158,44 @@ function updateProductList() {
     .then(html => {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
-        const newTableBody = doc.querySelector('#product-table-body');
+        const newTableContainer = doc.querySelector('#table-container');
 
-        const tableBody = document.getElementById('product-table-body');
-        if (newTableBody) {
-            tableBody.innerHTML = newTableBody.innerHTML;
+        if (newTableContainer) {
+            tableContainer.innerHTML = newTableContainer.innerHTML;
         } else {
-            tableBody.innerHTML = '<tr><td colspan="4">No se encontraron productos.</td></tr>';
+            tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar los productos.</p>';
         }
 
         tableContainer.style.display = 'block';
         loading.style.display = 'none';
+
+        // Actualizar la URL en el navegador sin recargar la página
+        const newUrl = `/accounts/agregar-stock/?page=${page}${codigoBarra ? `&codigo_barra=${encodeURIComponent(codigoBarra)}` : ''}${descripcion ? `&descripcion=${encodeURIComponent(descripcion)}` : ''}`;
+        window.history.pushState({}, '', newUrl);
     })
     .catch(error => {
         console.error('Error al cargar los productos:', error);
         tableContainer.style.display = 'block';
         loading.style.display = 'none';
-        const tableBody = document.getElementById('product-table-body');
-        tableBody.innerHTML = '<tr><td colspan="4">Error al cargar los productos.</td></tr>';
+        tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar los productos.</p>';
     });
 }
 
 // Escuchar cambios en los campos de entrada de búsqueda
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('codigo_barra').addEventListener('input', function() {
+        // Resetear la página a 1 al cambiar los filtros
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', '1');
+        window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
         updateProductList();
     });
 
     document.getElementById('descripcion').addEventListener('input', function() {
+        // Resetear la página a 1 al cambiar los filtros
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', '1');
+        window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
         updateProductList();
     });
 
@@ -168,6 +242,28 @@ document.addEventListener('DOMContentLoaded', function() {
         border-color: #f5c6cb;
         color: #721c24;
     }
+    /* Estilo para los botones de paginación */
+    .pagination .page-link {
+        color: #3b82f6;
+        border: 1px solid #dee2e6;
+        padding: 5px 10px;
+        font-size: 0.9rem;
+    }
+    .pagination .page-item.active .page-link {
+        background-color: #3b82f6;
+        border-color: #3b82f6;
+        color: white;
+    }
+    .pagination .page-item.disabled .page-link {
+        color: #6c757d;
+        pointer-events: none;
+        background-color: #fff;
+        border-color: #dee2e6;
+    }
+    .pagination .page-link:hover {
+        background-color: #e9ecef;
+        color: #2563eb;
+    }
     @media (max-width: 768px) {
         .form-row {
             flex-direction: column;
@@ -182,6 +278,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         .form-group input {
             width: 100%;
+        }
+        .pagination {
+            flex-wrap: wrap;
+        }
+        .pagination .page-item {
+            margin-bottom: 5px;
         }
     }
 </style>

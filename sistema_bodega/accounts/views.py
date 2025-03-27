@@ -66,7 +66,7 @@ def listar_productos(request):
     if 'productos_salida' in request.session:
         del request.session['productos_salida']
         
-    productos = Producto.objects.all()
+    productos = Producto.objects.all().order_by('codigo_barra')  # Agregar orden por codigo_barra
     query_codigo = request.GET.get('codigo_barra', '')
     query_descripcion = request.GET.get('descripcion', '')
 
@@ -83,13 +83,67 @@ def listar_productos(request):
     return render(request, 'accounts/listar_productos.html', context)
 
 @login_required
+def listar_actas(request):
+    # Limpiar la sesión si existe productos_salida
+    if 'productos_salida' in request.session:
+        del request.session['productos_salida']
+        
+    # Obtener todas las actas, ordenadas por número de acta descendente
+    actas = ActaEntrega.objects.all().order_by('-numero_acta')
+
+    # Obtener parámetros de búsqueda
+    query_numero_acta = request.GET.get('numero_acta', '')
+    query_responsable = request.GET.get('responsable', '')
+
+    # Filtrar por número de acta si se proporciona
+    if query_numero_acta:
+        try:
+            numero_acta = int(query_numero_acta)
+            actas = actas.filter(numero_acta__startswith=numero_acta)  # Filtrar actas que comiencen con el número
+        except ValueError:
+            messages.error(request, 'El número de acta debe ser un valor numérico.')
+
+    # Filtrar por responsable si se proporciona, respetando tildes
+    if query_responsable:
+        actas = actas.filter(responsable__icontains=query_responsable)
+
+    # Agrupar actas por número de acta para mostrar solo una entrada por acta
+    actas_dict = {}
+    for acta in actas:
+        if acta.numero_acta not in actas_dict:
+            actas_dict[acta.numero_acta] = acta
+
+    actas = list(actas_dict.values())
+    actas.sort(key=lambda x: x.numero_acta, reverse=True)
+
+    # Implementar paginación: 20 actas por página
+    paginator = Paginator(actas, 20)  # 20 actas por página
+    page = request.GET.get('page')  # Obtener el número de página de los parámetros de la URL
+
+    try:
+        actas_paginadas = paginator.page(page)
+    except PageNotAnInteger:
+        # Si la página no es un entero, mostrar la primera página
+        actas_paginadas = paginator.page(1)
+    except EmptyPage:
+        # Si la página está fuera de rango, mostrar la última página
+        actas_paginadas = paginator.page(paginator.num_pages)
+
+    context = {
+        'actas': actas_paginadas,  # Pasar las actas paginadas en lugar de todas las actas
+        'query_numero_acta': query_numero_acta,
+        'query_responsable': query_responsable,
+    }
+    return render(request, 'accounts/listar_actas.html', context)
+
+@login_required
 def agregar_stock(request):
     # Limpiar la sesión si existe productos_salida
     if 'productos_salida' in request.session:
         del request.session['productos_salida']
     
     # Obtener todos los productos para mostrarlos en una lista
-    productos = Producto.objects.all()
+    productos = Producto.objects.all().order_by('codigo_barra')  # Agregar orden por codigo_barra
     query_codigo = request.GET.get('codigo_barra', '')
     query_descripcion = request.GET.get('descripcion', '')
 
@@ -98,8 +152,21 @@ def agregar_stock(request):
     if query_descripcion:
         productos = productos.filter(descripcion__icontains=query_descripcion)
 
+    # Implementar paginación: 20 productos por página
+    paginator = Paginator(productos, 20)  # 20 productos por página
+    page = request.GET.get('page')  # Obtener el número de página de los parámetros de la URL
+
+    try:
+        page_obj = paginator.page(page)
+    except PageNotAnInteger:
+        # Si la página no es un entero, mostrar la primera página
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        # Si la página está fuera de rango, mostrar la última página
+        page_obj = paginator.page(paginator.num_pages)
+
     context = {
-        'productos': productos,
+        'page_obj': page_obj,  # Pasar el objeto paginado en lugar de 'productos'
         'query_codigo': query_codigo,
         'query_descripcion': query_descripcion,
     }
@@ -154,7 +221,7 @@ def agregar_stock_detalle(request, codigo_barra):
 @login_required
 def salida_productos(request):
     productos_salida = request.session.get('productos_salida', [])
-    productos = Producto.objects.all()
+    productos = Producto.objects.all().order_by('codigo_barra')  # Agregar orden por codigo_barra
     query_codigo = request.GET.get('codigo_barra', '')
     query_descripcion = request.GET.get('descripcion', '')
 
@@ -162,6 +229,19 @@ def salida_productos(request):
         productos = productos.filter(codigo_barra=query_codigo)
     if query_descripcion:
         productos = productos.filter(descripcion__icontains=query_descripcion)
+
+    # Implementar paginación: 20 productos por página
+    paginator = Paginator(productos, 20)  # 20 productos por página
+    page = request.GET.get('page')  # Obtener el número de página de los parámetros de la URL
+
+    try:
+        page_obj = paginator.page(page)
+    except PageNotAnInteger:
+        # Si la página no es un entero, mostrar la primera página
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        # Si la página está fuera de rango, mostrar la última página
+        page_obj = paginator.page(paginator.num_pages)
 
     if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         action = request.POST.get('action')
@@ -243,7 +323,7 @@ def salida_productos(request):
         return redirect('salida-productos-seleccion')
 
     context = {
-        'productos': productos,
+        'page_obj': page_obj,  # Pasar el objeto paginado en lugar de 'productos'
         'query_codigo': query_codigo,
         'query_descripcion': query_descripcion,
         'productos_salida': productos_salida,
@@ -583,60 +663,6 @@ def funcionarios_por_departamento(request):
         ]
 
     return JsonResponse({'funcionarios': responsables})
-
-@login_required
-def listar_actas(request):
-    # Limpiar la sesión si existe productos_salida
-    if 'productos_salida' in request.session:
-        del request.session['productos_salida']
-        
-    # Obtener todas las actas, ordenadas por número de acta descendente
-    actas = ActaEntrega.objects.all().order_by('-numero_acta')
-
-    # Obtener parámetros de búsqueda
-    query_numero_acta = request.GET.get('numero_acta', '')
-    query_responsable = request.GET.get('responsable', '')
-
-    # Filtrar por número de acta si se proporciona
-    if query_numero_acta:
-        try:
-            numero_acta = int(query_numero_acta)
-            actas = actas.filter(numero_acta=numero_acta)
-        except ValueError:
-            messages.error(request, 'El número de acta debe ser un valor numérico.')
-
-    # Filtrar por responsable si se proporciona
-    if query_responsable:
-        actas = actas.filter(responsable__icontains=query_responsable)
-
-    # Agrupar actas por número de acta para mostrar solo una entrada por acta
-    actas_dict = {}
-    for acta in actas:
-        if acta.numero_acta not in actas_dict:
-            actas_dict[acta.numero_acta] = acta
-
-    actas = list(actas_dict.values())
-    actas.sort(key=lambda x: x.numero_acta, reverse=True)
-
-    # Implementar paginación: 20 actas por página
-    paginator = Paginator(actas, 20)  # 20 actas por página
-    page = request.GET.get('page')  # Obtener el número de página de los parámetros de la URL
-
-    try:
-        actas_paginadas = paginator.page(page)
-    except PageNotAnInteger:
-        # Si la página no es un entero, mostrar la primera página
-        actas_paginadas = paginator.page(1)
-    except EmptyPage:
-        # Si la página está fuera de rango, mostrar la última página
-        actas_paginadas = paginator.page(paginator.num_pages)
-
-    context = {
-        'actas': actas_paginadas,  # Pasar las actas paginadas en lugar de todas las actas
-        'query_numero_acta': query_numero_acta,
-        'query_responsable': query_responsable,
-    }
-    return render(request, 'accounts/listar_actas.html', context)
 
 @login_required
 def ver_acta_pdf(request, numero_acta, disposition):
