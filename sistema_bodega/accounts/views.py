@@ -16,6 +16,8 @@ from datetime import datetime
 import os
 import urllib.parse  # Para codificar el nombre del archivo
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger  # Importar Paginator
+import openpyxl  # Para exportar a Excel
+from django.utils.text import slugify  # Para generar nombres de archivo seguros
 
 @login_required
 def home(request):
@@ -66,19 +68,109 @@ def listar_productos(request):
     if 'productos_salida' in request.session:
         del request.session['productos_salida']
         
-    productos = Producto.objects.all().order_by('codigo_barra')  # Agregar orden por codigo_barra
-    query_codigo = request.GET.get('codigo_barra', '')
-    query_descripcion = request.GET.get('descripcion', '')
+    # Determinar si la solicitud es GET o POST para obtener los parámetros
+    if request.method == 'POST':
+        # Para la exportación a Excel, los parámetros vienen en request.POST
+        query_codigo = request.POST.get('codigo_barra', '')
+        query_descripcion = request.POST.get('descripcion', '')
+        query_categoria = request.POST.get('categoria', '')
+    else:
+        # Para la visualización de la tabla, los parámetros vienen en request.GET
+        query_codigo = request.GET.get('codigo_barra', '')
+        query_descripcion = request.GET.get('descripcion', '')
+        query_categoria = request.GET.get('categoria', '')
 
+    # Obtener todos los productos y aplicar filtros
+    productos = Producto.objects.all().order_by('codigo_barra')
+
+    # Filtrar por código de barra
     if query_codigo:
         productos = productos.filter(codigo_barra=query_codigo)
+
+    # Filtrar por descripción
     if query_descripcion:
         productos = productos.filter(descripcion__icontains=query_descripcion)
 
+    # Filtrar por categoría
+    if query_categoria and query_categoria != 'Todas':
+        productos = productos.filter(categoria=query_categoria)
+
+    # Manejar la exportación a Excel
+    if request.method == 'POST' and 'exportar_excel' in request.POST:
+        # Crear un libro de Excel
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Productos"
+
+        # Definir los encabezados
+        headers = ['Código de Barra', 'Nombre del Producto', 'Categoría', 'Stock Actual']
+        ws.append(headers)
+
+        # Estilo para los encabezados
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=col)
+            cell.font = openpyxl.styles.Font(bold=True)
+            cell.fill = openpyxl.styles.PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
+            cell.alignment = openpyxl.styles.Alignment(horizontal='center')
+
+        # Agregar los datos de los productos (ya filtrados)
+        for idx, producto in enumerate(productos, start=2):
+            ws.append([
+                producto.codigo_barra,
+                producto.descripcion,
+                producto.categoria if producto.categoria else "Otros",
+                producto.stock,
+            ])
+
+        # Ajustar el ancho de las columnas
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)
+            ws.column_dimensions[column].width = adjusted_width
+
+        # Generar el nombre del archivo
+        categoria_name = query_categoria if query_categoria and query_categoria != 'Todas' else 'Todas'
+        fecha = datetime.now().strftime('%Y-%m-%d')
+        filename = f"Productos_{slugify(categoria_name)}_{fecha}.xlsx"
+        encoded_filename = urllib.parse.quote(filename)
+
+        # Preparar la respuesta
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{encoded_filename}"'
+        wb.save(response)
+        return response
+
+    # Implementar paginación: 20 productos por página
+    paginator = Paginator(productos, 20)  # 20 productos por página
+    page = request.GET.get('page')  # Obtener el número de página de los parámetros de la URL
+
+    try:
+        page_obj = paginator.page(page)
+    except PageNotAnInteger:
+        # Si la página no es un entero, mostrar la primera página
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        # Si la página está fuera de rango, mostrar la última página
+        page_obj = paginator.page(paginator.num_pages)
+
+    # Obtener las categorías disponibles para el filtro
+    categorias = [('', 'Todas')] + Producto.CATEGORIAS
+
     context = {
-        'productos': productos,
+        'page_obj': page_obj,
         'query_codigo': query_codigo,
         'query_descripcion': query_descripcion,
+        'query_categoria': query_categoria,
+        'categorias': categorias,
     }
     return render(request, 'accounts/listar_productos.html', context)
 

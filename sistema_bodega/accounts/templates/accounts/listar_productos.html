@@ -5,26 +5,10 @@
 <div class="container mt-4">
     <h2 class="text-center mb-4" style="color: #1a3c5e; font-weight: 600;">Lista de Productos</h2>
 
-    <!-- Formulario de búsqueda automática -->
-    <div class="card form-card shadow-sm mb-4">
-        <div class="card-body">
-            <div class="form-row justify-content-center">
-                <div class="form-group col-md-4 mb-2">
-                    <label for="codigo_barra" class="mr-2" style="color: #1a3c5e;">Código de Barra:</label>
-                    <input type="text" id="codigo_barra" class="form-control form-control-sm" value="{{ query_codigo }}" placeholder="Ej. 12345">
-                </div>
-                <div class="form-group col-md-4 mb-2">
-                    <label for="descripcion" class="mr-2" style="color: #1a3c5e;">Descripción:</label>
-                    <input type="text" id="descripcion" class="form-control form-control-sm" value="{{ query_descripcion }}" placeholder="Ej. Mascarillas">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Mostrar mensajes de éxito de manera prominente -->
+    <!-- Mostrar mensajes -->
     {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-success alert-dismissible fade show text-center mb-4" role="alert" style="position: relative; z-index: 1000;">
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center mb-4" role="alert">
                 {{ message }}
                 <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                     <span aria-hidden="true">×</span>
@@ -33,38 +17,122 @@
         {% endfor %}
     {% endif %}
 
+    <!-- Formulario de búsqueda y filtros -->
+    <div class="card form-card shadow-sm mb-4">
+        <div class="card-body">
+            <form id="filter-form" method="get" action="{% url 'listar-productos' %}">
+                <div class="form-row justify-content-center align-items-end">
+                    <div class="form-group col-md-3 mb-2">
+                        <label for="categoria" class="mr-2" style="color: #1a3c5e;">Categoría:</label>
+                        <select id="categoria" name="categoria" class="form-control form-control-sm">
+                            {% for value, label in categorias %}
+                                <option value="{{ value }}" {% if query_categoria == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group col-md-3 mb-2">
+                        <label for="codigo_barra" class="mr-2" style="color: #1a3c5e;">Código de Barra:</label>
+                        <input type="text" id="codigo_barra" name="codigo_barra" class="form-control form-control-sm" value="{{ query_codigo }}" placeholder="Ej. 12345">
+                    </div>
+                    <div class="form-group col-md-3 mb-2">
+                        <label for="descripcion" class="mr-2" style="color: #1a3c5e;">Descripción:</label>
+                        <input type="text" id="descripcion" name="descripcion" class="form-control form-control-sm" value="{{ query_descripcion }}" placeholder="Ej. Mascarillas">
+                    </div>
+                    <div class="form-group col-md-2 mb-2">
+                        <button type="button" id="clear-filters" class="btn btn-sm btn-secondary w-100">Limpiar Filtros</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Tabla de productos -->
     <div class="card table-card shadow-sm">
         <div class="card-body">
+            <div class="d-flex justify-content-end mb-3">
+                <form id="export-form" method="post" action="{% url 'listar-productos' %}">
+                    {% csrf_token %}
+                    <input type="hidden" id="export-codigo-barra" name="codigo_barra" value="{{ query_codigo }}">
+                    <input type="hidden" id="export-descripcion" name="descripcion" value="{{ query_descripcion }}">
+                    <input type="hidden" id="export-categoria" name="categoria" value="{{ query_categoria }}">
+                    <button type="submit" name="exportar_excel" class="btn btn-sm btn-primary">
+                        <i class="fas fa-file-excel"></i> Exportar a Excel
+                    </button>
+                </form>
+            </div>
             <div id="loading" class="text-center" style="display: none; color: #64748b;">Cargando...</div>
             <div id="table-container">
-                {% if productos %}
+                {% if page_obj %}
                     <div class="table-responsive">
                         <table class="table table-striped table-hover">
                             <thead style="background-color: #1a3c5e; color: white;">
                                 <tr>
                                     <th>Código de Barra</th>
                                     <th>Descripción</th>
+                                    <th>Categoría</th>
                                     <th>Stock</th>
-                                    <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="product-table-body">
-                                {% for producto in productos %}
+                                {% for producto in page_obj %}
                                     <tr>
                                         <td>{{ producto.codigo_barra }}</td>
                                         <td>{{ producto.descripcion }}</td>
+                                        <td>{{ producto.categoria|default:"Otros" }}</td>
                                         <td>{{ producto.stock }}</td>
-                                        <td>
-                                            <!-- Enlace temporal para "Agregar Stock", se ajustará en pasos futuros -->
-                                            <a href="{% url 'agregar-stock-detalle' producto.codigo_barra %}" class="btn btn-sm btn-success" style="background-color: #10b981; border-color: #10b981;">
-                                                Agregar Stock
-                                            </a>
-                                        </td>
                                     </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Controles de paginación -->
+                    <div class="pagination justify-content-center mt-3">
+                        <ul class="pagination">
+                            <!-- Botón "Anterior" -->
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}">Anterior</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#">Anterior</a>
+                                </li>
+                            {% endif %}
+
+                            <!-- Páginas numeradas -->
+                            {% with start=page_obj.number|add:-5 end=page_obj.number|add:5 %}
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if num >= start and num <= end %}
+                                        {% if num == page_obj.number %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% else %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ num }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endwith %}
+
+                            <!-- Botón "Siguiente" -->
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}">Siguiente</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#">Siguiente</a>
+                                </li>
+                            {% endif %}
+
+                            <!-- Botón "Última página" -->
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}">Última página</a>
+                            </li>
+                        </ul>
                     </div>
                 {% else %}
                     <p class="text-center" style="color: #64748b;">No se encontraron productos.</p>
@@ -75,67 +143,99 @@
 </div>
 
 <script>
-    // Función para actualizar la tabla con búsqueda automática
-    function updateProductList() {
-        const codigoBarra = document.getElementById('codigo_barra').value.trim();
-        const descripcion = document.getElementById('descripcion').value.trim();
-        const loading = document.getElementById('loading');
-        const tableContainer = document.getElementById('table-container');
+// Función para obtener los parámetros de la URL
+function getQueryParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        page: params.get('page') || '1',
+        codigo_barra: params.get('codigo_barra') || '',
+        descripcion: params.get('descripcion') || '',
+        categoria: params.get('categoria') || ''
+    };
+}
 
-        // Mostrar loading mientras se carga
-        loading.style.display = 'block';
-        tableContainer.style.display = 'none';
+// Función para actualizar la tabla con búsqueda automática y paginación
+function updateProductList() {
+    const codigoBarra = document.getElementById('codigo_barra').value.trim();
+    const descripcion = document.getElementById('descripcion').value.trim();
+    const categoria = document.getElementById('categoria').value;
+    const params = getQueryParams();
+    const page = params.page; // Mantener la página actual si no se especifica una nueva
+    const loading = document.getElementById('loading');
+    const tableContainer = document.getElementById('table-container');
 
-        // Construir la URL con parámetros
-        const url = `/accounts/agregar-stock/?codigo_barra=${encodeURIComponent(codigoBarra)}&descripcion=${encodeURIComponent(descripcion)}`;
+    loading.style.display = 'block';
+    tableContainer.style.display = 'none';
 
-        fetch(url, {
-            method: 'GET',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        })
-        .then(response => response.text())
-        .then(html => {
-            // Crear un contenedor temporal para parsear el HTML
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const newTableBody = doc.querySelector('#product-table-body');
+    // Construir la URL con los parámetros de búsqueda y paginación
+    let url = `/accounts/listar-productos/?page=${page}`;
+    if (codigoBarra) url += `&codigo_barra=${encodeURIComponent(codigoBarra)}`;
+    if (descripcion) url += `&descripcion=${encodeURIComponent(descripcion)}`;
+    if (categoria) url += `&categoria=${encodeURIComponent(categoria)}`;
 
-            // Actualizar el cuerpo de la tabla
-            const tableBody = document.getElementById('product-table-body');
-            if (newTableBody) {
-                tableBody.innerHTML = newTableBody.innerHTML;
-            } else {
-                tableBody.innerHTML = '<tr><td colspan="4">No se encontraron productos.</td></tr>';
-            }
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.text())
+    .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newTableContainer = doc.querySelector('#table-container');
 
-            // Mostrar el contenedor de la tabla y ocultar loading
-            tableContainer.style.display = 'block';
-            loading.style.display = 'none';
-        })
-        .catch(error => {
-            console.error('Error al cargar los productos:', error);
-            tableContainer.style.display = 'block';
-            loading.style.display = 'none';
-            const tableBody = document.getElementById('product-table-body');
-            tableBody.innerHTML = '<tr><td colspan="4">Error al cargar los productos.</td></tr>';
-        });
-    }
+        if (newTableContainer) {
+            tableContainer.innerHTML = newTableContainer.innerHTML;
+        } else {
+            tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar los productos.</p>';
+        }
 
-    // Escuchar cambios en los campos de entrada
-    document.getElementById('codigo_barra').addEventListener('input', function() {
-        updateProductList();
+        tableContainer.style.display = 'block';
+        loading.style.display = 'none';
+
+        // Actualizar la URL en el navegador sin recargar la página
+        const newUrl = `/accounts/listar-productos/?page=${page}${codigoBarra ? `&codigo_barra=${encodeURIComponent(codigoBarra)}` : ''}${descripcion ? `&descripcion=${encodeURIComponent(descripcion)}` : ''}${categoria ? `&categoria=${encodeURIComponent(categoria)}` : ''}`;
+        window.history.pushState({}, '', newUrl);
+
+        // Actualizar los campos ocultos del formulario de exportación
+        document.getElementById('export-codigo-barra').value = codigoBarra;
+        document.getElementById('export-descripcion').value = descripcion;
+        document.getElementById('export-categoria').value = categoria;
+    })
+    .catch(error => {
+        console.error('Error al cargar los productos:', error);
+        tableContainer.style.display = 'block';
+        loading.style.display = 'none';
+        tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar los productos.</p>';
     });
+}
 
-    document.getElementById('descripcion').addEventListener('input', function() {
-        updateProductList();
-    });
+// Limpiar los filtros
+document.getElementById('clear-filters').addEventListener('click', function() {
+    document.getElementById('codigo_barra').value = '';
+    document.getElementById('descripcion').value = '';
+    document.getElementById('categoria').value = '';
+    updateProductList();
+});
 
-    // Cargar la lista inicial al cargar la página
-    window.addEventListener('load', function() {
-        updateProductList();
-    });
+// Escuchar cambios en los campos de entrada
+document.getElementById('codigo_barra').addEventListener('input', function() {
+    updateProductList();
+});
+
+document.getElementById('descripcion').addEventListener('input', function() {
+    updateProductList();
+});
+
+document.getElementById('categoria').addEventListener('change', function() {
+    updateProductList();
+});
+
+// Cargar la lista inicial al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    updateProductList();
+});
 </script>
 
 <style>
@@ -151,14 +251,23 @@
         height: calc(1.5em + 0.5rem + 2px);
         font-size: 0.9rem;
     }
-    .btn-success {
-        background-color: #10b981;
-        border-color: #10b981;
-        padding: 5px 10px;
+    .btn-primary {
+        background-color: #3b82f6;
+        border-color: #3b82f6;
+        padding: 5px 15px;
         font-size: 0.9rem;
     }
-    .btn-success:hover {
-        background-color: #059669;
+    .btn-primary:hover {
+        background-color: #2563eb;
+    }
+    .btn-secondary {
+        background-color: #6c757d;
+        border-color: #6c757d;
+        padding: 5px 15px;
+        font-size: 0.9rem;
+    }
+    .btn-secondary:hover {
+        background-color: #5a6268;
     }
     .table th, .table td {
         vertical-align: middle;
@@ -174,6 +283,27 @@
         font-size: 1rem;
         font-weight: 500;
     }
+    .pagination .page-link {
+        color: #3b82f6;
+        border: 1px solid #dee2e6;
+        padding: 5px 10px;
+        font-size: 0.9rem;
+    }
+    .pagination .page-item.active .page-link {
+        background-color: #3b82f6;
+        border-color: #3b82f6;
+        color: white;
+    }
+    .pagination .page-item.disabled .page-link {
+        color: #6c757d;
+        pointer-events: none;
+        background-color: #fff;
+        border-color: #dee2e6;
+    }
+    .pagination .page-link:hover {
+        background-color: #e9ecef;
+        color: #2563eb;
+    }
     @media (max-width: 768px) {
         .form-row {
             flex-direction: column;
@@ -186,8 +316,14 @@
         .form-group label {
             margin-bottom: 5px;
         }
-        .form-group input {
+        .form-group input, .form-group select {
             width: 100%;
+        }
+        .pagination {
+            flex-wrap: wrap;
+        }
+        .pagination .page-item {
+            margin-bottom: 5px;
         }
     }
 </style>

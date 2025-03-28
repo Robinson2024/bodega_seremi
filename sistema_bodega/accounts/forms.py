@@ -77,9 +77,22 @@ class ProductoForm(forms.ModelForm):
         required=True
     )
 
+    categoria = forms.ChoiceField(
+        choices=[('', 'Seleccione una categoría')] + Producto.CATEGORIAS,
+        label='Categoría',
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-control form-control-sm'})
+    )
+
     class Meta:
         model = Producto
         fields = ['codigo_barra', 'descripcion', 'stock', 'categoria', 'rut_proveedor', 'guia_despacho', 'numero_factura', 'orden_compra']
+
+    def clean_categoria(self):
+        categoria = self.cleaned_data.get('categoria')
+        if not categoria:
+            raise ValidationError('Debe seleccionar una categoría.')
+        return categoria
 
 class TransaccionForm(forms.ModelForm):
     cantidad = forms.IntegerField(

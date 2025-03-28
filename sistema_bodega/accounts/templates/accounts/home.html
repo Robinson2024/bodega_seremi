@@ -119,6 +119,20 @@
         .message.show {
             opacity: 1;
         }
+        .dropdown-menu {
+            background-color: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+        .dropdown-item {
+            color: #1a3c5e;
+            font-size: 14px;
+            padding: 8px 14px;
+        }
+        .dropdown-item:hover {
+            background-color: #f1f5f9;
+            color: #2563eb;
+        }
         @media (max-width: 768px) {
             .header-content {
                 flex-direction: column;
@@ -141,6 +155,10 @@
                 width: 100%;
                 text-align: center;
                 justify-content: center;
+            }
+            .dropdown-menu {
+                width: 100%;
+                text-align: center;
             }
         }
     </style>
@@ -170,7 +188,7 @@
                     <button type="submit" onclick="showMessage('Cerrar Sesión')" class="nav-button"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
                 </form>
                 <a href="#" onclick="showMessage('Gestión de Usuarios y Roles')"><i class="fas fa-users-cog"></i> Gestión de Usuarios y Roles</a>
-                <a href="#" onclick="showMessage('Acceso a la Base de Datos')"><i class="fas fa-database"></i> Acceso a la Base de Datos</a>
+                <a href="{% url 'admin:index' %}" onclick="showMessage('Acceso a la Base de Datos')"><i class="fas fa-database"></i> Acceso a la Base de Datos</a>
             </nav>
         </div>
     </header>
