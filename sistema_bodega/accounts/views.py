@@ -5,7 +5,7 @@ from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .forms import ProductoForm, TransaccionForm, ActaEntregaForm
-from .models import Producto, Transaccion, ActaEntrega, Funcionario
+from .models import Producto, Transaccion, ActaEntrega, Funcionario  # Corregido: Import directo desde .models
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import cm, inch
@@ -18,6 +18,8 @@ import urllib.parse  # Para codificar el nombre del archivo
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger  # Importar Paginator
 import openpyxl  # Para exportar a Excel
 from django.utils.text import slugify  # Para generar nombres de archivo seguros
+import pytz
+
 
 @login_required
 def home(request):
@@ -43,7 +45,7 @@ class CustomLoginView(LoginView):
 
     def get_success_url(self):
         return '/'
-
+    
 @login_required
 def registrar_producto(request):
     # Limpiar la sesión si existe productos_salida
@@ -53,7 +55,27 @@ def registrar_producto(request):
     if request.method == 'POST':
         form = ProductoForm(request.POST)
         if form.is_valid():
-            form.save()
+            # Guardar el producto
+            producto = form.save()
+
+            # Obtener el stock inicial del producto recién creado
+            stock_inicial = producto.stock
+
+            # Si el stock inicial es mayor a 0, registrar una transacción de entrada
+            if stock_inicial > 0:
+                transaccion = Transaccion(
+                    producto=producto,
+                    tipo='entrada',
+                    cantidad=stock_inicial,
+                    fecha=datetime.now(pytz.UTC),  # Fecha actual en UTC
+                    rut_proveedor=producto.rut_proveedor if producto.rut_proveedor else '',
+                    guia_despacho=producto.guia_despacho if producto.guia_despacho else '',
+                    numero_factura=producto.numero_factura if producto.numero_factura else '',
+                    orden_compra=producto.orden_compra if producto.orden_compra else '',
+                    observacion='Stock inicial al registrar el producto'
+                )
+                transaccion.save()
+
             messages.success(request, 'Producto registrado con éxito.')
             return redirect('home')
         else:
@@ -433,292 +455,344 @@ def salida_productos_seleccion(request):
         form = ActaEntregaForm(request.POST)
         if form.is_valid():
             try:
-                # Procesar cada producto en la salida
+                # Depuración: Mostrar los productos que se están procesando
+                print(f"Productos en productos_salida: {productos_salida}")
+
+                # Validar el saldo de cada producto antes de procesar la salida
                 for item in productos_salida:
                     try:
+                        print(f"Validando producto: {item['codigo_barra']}")
                         producto = Producto.objects.get(codigo_barra=item['codigo_barra'])
-                        transaccion = Transaccion(
-                            producto=producto,
-                            tipo='salida',
-                            cantidad=int(item['cantidad']),
-                            observacion=item['observacion'] or '',  # Asegurarse de que observacion no sea None
-                        )
-                        transaccion.save()
-                        producto.stock -= int(item['cantidad'])
-                        producto.save()
+                        # Calcular el saldo actual basado en transacciones y actas existentes
+                        transacciones = Transaccion.objects.filter(producto=producto).order_by('fecha')
+                        actas = ActaEntrega.objects.filter(producto=producto).order_by('fecha')
+                        saldo = 0
+                        for t in transacciones:
+                            saldo += t.cantidad if t.tipo == 'entrada' else -t.cantidad
+                        for a in actas:
+                            saldo -= a.cantidad
+
+                        # Verificar si la cantidad es válida
+                        if not item['cantidad']:
+                            messages.error(request, f'La cantidad para el producto {item["codigo_barra"]} no puede estar vacía.')
+                            return redirect('salida-productos-seleccion')
+
+                        try:
+                            cantidad = int(item['cantidad'])
+                        except ValueError:
+                            messages.error(request, f'La cantidad para el producto {item["codigo_barra"]} debe ser un número entero.')
+                            return redirect('salida-productos-seleccion')
+
+                        # Verificar si la salida causará un saldo negativo
+                        if saldo - cantidad < 0:
+                            messages.error(request, f'No hay suficiente stock para el producto {producto.descripcion} (Código: {producto.codigo_barra}). Saldo actual: {saldo}, Cantidad solicitada: {cantidad}.')
+                            return redirect('salida-productos-seleccion')
+
                     except Producto.DoesNotExist:
                         messages.error(request, f'Producto con código {item["codigo_barra"]} no encontrado.')
+                        return redirect('salida-productos-seleccion')
+                    except Exception as e:
+                        messages.error(request, f'Error al validar el saldo del producto {item["codigo_barra"]}: {str(e)}')
                         return redirect('salida-productos-seleccion')
 
                 # Generar el número del acta
                 ultimo_acta = ActaEntrega.objects.order_by('-numero_acta').first()
                 numero_acta = 1 if not ultimo_acta else ultimo_acta.numero_acta + 1
+                print(f"Número de acta generado: {numero_acta}")
 
-                # Guardar el acta para cada producto
+                # Guardar el acta para cada producto y actualizar el stock
                 for item in productos_salida:
-                    acta = ActaEntrega(
-                        numero_acta=numero_acta,
-                        departamento=form.cleaned_data['departamento'],
-                        responsable=form.cleaned_data['responsable'],
-                        generador='Administrador' if request.user.username == 'admin' else 'Gersonns Matus',
-                        producto=Producto.objects.get(codigo_barra=item['codigo_barra']),
-                        cantidad=int(item['cantidad']),
-                        numero_siscom=item['numero_siscom'] or '',  # Guardar numero_siscom
-                        observacion=item['observacion'] or '',  # Guardar observacion con saltos de línea
+                    try:
+                        print(f"Creando acta para el producto: {item['codigo_barra']}")
+                        producto = Producto.objects.get(codigo_barra=item['codigo_barra'])
+                        cantidad = int(item['cantidad'])
+
+                        # Crear el acta
+                        acta = ActaEntrega(
+                            numero_acta=numero_acta,
+                            departamento=form.cleaned_data['departamento'],
+                            responsable=form.cleaned_data['responsable'],
+                            generador='Administrador' if request.user.username == 'admin' else 'Gersonns Matus',
+                            producto=producto,
+                            cantidad=cantidad,
+                            numero_siscom=item['numero_siscom'] or '',
+                            observacion=item['observacion'] or '',
+                        )
+                        acta.save()
+                        print(f"Acta creada para el producto {item['codigo_barra']}: Número {acta.numero_acta}, Cantidad: {acta.cantidad}")
+
+                        # Actualizar el stock del producto
+                        producto.stock -= cantidad
+                        producto.save()
+                        print(f"Stock actualizado para el producto {item['codigo_barra']}: Nuevo stock: {producto.stock}")
+
+                    except Producto.DoesNotExist:
+                        messages.error(request, f'Producto con código {item["codigo_barra"]} no encontrado.')
+                        return redirect('salida-productos-seleccion')
+                    except Exception as e:
+                        messages.error(request, f'Error al crear el acta para el producto {item["codigo_barra"]}: {str(e)}')
+                        return redirect('salida-productos-seleccion')
+
+                # Generar el PDF después de completar todas las operaciones de base de datos
+                try:
+                    print("Generando el PDF...")
+                    response = HttpResponse(content_type='application/pdf')
+                    filename = f"Acta_Entrega_Nro_{numero_acta}.pdf"
+                    encoded_filename = urllib.parse.quote(filename)
+                    response['Content-Disposition'] = f'attachment; filename="{encoded_filename}"'
+                    response['Content-Type'] = 'application/pdf; charset=utf-8'
+
+                    # Configurar el documento PDF con márgenes
+                    doc = SimpleDocTemplate(
+                        response,
+                        pagesize=letter,
+                        leftMargin=0.75*inch,
+                        rightMargin=0.75*inch,
+                        topMargin=0.5*inch,
+                        bottomMargin=0.5*inch
                     )
-                    acta.save()
+                    styles = getSampleStyleSheet()
 
-                # Generar el PDF
-                response = HttpResponse(content_type='application/pdf')
-                filename = f"Acta_Entrega_Nro_{numero_acta}.pdf"
-                encoded_filename = urllib.parse.quote(filename)
-                response['Content-Disposition'] = f'attachment; filename="{encoded_filename}"'
-                response['Content-Type'] = 'application/pdf; charset=utf-8'
+                    # Definir estilos personalizados (todos en negrita)
+                    styles.add(ParagraphStyle(
+                        name='TitleCustom',
+                        fontName='Helvetica-Bold',
+                        fontSize=14,
+        alignment=1,
+                        spaceAfter=10,
+                        leading=16
+                    ))
+                    styles.add(ParagraphStyle(
+                        name='NormalBold',
+                        fontName='Helvetica-Bold',
+                        fontSize=10,
+                        spaceAfter=4,
+                        leading=12
+                    ))
+                    styles.add(ParagraphStyle(
+                        name='NormalCustom',
+                        fontName='Helvetica-Bold',
+                        fontSize=10,
+                        spaceAfter=4,
+                        leading=12
+                    ))
+                    styles.add(ParagraphStyle(
+                        name='ActaNumber',
+                        fontName='Helvetica-Bold',
+                        fontSize=20,
+                        alignment=1,
+                        textColor=colors.black,
+                        spaceAfter=0,
+                        leading=24
+                    ))
+                    styles.add(ParagraphStyle(
+                        name='Signature',
+                        fontName='Times-Roman',
+                        fontSize=10,
+                        alignment=1,
+                        spaceBefore=10,
+                        spaceAfter=4,
+                        leading=12
+                    ))
+                    styles.add(ParagraphStyle(
+                        name='SignatureTitle',
+                        fontName='Times-Bold',
+                        fontSize=10,
+                        alignment=1,
+                        spaceBefore=4,
+                        spaceAfter=4,
+                        leading=12
+                    ))
+                    styles.add(ParagraphStyle(
+                        name='SignatureCargo',
+                        fontName='Times-Italic',
+                        fontSize=9,
+                        alignment=1,
+                        spaceBefore=2,
+                        spaceAfter=2,
+                        leading=11
+                    ))
+                    styles.add(ParagraphStyle(
+                        name='TableCell',
+                        fontName='Helvetica-Bold',
+                        fontSize=9,
+                        leading=11,
+                        wordWrap='CJK',
+                    ))
 
-                # Configurar el documento PDF con márgenes
-                doc = SimpleDocTemplate(
-                    response,
-                    pagesize=letter,
-                    leftMargin=0.75*inch,
-                    rightMargin=0.75*inch,
-                    topMargin=0.5*inch,
-                    bottomMargin=0.5*inch
-                )
-                styles = getSampleStyleSheet()
+                    elements = []
 
-                # Definir estilos personalizados (todos en negrita)
-                styles.add(ParagraphStyle(
-                    name='TitleCustom',
-                    fontName='Helvetica-Bold',
-                    fontSize=14,
-                    alignment=1,
-                    spaceAfter=10,
-                    leading=16
-                ))
-                styles.add(ParagraphStyle(
-                    name='NormalBold',
-                    fontName='Helvetica-Bold',
-                    fontSize=10,
-                    spaceAfter=4,
-                    leading=12
-                ))
-                styles.add(ParagraphStyle(
-                    name='NormalCustom',
-                    fontName='Helvetica-Bold',
-                    fontSize=10,
-                    spaceAfter=4,
-                    leading=12
-                ))
-                styles.add(ParagraphStyle(
-                    name='ActaNumber',
-                    fontName='Helvetica-Bold',
-                    fontSize=20,
-                    alignment=1,
-                    textColor=colors.black,
-                    spaceAfter=0,
-                    leading=24
-                ))
-                styles.add(ParagraphStyle(
-                    name='Signature',
-                    fontName='Times-Roman',
-                    fontSize=10,
-                    alignment=1,
-                    spaceBefore=10,
-                    spaceAfter=4,
-                    leading=12
-                ))
-                styles.add(ParagraphStyle(
-                    name='SignatureTitle',
-                    fontName='Times-Bold',
-                    fontSize=10,
-                    alignment=1,
-                    spaceBefore=4,
-                    spaceAfter=4,
-                    leading=12
-                ))
-                styles.add(ParagraphStyle(
-                    name='SignatureCargo',
-                    fontName='Times-Italic',
-                    fontSize=9,
-                    alignment=1,
-                    spaceBefore=2,
-                    spaceAfter=2,
-                    leading=11
-                ))
-                styles.add(ParagraphStyle(
-                    name='TableCell',
-                    fontName='Helvetica-Bold',
-                    fontSize=9,
-                    leading=11,
-                    wordWrap='CJK',
-                ))
+                    # --- Encabezado ---
+                    logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images', 'seremi_logo.png')
+                    logo = None
+                    if os.path.exists(logo_path):
+                        logo = Image(logo_path, width=3*cm, height=3*cm)
+                        logo.hAlign = 'LEFT'
+                    else:
+                        logo = Paragraph("Logo no encontrado", styles['NormalCustom'])
 
-                elements = []
+                    acta_number = Paragraph(f"N° {numero_acta}", styles['ActaNumber'])
+                    acta_number_table = Table([[acta_number]], colWidths=[1.5*inch], rowHeights=[0.5*inch])
+                    acta_number_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+                        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 20),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+                    ]))
 
-                # --- Encabezado ---
-                logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images', 'seremi_logo.png')
-                logo = None
-                if os.path.exists(logo_path):
-                    logo = Image(logo_path, width=3*cm, height=3*cm)
-                    logo.hAlign = 'LEFT'
-                else:
-                    logo = Paragraph("Logo no encontrado", styles['NormalCustom'])
+                    header_table = Table([
+                        [logo, acta_number_table]
+                    ], colWidths=[3*inch, 4.5*inch])
+                    header_table.setStyle(TableStyle([
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+                    ]))
+                    elements.append(header_table)
 
-                acta_number = Paragraph(f"N° {numero_acta}", styles['ActaNumber'])
-                acta_number_table = Table([[acta_number]], colWidths=[1.5*inch], rowHeights=[0.5*inch])
-                acta_number_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-                    ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, -1), 20),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                    ('BOX', (0, 0), (-1, -1), 1, colors.black),
-                ]))
+                    elements.append(Spacer(1, 0.2*cm))
+                    title = Paragraph("ACTA DE ENTREGA MATERIALES O INSUMOS", styles['TitleCustom'])
+                    elements.append(title)
 
-                header_table = Table([
-                    [logo, acta_number_table]
-                ], colWidths=[3*inch, 4.5*inch])
-                header_table.setStyle(TableStyle([
-                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                    ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-                    ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-                ]))
-                elements.append(header_table)
+                    elements.append(Spacer(1, 0.3*cm))
+                    fecha = Paragraph(
+                        f"En Temuco con fecha {datetime.now().strftime('%d-%m-%Y')} se procede a realizar la entrega de los siguientes artículos a:",
+                        styles['NormalCustom']
+                    )
+                    elements.append(fecha)
 
-                elements.append(Spacer(1, 0.2*cm))
-                title = Paragraph("ACTA DE ENTREGA MATERIALES O INSUMOS", styles['TitleCustom'])
-                elements.append(title)
+                    elements.append(Spacer(1, 0.2*cm))
+                    departamento_info = Paragraph(
+                        f"Sección: {form.cleaned_data['departamento']}",
+                        styles['NormalCustom']
+                    )
+                    elements.append(departamento_info)
 
-                elements.append(Spacer(1, 0.3*cm))
-                fecha = Paragraph(
-                    f"En Temuco con fecha {datetime.now().strftime('%d-%m-%Y')} se procede a realizar la entrega de los siguientes artículos a:",
-                    styles['NormalCustom']
-                )
-                elements.append(fecha)
+                    elements.append(Spacer(1, 0.1*cm))
+                    responsable_info = Paragraph(
+                        f"Responsable: {form.cleaned_data['responsable']}",
+                        styles['NormalCustom']
+                    )
+                    elements.append(responsable_info)
 
-                elements.append(Spacer(1, 0.2*cm))
-                departamento_info = Paragraph(
-                    f"Sección: {form.cleaned_data['departamento']}",
-                    styles['NormalCustom']
-                )
-                elements.append(departamento_info)
+                    elements.append(Spacer(1, 0.5*cm))
+                    elements.append(Paragraph("Datos de Productos", styles['NormalBold']))
+                    elements.append(Spacer(1, 0.2*cm))
 
-                elements.append(Spacer(1, 0.1*cm))
-                responsable_info = Paragraph(
-                    f"Responsable: {form.cleaned_data['responsable']}",
-                    styles['NormalCustom']
-                )
-                elements.append(responsable_info)
+                    # Preparar los datos de la tabla
+                    data = [['Descripción', 'Nro. SISCOM', 'Cantidad', 'Observación']]
+                    for item in productos_salida:
+                        # Reemplazar \n por <br/> para que ReportLab respete los saltos de línea
+                        observacion_text = (item['observacion'] or '-').replace('\n', '<br/>')
+                        observacion = Paragraph(observacion_text, styles['TableCell'])
+                        data.append([
+                            item['descripcion'],
+                            item['numero_siscom'],
+                            str(item['cantidad']),
+                            observacion,
+                        ])
 
-                elements.append(Spacer(1, 0.5*cm))
-                elements.append(Paragraph("Datos de Productos", styles['NormalBold']))
-                elements.append(Spacer(1, 0.2*cm))
+                    # Ajustar los anchos de las columnas
+                    table = Table(data, colWidths=[1.8*inch, 2.0*inch, 0.8*inch, 2.4*inch])
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 10),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 1), (-1, -1), 9),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+                        ('VALIGN', (0, 1), (-1, -1), 'TOP'),
+                    ]))
+                    elements.append(table)
 
-                # Preparar los datos de la tabla
-                data = [['Descripción', 'Nro. SISCOM', 'Cantidad', 'Observación']]
-                for item in productos_salida:
-                    # Reemplazar \n por <br/> para que ReportLab respete los saltos de línea
-                    observacion_text = (item['observacion'] or '-').replace('\n', '<br/>')
-                    observacion = Paragraph(observacion_text, styles['TableCell'])
-                    data.append([
-                        item['descripcion'],
-                        item['numero_siscom'],
-                        str(item['cantidad']),
-                        observacion,
-                    ])
+                    elements.append(Spacer(1, 4*inch))
 
-                # Ajustar los anchos de las columnas
-                table = Table(data, colWidths=[1.8*inch, 2.0*inch, 0.8*inch, 2.4*inch])
-                table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, 0), 10),
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-                    ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                    ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 1), (-1, -1), 9),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                    ('BOX', (0, 0), (-1, -1), 1, colors.black),
-                    ('VALIGN', (0, 1), (-1, -1), 'TOP'),
-                ]))
-                elements.append(table)
+                    # Usamos la primera acta para obtener generador y responsable
+                    acta = ActaEntrega.objects.filter(numero_acta=numero_acta).first()
+                    if not acta:
+                        messages.error(request, 'Error: No se pudo encontrar el acta recién creada.')
+                        return redirect('salida-productos-seleccion')
 
-                elements.append(Spacer(1, 4*inch))
+                    firma_encargado = Paragraph(
+                        f"{acta.generador}",
+                        styles['Signature']
+                    )
+                    firma_encargado_title = Paragraph(
+                        "ENCARGADO BODEGA",
+                        styles['SignatureTitle']
+                    )
+                    firma_encargado_line = Paragraph(
+                        "_____________________________",
+                        styles['Signature']
+                    )
 
-                # Usamos la primera acta para obtener generador y responsable
-                acta = ActaEntrega.objects.filter(numero_acta=numero_acta).first()
+                    firma_receptor = Paragraph(
+                        f"Sr./Sra. {acta.responsable}",
+                        styles['Signature']
+                    )
+                    firma_receptor_title = Paragraph(
+                        "RECEPCIONA CONFORME",
+                        styles['SignatureTitle']
+                    )
 
-                firma_encargado = Paragraph(
-                    f"{acta.generador}",
-                    styles['Signature']
-                )
-                firma_encargado_title = Paragraph(
-                    "ENCARGADO BODEGA",
-                    styles['SignatureTitle']
-                )
-                firma_encargado_line = Paragraph(
-                    "_____________________________",
-                    styles['Signature']
-                )
+                    responsable_lower = acta.responsable.lower()
+                    if 'secretaria' in responsable_lower:
+                        cargo = "SECRETARIA DEL DEPARTAMENTO"
+                    elif 'jefe' in responsable_lower or 'jefatura' in responsable_lower:
+                        cargo = "JEFE DEL DEPARTAMENTO"
+                    else:
+                        cargo = "RESPONSABLE DEL DEPARTAMENTO"
 
-                firma_receptor = Paragraph(
-                    f"Sr./Sra. {acta.responsable}",
-                    styles['Signature']
-                )
-                firma_receptor_title = Paragraph(
-                    "RECEPCIONA CONFORME",
-                    styles['SignatureTitle']
-                )
+                    firma_receptor_cargo = Paragraph(
+                        cargo,
+                        styles['SignatureCargo']
+                    )
+                    firma_receptor_line = Paragraph(
+                        "_____________________________",
+                        styles['Signature']
+                    )
 
-                responsable_lower = acta.responsable.lower()
-                if 'secretaria' in responsable_lower:
-                    cargo = "SECRETARIA DEL DEPARTAMENTO"
-                elif 'jefe' in responsable_lower or 'jefatura' in responsable_lower:
-                    cargo = "JEFE DEL DEPARTAMENTO"
-                else:
-                    cargo = "RESPONSABLE DEL DEPARTAMENTO"
+                    firma_table = Table([
+                        [firma_encargado, firma_receptor],
+                        [firma_encargado_title, firma_receptor_title],
+                        ['', firma_receptor_cargo],
+                        [firma_encargado_line, firma_receptor_line]
+                    ], colWidths=[3*inch, 3*inch])
+                    firma_table.setStyle(TableStyle([
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 10),
+                        ('LEADING', (0, 0), (-1, -1), 12),
+                    ]))
+                    elements.append(firma_table)
 
-                firma_receptor_cargo = Paragraph(
-                    cargo,
-                    styles['SignatureCargo']
-                )
-                firma_receptor_line = Paragraph(
-                    "_____________________________",
-                    styles['Signature']
-                )
+                    doc.build(elements)
+                    print("PDF generado exitosamente.")
 
-                firma_table = Table([
-                    [firma_encargado, firma_receptor],
-                    [firma_encargado_title, firma_receptor_title],
-                    ['', firma_receptor_cargo],
-                    [firma_encargado_line, firma_receptor_line]
-                ], colWidths=[3*inch, 3*inch])
-                firma_table.setStyle(TableStyle([
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
-                    ('FONTSIZE', (0, 0), (-1, -1), 10),
-                    ('LEADING', (0, 0), (-1, -1), 12),
-                ]))
-                elements.append(firma_table)
+                    # Limpiar la sesión
+                    if 'productos_salida' in request.session:
+                        del request.session['productos_salida']
+                    
+                    return response
 
-                doc.build(elements)
-
-                # Limpiar la sesión
-                if 'productos_salida' in request.session:
-                    del request.session['productos_salida']
-                
-                return response
+                except Exception as e:
+                    messages.error(request, f'Error al generar el PDF: {str(e)}')
+                    return redirect('salida-productos-seleccion')
 
             except Exception as e:
-                print(f"Error al generar el acta: {str(e)}")
-                messages.error(request, f'Error al generar el acta: {str(e)}')
+                messages.error(request, f'Error al procesar el acta: {str(e)}')
                 return redirect('salida-productos-seleccion')
         else:
             messages.error(request, 'Error al generar el acta. Verifica los datos.')
@@ -1019,3 +1093,222 @@ def ver_acta_pdf(request, numero_acta, disposition):
 
     doc.build(elements)
     return response
+
+@login_required
+def bincard_buscar(request):
+    # Limpiar la sesión si existe productos_salida
+    if 'productos_salida' in request.session:
+        del request.session['productos_salida']
+    
+    if request.method == 'POST':
+        codigo_barra = request.POST.get('codigo_barra', '').strip()
+        
+        # Validar que se haya ingresado un código de barra
+        if not codigo_barra:
+            messages.error(request, 'Por favor, ingrese un código de barra.')
+            return render(request, 'accounts/bincard_buscar.html')
+        
+        # Validar que el código de barra sea numérico
+        if not codigo_barra.isdigit():
+            messages.error(request, 'El código de barra debe contener solo números.')
+            return render(request, 'accounts/bincard_buscar.html')
+        
+        # Verificar si el producto existe
+        try:
+            producto = Producto.objects.get(codigo_barra=codigo_barra)
+            # Redirigir a la vista de historial con el código de barra
+            return redirect('bincard-historial', codigo_barra=codigo_barra)
+        except Producto.DoesNotExist:
+            messages.error(
+                request,
+                f'No se encontró un producto con el código de barra {codigo_barra}. '
+                f'Puedes <a href="/accounts/registrar-producto/">registrar un nuevo producto</a>.'
+            )
+            return render(request, 'accounts/bincard_buscar.html')
+    
+    return render(request, 'accounts/bincard_buscar.html')
+
+@login_required
+def buscar_codigos_barra(request):
+    """
+    Vista auxiliar para devolver sugerencias de códigos de barra para el autocompletado.
+    """
+    term = request.GET.get('term', '').strip()
+    if not term:
+        return JsonResponse([], safe=False)
+    
+    # Buscar productos cuyos códigos de barra comiencen con el término ingresado
+    productos = Producto.objects.filter(codigo_barra__startswith=term).order_by('codigo_barra')[:10]
+    codigos = [{'label': f"{producto.codigo_barra} - {producto.descripcion}", 'value': producto.codigo_barra} for producto in productos]
+    return JsonResponse(codigos, safe=False)
+
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.http import HttpResponse
+from datetime import datetime
+import openpyxl
+import urllib.parse
+from accounts.models import Producto, Transaccion, ActaEntrega
+
+@login_required
+def bincard_historial(request, codigo_barra):
+    # Limpiar la sesión si existe productos_salida
+    if 'productos_salida' in request.session:
+        del request.session['productos_salida']
+    
+    # Validar que el código de barra sea numérico
+    if not codigo_barra.isdigit():
+        messages.error(request, 'El código de barra debe contener solo números.')
+        return redirect('bincard-buscar')
+    
+    # Buscar el producto
+    try:
+        producto = Producto.objects.get(codigo_barra=codigo_barra)
+    except Producto.DoesNotExist:
+        messages.error(request, 'Producto no encontrado.')
+        return redirect('bincard-buscar')
+    
+    # Obtener transacciones y actas relacionadas con el producto
+    transacciones = Transaccion.objects.filter(producto=producto).order_by('fecha')
+    actas = ActaEntrega.objects.filter(producto=producto).order_by('fecha')
+    
+    # Combinar transacciones y actas en una lista de movimientos
+    movimientos = []
+    saldo = 0  # Saldo inicial
+    
+    # Procesar transacciones (entradas y salidas)
+    for transaccion in transacciones:
+        entrada = transaccion.cantidad if transaccion.tipo == 'entrada' else 0
+        salida = transaccion.cantidad if transaccion.tipo == 'salida' else 0
+        saldo += entrada - salida
+        
+        # Verificar saldo negativo
+        if saldo < 0:
+            messages.error(request, f'Error: El saldo no puede ser negativo en la fecha {transaccion.fecha}. Contacte al administrador.')
+            return redirect('bincard-buscar')
+        
+        movimientos.append({
+            'fecha': transaccion.fecha,
+            'numero_acta': None,
+            'rut_proveedor': transaccion.rut_proveedor,
+            'departamento': None,
+            'entrada': entrada,
+            'salida': salida,
+            'saldo': saldo,
+        })
+    
+    # Procesar actas (solo salidas)
+    for acta in actas:
+        saldo -= acta.cantidad
+        
+        # Verificar saldo negativo
+        if saldo < 0:
+            messages.error(request, f'Error: El saldo no puede ser negativo en la fecha {acta.fecha}. Contacte al administrador.')
+            return redirect('bincard-buscar')
+        
+        movimientos.append({
+            'fecha': acta.fecha,
+            'numero_acta': acta.numero_acta,
+            'rut_proveedor': None,
+            'departamento': acta.departamento,
+            'entrada': 0,
+            'salida': acta.cantidad,
+            'saldo': saldo,
+        })
+    
+    # Ordenar movimientos por fecha
+    movimientos.sort(key=lambda x: x['fecha'])
+    
+    # Calcular totales
+    total_entradas = sum(m['entrada'] for m in movimientos)
+    total_salidas = sum(m['salida'] for m in movimientos)
+    
+    # Verificar que el saldo calculado coincida con el stock actual del producto
+    if saldo != producto.stock:
+        messages.warning(request, f'Advertencia: El saldo calculado ({saldo}) no coincide con el stock actual del producto ({producto.stock}). Contacte al administrador.')
+    
+    # Manejar la exportación a Excel
+    if request.method == 'POST' and 'exportar_excel' in request.POST:
+        # Crear un libro de Excel
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = f"Bincard_{producto.codigo_barra}"
+        
+        # Definir los encabezados
+        headers = ['Fecha', 'N° Acta', 'Proveedor (RUT)', 'Programa/Departamento', 'Entrada', 'Salida', 'Saldo']
+        ws.append(headers)
+        
+        # Estilo para los encabezados
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=col)
+            cell.font = openpyxl.styles.Font(bold=True)
+            cell.fill = openpyxl.styles.PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
+            cell.alignment = openpyxl.styles.Alignment(horizontal='center')
+        
+        # Agregar los datos de los movimientos
+        for idx, movimiento in enumerate(movimientos, start=2):
+            ws.append([
+                movimiento['fecha'].strftime('%d-%m-%Y %H:%M'),
+                movimiento['numero_acta'] if movimiento['numero_acta'] else '-',
+                movimiento['rut_proveedor'] if movimiento['rut_proveedor'] else '-',
+                movimiento['departamento'] if movimiento['departamento'] else '-',
+                movimiento['entrada'],
+                movimiento['salida'],
+                movimiento['saldo'],
+            ])
+        
+        # Agregar la fila de totales
+        total_row = len(movimientos) + 2
+        ws.append(['Total', '', '', '', total_entradas, total_salidas, producto.stock])
+        for col in range(1, 8):
+            cell = ws.cell(row=total_row, column=col)
+            cell.font = openpyxl.styles.Font(bold=True)
+            cell.fill = openpyxl.styles.PatternFill(start_color="E7F3FF", end_color="E7F3FF", fill_type="solid")
+            cell.alignment = openpyxl.styles.Alignment(horizontal='center')
+        
+        # Ajustar el ancho de las columnas
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)
+            ws.column_dimensions[column].width = adjusted_width
+        
+        # Generar el nombre del archivo
+        fecha = datetime.now().strftime('%Y-%m-%d')
+        filename = f"Bincard_{producto.codigo_barra}_{fecha}.xlsx"
+        encoded_filename = urllib.parse.quote(filename)
+        
+        # Preparar la respuesta
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{encoded_filename}"'
+        wb.save(response)
+        return response
+    
+    # Implementar paginación: 20 movimientos por página
+    paginator = Paginator(movimientos, 20)
+    page = request.GET.get('page')
+    
+    try:
+        page_obj = paginator.page(page)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+    
+    context = {
+        'producto': producto,
+        'page_obj': page_obj,
+        'total_entradas': total_entradas,
+        'total_salidas': total_salidas,
+    }
+    return render(request, 'accounts/bincard_historial.html', context)

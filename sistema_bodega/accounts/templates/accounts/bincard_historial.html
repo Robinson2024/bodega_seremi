@@ -1,0 +1,117 @@
+{% extends 'accounts/home.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow-sm p-4">
+        <h2 class="text-center mb-4">Historial de Movimientos - {{ producto.descripcion }} (Código: {{ producto.codigo_barra }})</h2>
+        
+        {% if messages %}
+            <div class="mb-3">
+                {% for message in messages %}
+                    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if page_obj %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>N° Acta</th>
+                            <th>Proveedor (RUT)</th>
+                            <th>Programa/Departamento</th>
+                            <th>Entrada</th>
+                            <th>Salida</th>
+                            <th>Saldo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for movimiento in page_obj %}
+                            <tr>
+                                <td>{{ movimiento.fecha|date:"d-m-Y H:i" }}</td>
+                                <td>{{ movimiento.numero_acta|default:"-" }}</td>
+                                <td>{{ movimiento.rut_proveedor|default:"-" }}</td>
+                                <td>{{ movimiento.departamento|default:"-" }}</td>
+                                <td>{{ movimiento.entrada|default:"0" }}</td>
+                                <td>{{ movimiento.salida|default:"0" }}</td>
+                                <td>{{ movimiento.saldo }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center">No se encontraron movimientos para este producto.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-info">
+                            <td colspan="4" class="text-end"><strong>Total:</strong></td>
+                            <td><strong>{{ total_entradas }}</strong></td>
+                            <td><strong>{{ total_salidas }}</strong></td>
+                            <td><strong>{{ producto.stock }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Paginación -->
+            <nav aria-label="Paginación de movimientos">
+                <ul class="pagination justify-content-center mt-4">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?page=1">« Primera</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a></li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">« Primera</span></li>
+                        <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+                    {% endif %}
+
+                    <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Última »</a></li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+                        <li class="page-item disabled"><span class="page-link">Última »</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+
+            <!-- Botón para exportar a Excel -->
+            <form method="POST" action="{% url 'bincard-historial' producto.codigo_barra %}" class="text-center mt-3">
+                {% csrf_token %}
+                <button type="submit" name="exportar_excel" class="btn btn-success">
+                    <i class="fas fa-file-excel me-2"></i>Exportar a Excel
+                </button>
+            </form>
+        {% else %}
+            <div class="alert alert-info text-center">No se encontraron movimientos para este producto.</div>
+        {% endif %}
+
+        <div class="text-center mt-4">
+            <a href="{% url 'bincard-buscar' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Volver a Buscar
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card { border-radius: 10px; background-color: white; }
+    h2 { color: #1a3c5e; font-size: 28px; font-weight: 700; }
+    .table th, .table td { vertical-align: middle; text-align: center; }
+    .table-dark { background-color: #2a4d73; color: white; }
+    .table-info { background-color: #e7f3ff; }
+    .btn-success { background-color: #28a745; border-color: #28a745; }
+    .btn-success:hover { background-color: #218838; border-color: #1e7e34; }
+    .btn-secondary { background-color: #6c757d; border-color: #6c757d; }
+    .btn-secondary:hover { background-color: #5a6268; border-color: #545b62; }
+</style>
+{% endblock %}

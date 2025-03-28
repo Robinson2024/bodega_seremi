@@ -1,0 +1,90 @@
+{% extends 'accounts/home.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow-sm p-4">
+        <h2 class="text-center mb-4">Bincard de Producto</h2>
+        {% if messages %}
+            <div class="mb-3">
+                {% for message in messages %}
+                    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <form method="POST" action="{% url 'bincard-buscar' %}" class="row g-3 justify-content-center">
+            {% csrf_token %}
+            <div class="col-md-6">
+                <label for="codigo_barra" class="form-label">Código de Barra</label>
+                <input type="text" class="form-control" id="codigo_barra" name="codigo_barra" placeholder="Ingrese el código de barra" required>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search me-2"></i>Buscar</button>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="button" class="btn btn-secondary w-100" onclick="document.getElementById('codigo_barra').value = '';"><i class="fas fa-eraser me-2"></i>Limpiar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Incluir jQuery UI para el autocompletado -->
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $("#codigo_barra").autocomplete({
+            source: "{% url 'buscar-codigos-barra' %}",
+            minLength: 2,
+            select: function(event, ui) {
+                $("#codigo_barra").val(ui.item.value);
+                return false;
+            }
+        });
+    });
+</script>
+
+<style>
+    .card {
+        border-radius: 10px;
+        background-color: white;
+    }
+    h2 {
+        color: #1a3c5e;
+        font-size: 28px;
+        font-weight: 700;
+    }
+    .form-control:focus {
+        border-color: #1a3c5e;
+        box-shadow: 0 0 5px rgba(26, 60, 94, 0.3);
+    }
+    .btn-primary {
+        background-color: #3b82f6;
+        border-color: #3b82f6;
+    }
+    .btn-primary:hover {
+        background-color: #2563eb;
+        border-color: #2563eb;
+    }
+    .btn-secondary {
+        background-color: #6c757d;
+        border-color: #6c757d;
+    }
+    .btn-secondary:hover {
+        background-color: #5a6268;
+        border-color: #545b62;
+    }
+    .ui-autocomplete {
+        max-height: 200px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        z-index: 1000 !important;
+    }
+</style>
+{% endblock %}

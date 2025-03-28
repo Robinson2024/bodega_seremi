@@ -175,7 +175,13 @@
                 <a href="{% url 'salida-productos' %}" onclick="showMessage('Salida de Productos')"><i class="fas fa-sign-out-alt"></i> Salida de Productos</a>
                 <a href="{% url 'listar-productos' %}" onclick="showMessage('Listar Productos')"><i class="fas fa-list"></i> Listar Productos</a>
                 <a href="{% url 'listar-actas' %}" onclick="showMessage('Documentos')"><i class="fas fa-file-alt"></i> Documentos</a>
-                <a href="#" onclick="showMessage('Informes')"><i class="fas fa-chart-bar"></i> Informes</a>
+                <!-- Modificado: Convertir "Informes" en un menú desplegable -->
+                <div class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" onclick="showMessage('Informes')"><i class="fas fa-chart-bar"></i> Informes</a>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" href="{% url 'bincard-buscar' %}">Bincard</a>
+                    </div>
+                </div>
                 <div class="dropdown">
                     <a href="#" class="dropdown-toggle" data-toggle="dropdown" onclick="showMessage('Agregar')"><i class="fas fa-plus"></i> Agregar</a>
                     <div class="dropdown-menu">
