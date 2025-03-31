@@ -12,7 +12,7 @@
                     <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
                         {{ message }}
                         <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
+                            <span aria-hidden="true">×</span>
                         </button>
                     </div>
                 {% endfor %}
@@ -25,6 +25,7 @@
                     <thead class="table-dark">
                         <tr>
                             <th>Fecha</th>
+                            <th>Guía o Factura</th>
                             <th>N° Acta</th>
                             <th>Proveedor (RUT)</th>
                             <th>Programa/Departamento</th>
@@ -37,6 +38,7 @@
                         {% for movimiento in page_obj %}
                             <tr>
                                 <td>{{ movimiento.fecha|date:"d-m-Y H:i" }}</td>
+                                <td>{{ movimiento.guia_o_factura }}</td>
                                 <td>{{ movimiento.numero_acta|default:"-" }}</td>
                                 <td>{{ movimiento.rut_proveedor|default:"-" }}</td>
                                 <td>{{ movimiento.departamento|default:"-" }}</td>
@@ -46,13 +48,13 @@
                             </tr>
                         {% empty %}
                             <tr>
-                                <td colspan="7" class="text-center">No se encontraron movimientos para este producto.</td>
+                                <td colspan="8" class="text-center">No se encontraron movimientos para este producto.</td>
                             </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr class="table-info">
-                            <td colspan="4" class="text-end"><strong>Total:</strong></td>
+                            <td colspan="5" class="text-end"><strong>Total:</strong></td>
                             <td><strong>{{ total_entradas }}</strong></td>
                             <td><strong>{{ total_salidas }}</strong></td>
                             <td><strong>{{ producto.stock }}</strong></td>
