@@ -37,6 +37,7 @@ class Transaccion(models.Model):
     numero_factura = models.CharField(max_length=50, blank=True)
     orden_compra = models.CharField(max_length=50, blank=True)
     observacion = models.TextField(blank=True, null=True)
+    acta_entrega = models.ForeignKey('ActaEntrega', on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return f"{self.tipo} - {self.producto.descripcion} - {self.cantidad}"
@@ -62,7 +63,7 @@ class Funcionario(models.Model):
         return f"{self.nombre} - {self.departamento}"
 
 class ActaEntrega(models.Model):
-    numero_acta = models.IntegerField()  # Eliminamos unique=True
+    numero_acta = models.IntegerField()
     departamento = models.CharField(max_length=100)
     responsable = models.CharField(max_length=100)
     fecha = models.DateTimeField(auto_now_add=True)
@@ -73,8 +74,32 @@ class ActaEntrega(models.Model):
     observacion = models.TextField(blank=True, null=True)
 
     class Meta:
-        # Añadimos una restricción de unicidad combinada entre numero_acta y producto
         unique_together = ('numero_acta', 'producto')
 
     def __str__(self):
         return f"Acta N°{self.numero_acta} - {self.departamento}"
+
+class Departamento(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    activo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.nombre
+
+class Responsable(models.Model):
+    TIPO_RESPONSABLE = [
+        ('Jefatura', 'Jefatura'),
+        ('Jefatura Subrogante', 'Jefatura Subrogante'),
+        ('Secretaria', 'Secretaria'),
+        ('Secretaria Subrogante', 'Secretaria Subrogante'),
+    ]
+
+    departamento = models.ForeignKey(Departamento, on_delete=models.CASCADE, related_name='responsables')
+    tipo = models.CharField(max_length=50, choices=TIPO_RESPONSABLE)
+    nombre = models.CharField(max_length=100)
+
+    class Meta:
+        unique_together = ('departamento', 'tipo')
+
+    def __str__(self):
+        return f"{self.nombre} ({self.departamento.nombre})"

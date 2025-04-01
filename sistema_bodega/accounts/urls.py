@@ -18,4 +18,7 @@ urlpatterns = [
     path('bincard/buscar/', views.bincard_buscar, name='bincard-buscar'),
     path('bincard/historial/<str:codigo_barra>/', views.bincard_historial, name='bincard-historial'),
     path('bincard/buscar-codigos/', views.buscar_codigos_barra, name='buscar-codigos-barra'),
+    path('agregar-departamento/', views.agregar_departamento, name='agregar-departamento'),
+    path('modificar-departamento/', views.modificar_departamento, name='modificar-departamento'),
+    path('eliminar-departamento/', views.eliminar_departamento, name='eliminar-departamento'),
 ]

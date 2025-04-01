@@ -175,7 +175,6 @@
                 <a href="{% url 'salida-productos' %}" onclick="showMessage('Salida de Productos')"><i class="fas fa-sign-out-alt"></i> Salida de Productos</a>
                 <a href="{% url 'listar-productos' %}" onclick="showMessage('Listar Productos')"><i class="fas fa-list"></i> Listar Productos</a>
                 <a href="{% url 'listar-actas' %}" onclick="showMessage('Documentos')"><i class="fas fa-file-alt"></i> Documentos</a>
-                <!-- Modificado: Convertir "Informes" en un menú desplegable -->
                 <div class="dropdown">
                     <a href="#" class="dropdown-toggle" data-toggle="dropdown" onclick="showMessage('Informes')"><i class="fas fa-chart-bar"></i> Informes</a>
                     <div class="dropdown-menu">
@@ -187,6 +186,14 @@
                     <div class="dropdown-menu">
                         <a class="dropdown-item" href="{% url 'registrar-producto' %}">Registrar Producto</a>
                         <a class="dropdown-item" href="{% url 'agregar-stock' %}">Agregar Stock</a>
+                    </div>
+                </div>
+                <div class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" onclick="showMessage('Gestión de Departamentos')"><i class="fas fa-building"></i> Gestión de Departamentos</a>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" href="{% url 'agregar-departamento' %}">Agregar Departamento</a>
+                        <a class="dropdown-item" href="{% url 'modificar-departamento' %}">Modificar Departamento</a>
+                        <a class="dropdown-item" href="{% url 'eliminar-departamento' %}">Eliminar Departamento</a>
                     </div>
                 </div>
                 <form action="{% url 'logout' %}" method="post" style="display: inline;">
