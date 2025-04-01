@@ -523,12 +523,13 @@ def salida_productos_seleccion(request):
                     acta.save()
                     print(f"Acta creada: N°{acta.numero_acta}, Producto: {producto.descripcion}, Cantidad: {cantidad}")
 
-                    # Crear una transacción de salida asociada al acta
+                    # Crear una transacción de salida asociada al acta con fecha explícita
                     Transaccion.objects.create(
                         producto=producto,
                         tipo='salida',
                         cantidad=cantidad,
                         acta_entrega=acta,
+                        fecha=datetime.now(pytz.UTC),  # Aseguramos que la transacción tenga una fecha
                         observacion=f"Salida asociada al Acta N°{numero_acta}"
                     )
                     print(f"Transacción creada: Tipo: salida, Cantidad: {cantidad}")
@@ -649,7 +650,7 @@ def bincard_historial(request, codigo_barra):
 
         eventos.append({
             'tipo': 'entrada',
-            'fecha': transaccion.fecha,
+            'fecha': transaccion.fecha or datetime.now(pytz.UTC),  # Usar fecha actual si es NULL
             'guia_o_factura': guia_o_factura,
             'numero_acta': None,
             'rut_proveedor': transaccion.rut_proveedor or '-',
@@ -663,7 +664,7 @@ def bincard_historial(request, codigo_barra):
         if transaccion.acta_entrega:  # Solo incluir transacciones asociadas a un acta
             eventos.append({
                 'tipo': 'salida',
-                'fecha': transaccion.fecha,
+                'fecha': transaccion.fecha or transaccion.acta_entrega.fecha or datetime.now(pytz.UTC),  # Usar fecha de la transacción, o del acta, o actual
                 'guia_o_factura': "-",
                 'numero_acta': transaccion.acta_entrega.numero_acta,
                 'rut_proveedor': None,
@@ -673,7 +674,7 @@ def bincard_historial(request, codigo_barra):
             })
 
     # Ordenar eventos por fecha
-    eventos.sort(key=lambda x: x['fecha'])
+    eventos.sort(key=lambda x: x['fecha'] or datetime.now(pytz.UTC))  # Asegurarse de que eventos sin fecha se ordenen al final
 
     # Calcular el saldo de forma incremental
     saldo = 0
