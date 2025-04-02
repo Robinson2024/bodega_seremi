@@ -1,7 +1,7 @@
 {% extends "accounts/home.html" %}
 {% block content %}
 <div class="container">
-    <div class="login-container">
+    <div class="form-wrapper">
         <h2>Modificar Departamento</h2>
         {% if messages %}
             {% for message in messages %}
@@ -13,10 +13,6 @@
                 </div>
             {% endfor %}
         {% endif %}
-        <!-- Depuración: Mostrar las opciones del campo departamento -->
-        <div style="display: none;">
-            Opciones del campo departamento: {{ form.departamento.choices }}
-        </div>
         <form method="post">
             {% csrf_token %}
             <div class="form-group">
@@ -36,22 +32,22 @@
             <div class="form-group">
                 <label for="id_jefatura">Jefatura (opcional)</label>
                 {{ form.jefatura }}
-                <small class="form-text text-muted">Si no se especifica, se usará "Jefatura [Nuevo Nombre]".</small>
+                <small class="form-text">Si no se especifica, se usará "Jefatura [Nuevo Nombre]".</small>
             </div>
             <div class="form-group">
                 <label for="id_jefatura_subrogante">Jefatura Subrogante (opcional)</label>
                 {{ form.jefatura_subrogante }}
-                <small class="form-text text-muted">Si no se especifica, se usará "Jefatura [Nuevo Nombre](s)".</small>
+                <small class="form-text">Si no se especifica, se usará "Jefatura [Nuevo Nombre](s)".</small>
             </div>
             <div class="form-group">
                 <label for="id_secretaria">Secretaria (opcional)</label>
                 {{ form.secretaria }}
-                <small class="form-text text-muted">Si no se especifica, se usará "Secretaria [Nuevo Nombre]".</small>
+                <small class="form-text">Si no se especifica, se usará "Secretaria [Nuevo Nombre]".</small>
             </div>
             <div class="form-group">
                 <label for="id_secretaria_subrogante">Secretaria Subrogante (opcional)</label>
                 {{ form.secretaria_subrogante }}
-                <small class="form-text text-muted">Si no se especifica, se usará "Secretaria [Nuevo Nombre](s)".</small>
+                <small class="form-text">Si no se especifica, se usará "Secretaria [Nuevo Nombre](s)".</small>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Modificar Departamento</button>
@@ -62,119 +58,306 @@
 </div>
 
 <style>
-    .login-container {
-        background: white;
-        padding: 30px;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e0e0e0;
+/* Contenedor del formulario */
+.form-wrapper {
+    background: #ffffff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    overflow: visible;
+    position: relative; /* Aseguramos que el contenedor sea un punto de referencia para el posicionamiento */
+}
+
+/* Título */
+h2 {
+    color: #1a3c5e;
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+/* Grupo de formulario */
+.form-group {
+    margin-bottom: 20px;
+    text-align: left;
+    width: 100%;
+    overflow: visible;
+}
+
+/* Etiquetas */
+.form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 6px;
+    white-space: normal;
+    overflow-wrap: break-word;
+}
+
+/* Campos de formulario (solo para inputs de texto) */
+.form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: 'Roboto', Arial, sans-serif;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    box-sizing: border-box;
+}
+
+.form-control:focus {
+    border-color: #1a3c5e;
+    box-shadow: 0 0 0 3px rgba(26, 60, 94, 0.1);
+    outline: none;
+}
+
+/* Ajustes específicos para Select2 dentro de .form-wrapper */
+.form-wrapper .select2-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+}
+
+.form-wrapper .select2-container .select2-selection--single {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 38px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-family: 'Roboto', Arial, sans-serif;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.form-wrapper .select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 38px;
+    padding-left: 10px;
+    color: #374151;
+}
+
+.form-wrapper .select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 38px;
+    right: 10px;
+}
+
+.form-wrapper .select2-container--default .select2-selection--single .select2-selection__placeholder {
+    color: #6b7280;
+}
+
+.form-wrapper .select2-container--default .select2-selection--single:focus {
+    border-color: #1a3c5e;
+    box-shadow: 0 0 0 3px rgba(26, 60, 94, 0.1);
+    outline: none;
+}
+
+/* Ajustes para el desplegable de Select2 */
+.form-wrapper .select2-container--default .select2-dropdown {
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-family: 'Roboto', Arial, sans-serif;
+    font-size: 14px;
+    width: calc(100% - 50px) !important; /* Ajustamos al ancho del contenedor menos el padding de .form-wrapper (25px por lado) */
+    max-width: calc(100% - 50px) !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+    overflow: hidden;
+    position: absolute; /* Aseguramos que el desplegable se posicione correctamente */
+    z-index: 1050; /* Aseguramos que el desplegable esté por encima de otros elementos */
+}
+
+.form-wrapper .select2-container--default .select2-results__options {
+    max-width: 100% !important;
+    overflow-x: hidden;
+    overflow-y: auto; /* Permitimos desplazamiento vertical si hay muchas opciones */
+    max-height: 200px; /* Limitamos la altura del desplegable para que no sea demasiado largo */
+}
+
+.form-wrapper .select2-container--default .select2-results__option {
+    padding: 8px 10px;
+    white-space: normal;
+    overflow-wrap: break-word;
+    max-width: 100% !important;
+    box-sizing: border-box;
+    line-height: 1.4; /* Mejoramos la legibilidad del texto largo */
+}
+
+.form-wrapper .select2-container--default .select2-results__option--highlighted {
+    background-color: #f1f5f9;
+    color: #1a3c5e;
+}
+
+/* Texto de error */
+.text-danger {
+    color: #dc2626;
+    font-size: 13px;
+    margin-top: 5px;
+}
+
+/* Texto pequeño (instrucciones) */
+.form-text {
+    color: #6b7280;
+    font-size: 12px;
+    display: block;
+    white-space: normal;
+    overflow-wrap: break-word;
+    margin-top: 4px;
+}
+
+/* Acciones del formulario */
+.form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+/* Botones */
+.btn-primary {
+    background-color: #1a3c5e;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'Roboto', Arial, sans-serif;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+.btn-primary:hover {
+    background-color: #2a4d73;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background-color: #6b7280;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'Roboto', Arial, sans-serif;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+.btn-secondary:hover {
+    background-color: #4b5563;
+    transform: translateY(-1px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .form-wrapper {
+        padding: 20px;
+        max-width: 90%;
         width: 100%;
-        max-width: 500px;
-        margin: 30px auto;
     }
     h2 {
-        color: #1a3c5e;
-        font-size: 28px;
-        font-weight: 700;
-        margin-bottom: 20px;
-        text-align: center;
-    }
-    .form-group {
-        margin-bottom: 20px;
-        text-align: left;
-    }
-    label {
-        display: block;
-        font-size: 14px;
-        font-weight: 500;
-        color: #2a4d73;
-        margin-bottom: 6px;
+        font-size: 22px;
     }
     .form-control {
-        width: 100%;
-        padding: 12px;
-        border: 1px solid #d0d0d0;
-        border-radius: 6px;
-        box-sizing: border-box;
-        font-size: 14px;
-        font-family: 'Roboto', Arial, sans-serif;
-        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        padding: 8px;
     }
-    .form-control:focus {
-        border-color: #2a4d73;
-        box-shadow: 0 0 0 3px rgba(42, 77, 115, 0.1);
-        outline: none;
-    }
-    .text-danger {
-        color: #d32f2f;
-        font-size: 14px;
-        margin-top: 5px;
-    }
-    .form-text {
-        color: #64748b;
+    .btn-primary, .btn-secondary {
+        padding: 8px 16px;
         font-size: 13px;
     }
     .form-actions {
-        display: flex;
-        gap: 10px;
-        justify-content: center;
+        flex-direction: column;
+        gap: 8px;
     }
-    .btn-primary {
-        background-color: #3b82f6;
-        color: white;
-        padding: 12px 20px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 16px;
-        font-weight: 500;
-        font-family: 'Roboto', Arial, sans-serif;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: background-color 0.3s ease, transform 0.1s ease;
+    .btn-primary, .btn-secondary {
+        width: 100%;
     }
-    .btn-primary:hover {
-        background-color: #2563eb;
-        transform: translateY(-1px);
+    .form-wrapper .select2-container--default .select2-dropdown {
+        width: calc(100% - 40px) !important; /* Ajustamos al padding de 20px por lado en pantallas pequeñas */
+        max-width: calc(100% - 40px) !important;
     }
-    .btn-secondary {
-        background-color: #64748b;
-        color: white;
-        padding: 12px 20px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 16px;
-        font-weight: 500;
-        font-family: 'Roboto', Arial, sans-serif;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: background-color 0.3s ease, transform 0.1s ease;
-    }
-    .btn-secondary:hover {
-        background-color: #475569;
-        transform: translateY(-1px);
-    }
-    @media (max-width: 768px) {
-        .login-container {
-            padding: 20px;
-            max-width: 90%;
-        }
-        h2 {
-            font-size: 24px;
-        }
-        .form-control {
-            padding: 10px;
-        }
-        .btn-primary, .btn-secondary {
-            padding: 10px 18px;
-            font-size: 15px;
-        }
-        .form-actions {
-            flex-direction: column;
-            gap: 8px;
-        }
-        .btn-primary, .btn-secondary {
-            width: 100%;
-        }
-    }
+}
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar Select2
+    try {
+        console.log("Inicializando Select2 en #id_departamento");
+        $('#id_departamento').select2({
+            placeholder: "Seleccione un departamento",
+            allowClear: true,
+            width: '100%',
+            dropdownAutoWidth: false,
+            dropdownParent: $('.form-wrapper') // Anclamos el desplegable al contenedor .form-wrapper
+        });
+    } catch (error) {
+        console.error("Error al inicializar Select2:", error);
+    }
+
+    // Datos de los responsables por departamento (pasados desde la vista)
+    let responsablesPorDepartamento;
+    try {
+        responsablesPorDepartamento = JSON.parse('{{ responsables_json }}');
+        console.log("Datos de responsablesPorDepartamento cargados:", responsablesPorDepartamento);
+    } catch (error) {
+        console.error("Error al parsear responsablesPorDepartamento:", error);
+        responsablesPorDepartamento = {};
+    }
+
+    // Función para rellenar los campos de los responsables
+    function rellenarCamposResponsables(departamentoNombre, nuevoNombre) {
+        let nombreBase = nuevoNombre || departamentoNombre;
+        if (!nombreBase) {
+            // Si no hay nombre, limpiar los campos
+            $('#id_jefatura').val('');
+            $('#id_jefatura_subrogante').val('');
+            $('#id_secretaria').val('');
+            $('#id_secretaria_subrogante').val('');
+            return;
+        }
+
+        // Si hay un nuevo nombre, usarlo para generar los valores automáticos
+        if (nuevoNombre) {
+            $('#id_jefatura').val(`Jefatura ${nombreBase}`);
+            $('#id_jefatura_subrogante').val(`Jefatura ${nombreBase}(s)`);
+            $('#id_secretaria').val(`Secretaria ${nombreBase}`);
+            $('#id_secretaria_subrogante').val(`Secretaria ${nombreBase}(s)`);
+        } else {
+            // Si no hay nuevo nombre, usar los valores actuales del departamento seleccionado
+            const responsables = responsablesPorDepartamento[departamentoNombre] || {};
+            $('#id_jefatura').val(responsables['Jefatura'] || '');
+            $('#id_jefatura_subrogante').val(responsables['Jefatura Subrogante'] || '');
+            $('#id_secretaria').val(responsables['Secretaria'] || '');
+            $('#id_secretaria_subrogante').val(responsables['Secretaria Subrogante'] || '');
+        }
+    }
+
+    // Al seleccionar un departamento, rellenar los campos con los valores actuales
+    $('#id_departamento').on('change', function() {
+        const departamentoSeleccionado = $(this).val();
+        const nuevoNombre = $('#id_nuevo_nombre').val().trim();
+        rellenarCamposResponsables(departamentoSeleccionado, nuevoNombre);
+    });
+
+    // Al escribir un nuevo nombre, actualizar los campos automáticamente
+    $('#id_nuevo_nombre').on('input', function() {
+        const nuevoNombre = $(this).val().trim();
+        const departamentoSeleccionado = $('#id_departamento').val();
+        rellenarCamposResponsables(departamentoSeleccionado, nuevoNombre);
+    });
+
+    // Inicializar los campos si ya hay un departamento seleccionado (por ejemplo, después de un error de validación)
+    const departamentoInicial = $('#id_departamento').val();
+    const nuevoNombreInicial = $('#id_nuevo_nombre').val().trim();
+    if (departamentoInicial) {
+        rellenarCamposResponsables(departamentoInicial, nuevoNombreInicial);
+    }
+});
+</script>
 {% endblock %}

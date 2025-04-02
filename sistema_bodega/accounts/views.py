@@ -19,6 +19,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from .forms import ProductoForm, TransaccionForm, ActaEntregaForm, DepartamentoForm, ModificarDepartamentoForm, EliminarDepartamentoForm
 from .models import Producto, Transaccion, ActaEntrega, Funcionario, Departamento, Responsable
+from django.utils.safestring import mark_safe
 
 # Funciones auxiliares
 def limpiar_sesion_productos_salida(request):
@@ -731,6 +732,9 @@ def agregar_departamento(request):
         form = DepartamentoForm()
     return render(request, 'accounts/agregar_departamento.html', {'form': form})
 
+from django.utils.safestring import mark_safe
+import json
+
 @login_required
 def modificar_departamento(request):
     limpiar_sesion_productos_salida(request)
@@ -750,13 +754,25 @@ def modificar_departamento(request):
 
             # Actualizar los responsables asociados al departamento
             responsables = Responsable.objects.filter(departamento=departamento)
-            if jefatura:
+            
+            if not jefatura:
+                responsables.filter(tipo='Jefatura').update(nombre=f"Jefatura {nuevo_nombre}")
+            else:
                 responsables.filter(tipo='Jefatura').update(nombre=jefatura)
-            if jefatura_subrogante:
+
+            if not jefatura_subrogante:
+                responsables.filter(tipo='Jefatura Subrogante').update(nombre=f"Jefatura {nuevo_nombre}(s)")
+            else:
                 responsables.filter(tipo='Jefatura Subrogante').update(nombre=jefatura_subrogante)
-            if secretaria:
+
+            if not secretaria:
+                responsables.filter(tipo='Secretaria').update(nombre=f"Secretaria {nuevo_nombre}")
+            else:
                 responsables.filter(tipo='Secretaria').update(nombre=secretaria)
-            if secretaria_subrogante:
+
+            if not secretaria_subrogante:
+                responsables.filter(tipo='Secretaria Subrogante').update(nombre=f"Secretaria {nuevo_nombre}(s)")
+            else:
                 responsables.filter(tipo='Secretaria Subrogante').update(nombre=secretaria_subrogante)
 
             messages.success(request, 'Departamento modificado con éxito.')
@@ -765,9 +781,21 @@ def modificar_departamento(request):
     else:
         form = ModificarDepartamentoForm()
         departamentos = Departamento.objects.filter(activo=True)
+        # Crear un diccionario con los responsables de cada departamento
+        responsables_por_departamento = {}
+        for dept in departamentos:
+            responsables = dept.responsables.all()
+            responsables_dict = {r.tipo: r.nombre for r in responsables}
+            responsables_por_departamento[dept.nombre] = responsables_dict
+        # Convertir el diccionario a JSON y marcarlo como seguro
+        responsables_json = mark_safe(json.dumps(responsables_por_departamento))
         print("Departamentos disponibles en la vista modificar_departamento:", list(departamentos))
         print("Opciones del campo departamento:", form.fields['departamento'].choices)
-    return render(request, 'accounts/modificar_departamento.html', {'form': form})
+        print("Responsables por departamento:", responsables_por_departamento)
+    return render(request, 'accounts/modificar_departamento.html', {
+        'form': form,
+        'responsables_json': responsables_json  # Pasamos el JSON en lugar del diccionario
+    })
 
 @login_required
 def eliminar_departamento(request):

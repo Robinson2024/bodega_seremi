@@ -1,8 +1,9 @@
 {% extends "accounts/home.html" %}
 {% block content %}
-<div class="container">
-    <div class="login-container">
-        <h2>Deshabilitar Departamento</h2>
+<div class="container d-flex justify-content-center align-items-center">
+    <div class="form-wrapper shadow p-3 rounded bg-white">
+        <h2 class="text-center mb-3">Deshabilitar Departamento</h2>
+        
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -13,137 +14,301 @@
                 </div>
             {% endfor %}
         {% endif %}
-        <!-- Depuración: Mostrar las opciones del campo departamento -->
-        <div style="display: none;">
-            Opciones del campo departamento: {{ form.departamento.choices }}
-        </div>
-        <form method="post">
+        
+        <form method="post" class="needs-validation" novalidate>
             {% csrf_token %}
             <div class="form-group">
-                <label for="id_departamento">Departamento a Deshabilitar</label>
+                <label for="id_departamento" class="font-weight-bold">Departamento a Deshabilitar</label>
                 {{ form.departamento }}
                 {% if form.departamento.errors %}
-                    <div class="text-danger">{{ form.departamento.errors }}</div>
+                    <div class="invalid-feedback d-block">{{ form.departamento.errors }}</div>
                 {% endif %}
             </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-warning">Deshabilitar Departamento</button>
-                <a href="{% url 'home' %}" class="btn btn-secondary">Cancelar</a>
+            
+            <div class="form-actions d-flex justify-content-between">
+                <button type="submit" class="btn btn-danger px-4">Deshabilitar</button>
+                <a href="{% url 'home' %}" class="btn btn-secondary px-4">Cancelar</a>
             </div>
         </form>
     </div>
 </div>
 
 <style>
-    .login-container {
-        background: white;
-        padding: 30px;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e0e0e0;
-        width: 100%;
-        max-width: 500px;
-        margin: 30px auto;
+/* Aseguramos que el body y html ocupen toda la altura y distribuyan el espacio */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Evitamos el scroll */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Distribuimos el espacio para que el footer esté abajo */
+    align-items: center;
+}
+
+/* Contenedor principal */
+.container {
+    flex: 1; /* Permite que el contenedor ocupe el espacio disponible */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0; /* Eliminamos el padding para evitar desplazamientos */
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+}
+
+/* Contenedor del formulario */
+.form-wrapper {
+    width: 100%;
+    max-width: 450px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.form-wrapper:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Ajustamos el footer heredado de home.html para que abarque todo el ancho y el texto no se recorte */
+footer {
+    width: 100vw !important; /* Aseguramos que abarque todo el ancho de la ventana */
+    position: relative !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 !important;
+    padding: 10px 0 !important; /* Aumentamos ligeramente el padding para evitar recortes */
+    background-color: #1a3c5e !important;
+    color: #b0c4de !important;
+    text-align: center !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+}
+
+footer p {
+    margin: 0 !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    line-height: 1.5 !important; /* Ajustamos el line-height para evitar recortes */
+    padding-bottom: 2px !important; /* Añadimos un pequeño padding inferior */
+}
+
+/* Título */
+h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #1a3c5e;
+    margin-bottom: 15px;
+}
+
+/* Etiquetas */
+.form-group label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 6px;
+    display: block;
+}
+
+/* Ajustes para Select2 */
+.form-wrapper .select2-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+}
+
+.form-wrapper .select2-container .select2-selection--single {
+    height: 38px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-family: 'Roboto', Arial, sans-serif;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-wrapper .select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 38px;
+    padding-left: 10px;
+    padding-right: 30px;
+    color: #374151;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.form-wrapper .select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 38px;
+    right: 10px;
+}
+
+.form-wrapper .select2-container--default .select2-selection--single .select2-selection__placeholder {
+    color: #6b7280;
+}
+
+.form-wrapper .select2-container--default .select2-selection--single:focus {
+    border-color: #1a3c5e;
+    box-shadow: 0 0 0 3px rgba(26, 60, 94, 0.1);
+    outline: none;
+}
+
+/* Ajustes para el desplegable de Select2 */
+.form-wrapper .select2-container--default .select2-dropdown {
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-family: 'Roboto', Arial, sans-serif;
+    font-size: 14px;
+    width: calc(100% - 40px) !important;
+    max-width: calc(100% - 40px) !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+    overflow: hidden;
+    position: absolute;
+    z-index: 1050;
+    background-color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.form-wrapper .select2-container--default .select2-results__options {
+    max-width: 100% !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: 150px;
+}
+
+.form-wrapper .select2-container--default .select2-results__option {
+    padding: 6px 10px;
+    white-space: normal;
+    overflow-wrap: break-word;
+    max-width: 100% !important;
+    box-sizing: border-box;
+    line-height: 1.4;
+    transition: background-color 0.2s ease;
+}
+
+.form-wrapper .select2-container--default .select2-results__option--highlighted {
+    background-color: #f1f5f9;
+    color: #1a3c5e;
+}
+
+/* Mensajes de error */
+.invalid-feedback {
+    color: #dc2626;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+/* Acciones del formulario */
+.form-actions {
+    margin-top: 15px;
+}
+
+/* Botones */
+.btn-danger {
+    background-color: #dc2626;
+    color: white;
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'Roboto', Arial, sans-serif;
+    transition: background-color 0.3s ease, transform 0.1s ease, box-shadow 0.3s ease;
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.2);
+}
+
+.btn-danger:hover {
+    background-color: #b91c1c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3);
+}
+
+.btn-secondary {
+    background-color: #6b7280;
+    color: white;
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'Roboto', Arial, sans-serif;
+    transition: background-color 0.3s ease, transform 0.1s ease, box-shadow 0.3s ease;
+    box-shadow: 0 2px 6px rgba(107, 114, 128, 0.2);
+}
+
+.btn-secondary:hover {
+    background-color: #4b5563;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(107, 114, 128, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+    .container {
+        padding: 0;
+    }
+    .form-wrapper {
+        padding: 15px;
+        width: 90%;
+        max-width: 90%;
     }
     h2 {
-        color: #1a3c5e;
-        font-size: 28px;
-        font-weight: 700;
-        margin-bottom: 20px;
-        text-align: center;
+        font-size: 18px;
+        margin-bottom: 10px;
     }
-    .form-group {
-        margin-bottom: 20px;
-        text-align: left;
+    .form-group label {
+        font-size: 13px;
+        margin-bottom: 4px;
     }
-    label {
-        display: block;
-        font-size: 14px;
-        font-weight: 500;
-        color: #2a4d73;
-        margin-bottom: 6px;
+    .form-wrapper .select2-container .select2-selection--single {
+        height: 36px;
     }
-    .form-control {
-        width: 100%;
-        padding: 12px;
-        border: 1px solid #d0d0d0;
-        border-radius: 6px;
-        box-sizing: border-box;
-        font-size: 14px;
-        font-family: 'Roboto', Arial, sans-serif;
-        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    .form-wrapper .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 36px;
+        padding-left: 8px;
+        padding-right: 25px;
     }
-    .form-control:focus {
-        border-color: #2a4d73;
-        box-shadow: 0 0 0 3px rgba(42, 77, 115, 0.1);
-        outline: none;
+    .form-wrapper .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+        right: 8px;
     }
-    .text-danger {
-        color: #d32f2f;
-        font-size: 14px;
-        margin-top: 5px;
+    .form-wrapper .select2-container--default .select2-dropdown {
+        width: calc(100% - 30px) !important;
+        max-width: calc(100% - 30px) !important;
     }
     .form-actions {
-        display: flex;
-        gap: 10px;
-        justify-content: center;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 10px;
     }
-    .btn-warning {
-        background-color: #f59e0b;
-        color: white;
-        padding: 12px 20px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 16px;
-        font-weight: 500;
-        font-family: 'Roboto', Arial, sans-serif;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: background-color 0.3s ease, transform 0.1s ease;
+    .btn-danger, .btn-secondary {
+        width: 100%;
+        padding: 8px;
+        font-size: 13px;
     }
-    .btn-warning:hover {
-        background-color: #d97706;
-        transform: translateY(-1px);
+    footer {
+        padding: 8px 0 !important;
     }
-    .btn-secondary {
-        background-color: #64748b;
-        color: white;
-        padding: 12px 20px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 16px;
-        font-weight: 500;
-        font-family: 'Roboto', Arial, sans-serif;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: background-color 0.3s ease, transform 0.1s ease;
+    footer p {
+        font-size: 12px !important;
     }
-    .btn-secondary:hover {
-        background-color: #475569;
-        transform: translateY(-1px);
-    }
-    @media (max-width: 768px) {
-        .login-container {
-            padding: 20px;
-            max-width: 90%;
-        }
-        h2 {
-            font-size: 24px;
-        }
-        .form-control {
-            padding: 10px;
-        }
-        .btn-warning, .btn-secondary {
-            padding: 10px 18px;
-            font-size: 15px;
-        }
-        .form-actions {
-            flex-direction: column;
-            gap: 8px;
-        }
-        .btn-warning, .btn-secondary {
-            width: 100%;
-        }
-    }
+}
 </style>
+
+<script>
+$(document).ready(function() {
+    $('#id_departamento').select2({
+        placeholder: "Seleccione un departamento",
+        allowClear: true,
+        width: '100%',
+        dropdownAutoWidth: false,
+        dropdownParent: $('.form-wrapper')
+    });
+});
+</script>
 {% endblock %}
