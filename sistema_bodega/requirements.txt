@@ -1,0 +1,4 @@
+Django==5.0.3
+pytz==2023.3
+openpyxl==3.1.2
+reportlab==4.1.0
