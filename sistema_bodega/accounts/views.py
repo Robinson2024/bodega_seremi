@@ -926,7 +926,14 @@ def editar_usuario(request, rut):
     if request.method == 'POST':
         form = CustomUserEditForm(request.POST, instance=usuario)
         if form.is_valid():
-            form.save()
+            # Guardar los datos del formulario
+            usuario = form.save()
+            # Verificar si se proporcionó una nueva contraseña
+            password = form.cleaned_data.get('password')
+            if password:  # Solo cambiamos la contraseña si se proporcionó una
+                usuario.set_password(password)
+                usuario.save()
+                messages.info(request, 'La contraseña ha sido actualizada.')
             messages.success(request, f'Usuario {usuario.rut} actualizado con éxito.')
             return redirect('listar-usuarios')
         messages.error(request, 'Error al actualizar el usuario. Verifica los datos.')

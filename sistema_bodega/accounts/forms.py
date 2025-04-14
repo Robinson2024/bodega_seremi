@@ -73,7 +73,7 @@ class CustomUserCreationForm(UserCreationForm):
         return user
 
 class CustomUserEditForm(UserChangeForm):
-    password = None  # No mostramos el campo de contraseña en el formulario de edición
+    # Eliminamos 'password = None' para permitir manejar contraseñas
     email = forms.EmailField(
         label='Email',
         required=False,
@@ -84,6 +84,19 @@ class CustomUserEditForm(UserChangeForm):
         label="Rol",
         help_text="Seleccione el rol del usuario (Administrador, Usuario de Bodega, Auditor).",
         widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_grupo'}),
+    )
+    # Nuevos campos para la contraseña
+    password = forms.CharField(
+        label="Nueva Contraseña",
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        required=False,
+        help_text="Deje en blanco si no desea cambiar la contraseña."
+    )
+    password_confirm = forms.CharField(
+        label="Confirmar Nueva Contraseña",
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        required=False,
+        help_text="Repita la nueva contraseña para confirmar."
     )
 
     class Meta:
@@ -109,6 +122,19 @@ class CustomUserEditForm(UserChangeForm):
         if CustomUser.objects.exclude(pk=current_user.pk).filter(rut=cleaned_rut).exists():
             raise forms.ValidationError("Este RUT ya está registrado por otro usuario.")
         return cleaned_rut
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get('password')
+        password_confirm = cleaned_data.get('password_confirm')
+
+        # Validar que las contraseñas coincidan si se proporciona una nueva contraseña
+        if password or password_confirm:
+            if password != password_confirm:
+                self.add_error('password_confirm', "Las contraseñas no coinciden.")
+            elif len(password) < 8:
+                self.add_error('password', "La contraseña debe tener al menos 8 caracteres.")
+        return cleaned_data
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

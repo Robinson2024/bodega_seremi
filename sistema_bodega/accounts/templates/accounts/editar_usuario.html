@@ -53,6 +53,32 @@
                     </div>
                 {% endif %}
             </div>
+            <!-- Nuevos campos de contraseña -->
+            <div class="col-md-6 mb-3">
+                <label for="id_password" class="form-label">Nueva Contraseña</label>
+                {{ form.password }}
+                <small class="form-text text-muted">{{ form.password.help_text }}</small>
+                {% if form.password.errors %}
+                    <div class="text-danger">
+                        {% for error in form.password.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="id_password_confirm" class="form-label">Confirmar Nueva Contraseña</label>
+                {{ form.password_confirm }}
+                <small class="form-text text-muted">{{ form.password_confirm.help_text }}</small>
+                {% if form.password_confirm.errors %}
+                    <div class="text-danger">
+                        {% for error in form.password_confirm.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            <!-- Fin de los nuevos campos -->
             <div class="col-md-6 mb-3">
                 <label for="id_grupo" class="form-label">Rol</label>
                 {{ form.grupo }}

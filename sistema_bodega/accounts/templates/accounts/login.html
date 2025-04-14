@@ -98,6 +98,18 @@
             box-shadow: 0 0 0 3px rgba(42, 77, 115, 0.1);
             outline: none;
         }
+        /* Estilo para los placeholders */
+        input::placeholder {
+            color: #8a9ab0;
+            font-style: italic;
+            font-weight: 400;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+            text-shadow: 0 0 1px rgba(0, 0, 0, 0.2); /* Efecto sombreado sutil */
+        }
+        input:focus::placeholder {
+            opacity: 0; /* El placeholder desaparece al hacer foco */
+        }
         button {
             background-color: #3b82f6;
             color: white;
@@ -174,11 +186,11 @@
                 {% csrf_token %}
                 <div class="form-group">
                     <label for="id_username">Usuario</label>
-                    <input type="text" name="username" id="id_username" required>
+                    <input type="text" name="username" id="id_username" placeholder="Ingrese su RUT sin puntos ni guion" required>
                 </div>
                 <div class="form-group">
                     <label for="id_password">Contraseña</label>
-                    <input type="password" name="password" id="id_password" required>
+                    <input type="password" name="password" id="id_password" placeholder="Ingrese su contraseña" required>
                 </div>
                 <button type="submit">Iniciar Sesión</button>
             </form>
