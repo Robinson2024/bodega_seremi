@@ -27,6 +27,11 @@ class SearchUserForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_rol'}),
     )
 
+    def clean_rol(self):
+        """Convierte el valor del campo rol en el nombre del grupo (str) o None si no se seleccionó."""
+        rol = self.cleaned_data.get('rol')
+        return rol.name if rol else None
+
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(
         label='Email',

@@ -872,19 +872,31 @@ def listar_usuarios(request):
     limpiar_sesion_productos_salida(request)
     
     usuarios = CustomUser.objects.all().order_by('rut')
+    form = SearchUserForm(request.GET or None)
+
     query_rut = request.GET.get('rut', '')
     query_nombre = request.GET.get('nombre', '')
     query_rol = request.GET.get('rol', '')
 
-    if query_rut:
-        usuarios = usuarios.filter(rut__icontains=query_rut)
-    if query_nombre:
-        usuarios = usuarios.filter(nombre__icontains=query_nombre)
-    if query_rol:
-        usuarios = usuarios.filter(groups__name=query_rol)
+    # Depuración: Verificar si el formulario es válido y qué contiene cleaned_data
+    print(f"Formulario válido: {form.is_valid()}")
+    if form.is_valid():
+        print(f"Datos limpiados: {form.cleaned_data}")
+        query_rut = form.cleaned_data['rut']
+        query_nombre = form.cleaned_data['nombre']
+        query_rol = form.cleaned_data['rol']  # Este valor debería ser el nombre del grupo (como "Administrador") o None
+
+        if query_rut:
+            usuarios = usuarios.filter(rut__icontains=query_rut)
+        if query_nombre:
+            usuarios = usuarios.filter(nombre__icontains=query_nombre)
+        if query_rol:  # query_rol será el nombre del grupo (como "Administrador") o None
+            print(f"Filtrando por rol: {query_rol}")
+            usuarios = usuarios.filter(groups__name=query_rol)
+    else:
+        print(f"Errores del formulario: {form.errors}")
 
     page_obj = paginar_resultados(request, usuarios)
-    form = SearchUserForm(request.GET or None)
 
     context = {
         'page_obj': page_obj,
