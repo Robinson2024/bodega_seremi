@@ -1,6 +1,6 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
 from django.contrib.auth.views import LoginView
 from django.contrib.auth import authenticate, login
@@ -17,9 +17,10 @@ from reportlab.lib.units import cm, inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
-from .forms import ProductoForm, TransaccionForm, ActaEntregaForm, DepartamentoForm, ModificarDepartamentoForm, EliminarDepartamentoForm
-from .models import Producto, Transaccion, ActaEntrega, Funcionario, Departamento, Responsable
+from .forms import ProductoForm, TransaccionForm, ActaEntregaForm, DepartamentoForm, ModificarDepartamentoForm, EliminarDepartamentoForm, CustomUserCreationForm, CustomUserEditForm, SearchUserForm
+from .models import Producto, Transaccion, ActaEntrega, Funcionario, Departamento, Responsable, CustomUser
 from django.utils.safestring import mark_safe
+import json
 
 # Funciones auxiliares
 def limpiar_sesion_productos_salida(request):
@@ -109,8 +110,10 @@ def generar_pdf_acta(actas, disposition='attachment'):
 
         # Asegurarse de que los textos estén codificados correctamente
         departamento_text = acta.departamento.encode('utf-8').decode('utf-8')
-        responsable_text = acta.responsable.encode('utf-8').decode('utf-8')
-        generador_text = acta.generador.encode('utf-8').decode('utf-8')
+        # Usar el nombre del responsable desde el modelo Responsable
+        responsable_text = acta.responsable.nombre.encode('utf-8').decode('utf-8') if acta.responsable else 'No especificado'
+        # Usar solo el nombre del generador (sin RUT)
+        generador_text = acta.generador.nombre.encode('utf-8').decode('utf-8') if acta.generador else 'No especificado'
         fecha_text = acta.fecha.strftime('%d-%m-%Y')
         print(f"Textos para el PDF - Departamento: {departamento_text}, Responsable: {responsable_text}, Generador: {generador_text}, Fecha: {fecha_text}")
 
@@ -215,6 +218,7 @@ def exportar_excel(request, datos, nombre_base, columnas, campos):
     response['Content-Disposition'] = f'attachment; filename="{encoded_filename}"'
     wb.save(response)
     return response
+
 # Vistas
 @login_required
 def home(request):
@@ -225,9 +229,9 @@ class CustomLoginView(LoginView):
     template_name = 'accounts/login.html'
 
     def post(self, request, *args, **kwargs):
-        username = request.POST.get('username')
+        rut = request.POST.get('username')  # Cambiamos 'username' a 'rut' en el formulario
         password = request.POST.get('password')
-        user = authenticate(request, username=username, password=password)
+        user = authenticate(request, rut=rut, password=password)  # Usamos 'rut' para autenticar
         if user is not None:
             login(request, user)
             return HttpResponseRedirect(self.get_success_url())
@@ -240,6 +244,9 @@ class CustomLoginView(LoginView):
 @login_required
 def registrar_producto(request):
     limpiar_sesion_productos_salida(request)
+    if not request.user.has_perm('accounts.can_edit'):
+        messages.error(request, 'No tienes permiso para registrar productos.')
+        return redirect('home')
     if request.method == 'POST':
         form = ProductoForm(request.POST)
         if form.is_valid():
@@ -297,6 +304,9 @@ def listar_productos(request):
 @login_required
 def agregar_stock(request):
     limpiar_sesion_productos_salida(request)
+    if not request.user.has_perm('accounts.can_edit'):
+        messages.error(request, 'No tienes permiso para agregar stock.')
+        return redirect('home')
     productos = Producto.objects.all().order_by('codigo_barra')
     query_codigo = request.GET.get('codigo_barra', '')
     query_descripcion = request.GET.get('descripcion', '')
@@ -316,6 +326,9 @@ def agregar_stock(request):
 @login_required
 def agregar_stock_detalle(request, codigo_barra):
     limpiar_sesion_productos_salida(request)
+    if not request.user.has_perm('accounts.can_edit'):
+        messages.error(request, 'No tienes permiso para agregar stock.')
+        return redirect('home')
     try:
         producto = Producto.objects.get(codigo_barra=codigo_barra)
     except Producto.DoesNotExist:
@@ -350,6 +363,9 @@ def agregar_stock_detalle(request, codigo_barra):
 
 @login_required
 def salida_productos(request):
+    if not request.user.has_perm('accounts.can_edit'):
+        messages.error(request, 'No tienes permiso para realizar salidas de productos.')
+        return redirect('home')
     productos_salida = request.session.get('productos_salida', [])
     productos = Producto.objects.all().order_by('codigo_barra')
     query_codigo = request.GET.get('codigo_barra', '')
@@ -441,6 +457,9 @@ def salida_productos(request):
 
 @login_required
 def salida_productos_seleccion(request):
+    if not request.user.has_perm('accounts.can_edit'):
+        messages.error(request, 'No tienes permiso para realizar salidas de productos.')
+        return redirect('home')
     productos_salida = request.session.get('productos_salida', [])
     if not productos_salida:
         messages.error(request, 'No hay productos seleccionados para la salida.')
@@ -451,6 +470,7 @@ def salida_productos_seleccion(request):
         print(f"Formulario recibido: {request.POST}")
         if form.is_valid():
             print("Formulario válido. Procesando la salida...")
+            print(f"Datos limpiados - Departamento: {form.cleaned_data['departamento']}, Responsable: {form.cleaned_data['responsable']}")
             try:
                 # Validar el stock disponible para cada producto calculando el saldo real
                 for item in productos_salida:
@@ -506,6 +526,9 @@ def salida_productos_seleccion(request):
                 numero_acta = 1 if not ultimo_acta else ultimo_acta.numero_acta + 1
                 print(f"Nuevo número de acta: {numero_acta}")
 
+                # Obtener el objeto Responsable del formulario
+                responsable = form.cleaned_data['responsable']
+
                 # Crear las actas y transacciones
                 for item in productos_salida:
                     print(f"Creando acta para el producto: {item}")
@@ -514,12 +537,12 @@ def salida_productos_seleccion(request):
                     acta = ActaEntrega(
                         numero_acta=numero_acta,
                         departamento=form.cleaned_data['departamento'],
-                        responsable=form.cleaned_data['responsable'],
-                        generador='Administrador' if request.user.username == 'admin' else 'Gersonns Matus',
+                        responsable=responsable,  # Asignamos el objeto Responsable
+                        generador=request.user,  # Asignamos el usuario autenticado
                         producto=producto,
                         cantidad=cantidad,
-                        numero_siscom=item['numero_siscom'] or '',
-                        observacion=item['observacion'] or '',
+                        numero_siscom=item['numero_siscom'],  # Tomamos el valor de productos_salida
+                        observacion=item['observacion'],  # Tomamos el valor de productos_salida
                     )
                     acta.save()
                     print(f"Acta creada: N°{acta.numero_acta}, Producto: {producto.descripcion}, Cantidad: {cantidad}")
@@ -543,8 +566,10 @@ def salida_productos_seleccion(request):
                 # Generar el PDF del acta
                 actas = ActaEntrega.objects.filter(numero_acta=numero_acta)
                 print(f"Actas para el PDF: {list(actas)}")
+
                 response = generar_pdf_acta(actas)
                 limpiar_sesion_productos_salida(request)
+                messages.success(request, f'Acta de entrega N°{numero_acta} generada correctamente.')
                 return response
 
             except Exception as e:
@@ -555,8 +580,8 @@ def salida_productos_seleccion(request):
             print("Formulario no válido.")
             for field, errors in form.errors.items():
                 for error in errors:
-                    messages.error(request, f"Error en {field}: {error}")
-            messages.error(request, 'Error al generar el acta. Verifica los datos.')
+                    messages.error(request, f"Error en el campo '{form.fields[field].label}': {error}")
+            messages.error(request, 'Error al generar el acta. Por favor, verifica los datos e intenta de nuevo.')
     else:
         form = ActaEntregaForm()
 
@@ -575,7 +600,7 @@ def listar_actas(request):
         except ValueError:
             messages.error(request, 'El número de acta debe ser un valor numérico.')
     if query_responsable:
-        actas = actas.filter(responsable__icontains=query_responsable)
+        actas = actas.filter(responsable__nombre__icontains=query_responsable)
 
     actas_dict = {acta.numero_acta: acta for acta in actas}
     actas_lista = sorted(actas_dict.values(), key=lambda x: x.numero_acta, reverse=True)
@@ -721,6 +746,9 @@ def bincard_historial(request, codigo_barra):
 @login_required
 def agregar_departamento(request):
     limpiar_sesion_productos_salida(request)
+    if not request.user.has_perm('accounts.can_manage_departments'):
+        messages.error(request, 'No tienes permiso para agregar departamentos.')
+        return redirect('home')
     if request.method == 'POST':
         form = DepartamentoForm(request.POST)
         if form.is_valid():
@@ -732,12 +760,12 @@ def agregar_departamento(request):
         form = DepartamentoForm()
     return render(request, 'accounts/agregar_departamento.html', {'form': form})
 
-from django.utils.safestring import mark_safe
-import json
-
 @login_required
 def modificar_departamento(request):
     limpiar_sesion_productos_salida(request)
+    if not request.user.has_perm('accounts.can_manage_departments'):
+        messages.error(request, 'No tienes permiso para modificar departamentos.')
+        return redirect('home')
     if request.method == 'POST':
         form = ModificarDepartamentoForm(request.POST)
         if form.is_valid():
@@ -800,6 +828,9 @@ def modificar_departamento(request):
 @login_required
 def eliminar_departamento(request):
     limpiar_sesion_productos_salida(request)
+    if not request.user.has_perm('accounts.can_manage_departments'):
+        messages.error(request, 'No tienes permiso para deshabilitar departamentos.')
+        return redirect('home')
     if request.method == 'POST':
         form = EliminarDepartamentoForm(request.POST)
         if form.is_valid():
@@ -826,7 +857,102 @@ def funcionarios_por_departamento(request):
     try:
         departamento_obj = Departamento.objects.get(nombre=departamento)
         responsables = departamento_obj.responsables.all()
-        responsables_list = [{'nombre': r.nombre} for r in responsables]
+        responsables_list = [{'id': r.id, 'nombre': r.nombre} for r in responsables]  # Incluimos el ID
+        print(f"Responsables encontrados para {departamento}: {responsables_list}")
         return JsonResponse({'funcionarios': responsables_list})
     except Departamento.DoesNotExist:
         return JsonResponse({'error': 'Departamento no encontrado'}, status=404)
+
+# Vistas para gestión de usuarios
+@login_required
+@permission_required('accounts.can_access_admin', raise_exception=True)
+@permission_required('accounts.can_manage_users', raise_exception=True)
+def listar_usuarios(request):
+    """Vista para listar usuarios con búsqueda y paginación"""
+    limpiar_sesion_productos_salida(request)
+    
+    usuarios = CustomUser.objects.all().order_by('rut')
+    query_rut = request.GET.get('rut', '')
+    query_nombre = request.GET.get('nombre', '')
+    query_rol = request.GET.get('rol', '')
+
+    if query_rut:
+        usuarios = usuarios.filter(rut__icontains=query_rut)
+    if query_nombre:
+        usuarios = usuarios.filter(nombre__icontains=query_nombre)
+    if query_rol:
+        usuarios = usuarios.filter(groups__name=query_rol)
+
+    page_obj = paginar_resultados(request, usuarios)
+    form = SearchUserForm(request.GET or None)
+
+    context = {
+        'page_obj': page_obj,
+        'form': form,
+        'query_rut': query_rut,
+        'query_nombre': query_nombre,
+        'query_rol': query_rol,
+    }
+    return render(request, 'accounts/listar_usuarios.html', context)
+
+@login_required
+@permission_required('accounts.can_access_admin', raise_exception=True)
+@permission_required('accounts.can_manage_users', raise_exception=True)
+def agregar_usuario(request):
+    """Vista para agregar un nuevo usuario"""
+    limpiar_sesion_productos_salida(request)
+    
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            usuario = form.save()
+            messages.success(request, f'Usuario {usuario.rut} creado con éxito.')
+            return redirect('listar-usuarios')
+        messages.error(request, 'Error al crear el usuario. Verifica los datos.')
+    else:
+        form = CustomUserCreationForm()
+    
+    return render(request, 'accounts/agregar_usuario.html', {'form': form})
+
+@login_required
+@permission_required('accounts.can_access_admin', raise_exception=True)
+@permission_required('accounts.can_manage_users', raise_exception=True)
+def editar_usuario(request, rut):
+    """Vista para editar un usuario existente"""
+    limpiar_sesion_productos_salida(request)
+    
+    usuario = get_object_or_404(CustomUser, rut=rut)
+    
+    if request.method == 'POST':
+        form = CustomUserEditForm(request.POST, instance=usuario)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Usuario {usuario.rut} actualizado con éxito.')
+            return redirect('listar-usuarios')
+        messages.error(request, 'Error al actualizar el usuario. Verifica los datos.')
+    else:
+        form = CustomUserEditForm(instance=usuario)
+    
+    return render(request, 'accounts/editar_usuario.html', {'form': form, 'usuario': usuario})
+
+@login_required
+@permission_required('accounts.can_access_admin', raise_exception=True)
+@permission_required('accounts.can_manage_users', raise_exception=True)
+def deshabilitar_usuario(request, rut):
+    """Vista para deshabilitar o habilitar un usuario"""
+    limpiar_sesion_productos_salida(request)
+    
+    usuario = get_object_or_404(CustomUser, rut=rut)
+    
+    if usuario == request.user:
+        messages.error(request, 'No puedes deshabilitar tu propia cuenta.')
+        return redirect('listar-usuarios')
+    
+    if request.method == 'POST':
+        usuario.is_active = not usuario.is_active
+        usuario.save()
+        estado = 'habilitado' if usuario.is_active else 'deshabilitado'
+        messages.success(request, f'Usuario {usuario.rut} {estado} con éxito.')
+        return redirect('listar-usuarios')
+    
+    return render(request, 'accounts/deshabilitar_usuario.html', {'usuario': usuario})

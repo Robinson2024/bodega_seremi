@@ -1,5 +1,72 @@
 from django.db import models
+from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 
+# Funciones para validar y normalizar RUT
+def clean_rut(rut):
+    """Normaliza el RUT eliminando puntos y guiones."""
+    return ''.join(filter(str.isalnum, str(rut)))
+
+def validate_rut(value):
+    """Valida el dígito verificador de un RUT chileno."""
+    cleaned_rut = clean_rut(value)
+    
+    # Permitir RUT no estándar para roles como Auditor
+    if not cleaned_rut.isdigit():
+        return  # No validar si no es un RUT numérico (como "Auditor2025")
+
+    if len(cleaned_rut) < 2:
+        raise ValidationError("El RUT debe tener al menos 2 caracteres.")
+
+    body, dv = cleaned_rut[:-1], cleaned_rut[-1].upper()
+    if not body.isdigit():
+        raise ValidationError("El cuerpo del RUT debe ser numérico.")
+
+    # Calcular el dígito verificador
+    total = 0
+    factor = 2
+    for digit in reversed(body):
+        total += int(digit) * factor
+        factor = factor + 1 if factor < 7 else 2
+    remainder = total % 11
+    expected_dv = 11 - remainder
+    expected_dv = 'K' if expected_dv == 10 else '0' if expected_dv == 11 else str(expected_dv)
+
+    if dv != expected_dv:
+        raise ValidationError("El dígito verificador del RUT es incorrecto.")
+
+# Modelo de usuario personalizado
+class CustomUser(AbstractUser):
+    rut = models.CharField(
+        max_length=12,
+        unique=True,
+        validators=[validate_rut],
+        help_text="Ingrese el RUT sin puntos ni guiones (ejemplo: 12345678K)",
+    )
+    nombre = models.CharField(max_length=100, verbose_name="Nombre completo")
+
+    def save(self, *args, **kwargs):
+        # Normalizar el RUT antes de guardar
+        self.rut = clean_rut(self.rut)
+        # Generar un username a partir del RUT si no se proporciona
+        if not self.username:
+            self.username = self.rut
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.nombre} ({self.rut})"
+
+    class Meta:
+        verbose_name = "Usuario"
+        verbose_name_plural = "Usuarios"
+        permissions = [
+            ("can_access_admin", "Puede acceder al panel de administración"),
+            ("can_manage_users", "Puede gestionar usuarios"),
+            ("can_manage_departments", "Puede gestionar departamentos"),
+            ("can_edit", "Puede editar registros"),
+        ]
+
+# Modelos existentes
 class Producto(models.Model):
     CATEGORIAS = [
         ('Insumos de Aseo', 'Insumos de Aseo'),
@@ -65,11 +132,23 @@ class Funcionario(models.Model):
 class ActaEntrega(models.Model):
     numero_acta = models.IntegerField()
     departamento = models.CharField(max_length=100)
-    responsable = models.CharField(max_length=100)
+    responsable = models.ForeignKey(
+        'Responsable',  # Usamos una string para referirnos al modelo Responsable
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='actas_responsable',
+        verbose_name="Responsable"
+    )
     fecha = models.DateTimeField(auto_now_add=True)
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     cantidad = models.IntegerField()
-    generador = models.CharField(max_length=100)
+    generador = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='actas_generadas',
+        verbose_name="Generador"
+    )
     numero_siscom = models.CharField(max_length=50, blank=True, null=True)
     observacion = models.TextField(blank=True, null=True)
 

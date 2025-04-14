@@ -297,16 +297,16 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(data => {
-            if (data.funcionarios) {
+            if (data.funcionarios && data.funcionarios.length > 0) {
                 responsableSelect.innerHTML = '<option value="">Seleccione un responsable</option>';
                 data.funcionarios.forEach(funcionario => {
                     const option = document.createElement('option');
-                    option.value = funcionario.nombre;
+                    option.value = funcionario.id; // Usamos el ID del Responsable
                     option.textContent = funcionario.nombre;
                     responsableSelect.appendChild(option);
                 });
             } else {
-                responsableSelect.innerHTML = '<option value="">Error al cargar responsables</option>';
+                responsableSelect.innerHTML = '<option value="">No hay responsables disponibles</option>';
             }
             hideLoading();
         })
@@ -320,11 +320,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Validación del formulario solo para el botón "Generar Acta"
     generateButton.addEventListener('click', function(event) {
+        // Validar el formulario con la validación nativa del navegador
         if (!form.checkValidity()) {
             event.preventDefault();
             event.stopPropagation();
             form.classList.add('was-validated');
             alert('Por favor, completa todos los campos requeridos.');
+            return;
+        }
+
+        // Validación adicional para el campo responsable
+        const responsableValue = responsableSelect.value;
+        if (!responsableValue || responsableValue === 'undefined') {
+            event.preventDefault();
+            event.stopPropagation();
+            alert('Por favor, selecciona un responsable válido.');
             return;
         }
 
@@ -358,8 +368,7 @@ document.addEventListener('DOMContentLoaded', function() {
             a.remove();
             window.URL.revokeObjectURL(url);
 
-            // Mostrar mensaje de éxito y redirigir
-            alert('Acta de entrega generada correctamente.');
+            // Mostrar mensaje
             setTimeout(() => {
                 window.location.href = "{% url 'home' %}";
             }, 1000); // Redirigir después de 1 segundo
@@ -374,6 +383,11 @@ document.addEventListener('DOMContentLoaded', function() {
     cancelButton.addEventListener('click', function(event) {
         // No se necesita prevenir el evento, ya que es un enlace (<a>)
     });
+
+    // Forzar la carga inicial de responsables si hay un departamento seleccionado
+    if (departamentoSelect.value) {
+        departamentoSelect.dispatchEvent(new Event('change'));
+    }
 });
 </script>
 {% endblock %}

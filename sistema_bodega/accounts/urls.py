@@ -21,4 +21,8 @@ urlpatterns = [
     path('agregar-departamento/', views.agregar_departamento, name='agregar-departamento'),
     path('modificar-departamento/', views.modificar_departamento, name='modificar-departamento'),
     path('eliminar-departamento/', views.eliminar_departamento, name='eliminar-departamento'),
+    path('listar-usuarios/', views.listar_usuarios, name='listar-usuarios'),
+    path('agregar-usuario/', views.agregar_usuario, name='agregar-usuario'),
+    path('editar-usuario/<str:rut>/', views.editar_usuario, name='editar-usuario'),
+    path('deshabilitar-usuario/<str:rut>/', views.deshabilitar_usuario, name='deshabilitar-usuario'),
 ]
