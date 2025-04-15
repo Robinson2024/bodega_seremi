@@ -590,11 +590,13 @@ def salida_productos_seleccion(request):
 
 @login_required
 def listar_actas(request):
+    """Vista para listar las actas de entrega."""
     limpiar_sesion_productos_salida(request)
     actas = ActaEntrega.objects.all().order_by('-numero_acta')
     query_numero_acta = request.GET.get('numero_acta', '')
     query_responsable = request.GET.get('responsable', '')
 
+    # Aplicar filtros
     if query_numero_acta:
         try:
             actas = actas.filter(numero_acta__startswith=int(query_numero_acta))
@@ -603,10 +605,14 @@ def listar_actas(request):
     if query_responsable:
         actas = actas.filter(responsable__nombre__icontains=query_responsable)
 
+    # Eliminar duplicados por número de acta y ordenar
     actas_dict = {acta.numero_acta: acta for acta in actas}
     actas_lista = sorted(actas_dict.values(), key=lambda x: x.numero_acta, reverse=True)
-    page_obj = paginar_resultados(request, actas_lista)
 
+    # Paginar las actas (20 por página)
+    page_obj = paginar_resultados(request, actas_lista, items_por_pagina=20)
+
+    # Renderizar la página completa
     return render(request, 'accounts/listar_actas.html', {
         'actas': page_obj,
         'query_numero_acta': query_numero_acta,
@@ -647,6 +653,7 @@ def buscar_codigos_barra(request):
     productos = Producto.objects.filter(codigo_barra__startswith=term).order_by('codigo_barra')[:10]
     codigos = [{'label': f"{p.codigo_barra} - {p.descripcion}", 'value': p.codigo_barra} for p in productos]
     return JsonResponse(codigos, safe=False)
+
 @login_required
 def bincard_historial(request, codigo_barra):
     limpiar_sesion_productos_salida(request)
@@ -963,19 +970,18 @@ def deshabilitar_usuario(request, rut):
     
     usuario = get_object_or_404(CustomUser, rut=rut)
     
-    if usuario == request.user:
-        messages.error(request, 'No puedes deshabilitar tu propia cuenta.')
-        return redirect('listar-usuarios')
-    
     if request.method == 'POST':
-        usuario.is_active = not usuario.is_active
-        usuario.save()
-        estado = 'habilitado' if usuario.is_active else 'deshabilitado'
-        messages.success(request, f'Usuario {usuario.rut} {estado} con éxito.')
+        if usuario.is_active:
+            usuario.is_active = False
+            usuario.save()
+            messages.success(request, f'Usuario {usuario.rut} deshabilitado con éxito.')
+        else:
+            usuario.is_active = True
+            usuario.save()
+            messages.success(request, f'Usuario {usuario.rut} habilitado con éxito.')
         return redirect('listar-usuarios')
     
     return render(request, 'accounts/deshabilitar_usuario.html', {'usuario': usuario})
-
 @login_required
 @permission_required('accounts.can_access_admin', raise_exception=True)
 def verify_password(request):
