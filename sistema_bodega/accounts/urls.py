@@ -25,4 +25,5 @@ urlpatterns = [
     path('agregar-usuario/', views.agregar_usuario, name='agregar-usuario'),
     path('editar-usuario/<str:rut>/', views.editar_usuario, name='editar-usuario'),
     path('deshabilitar-usuario/<str:rut>/', views.deshabilitar_usuario, name='deshabilitar-usuario'),
+    path('verify-password/', views.verify_password, name='verify_password'),
 ]

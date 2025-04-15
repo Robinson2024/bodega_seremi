@@ -21,6 +21,7 @@ from .forms import ProductoForm, TransaccionForm, ActaEntregaForm, DepartamentoF
 from .models import Producto, Transaccion, ActaEntrega, Funcionario, Departamento, Responsable, CustomUser
 from django.utils.safestring import mark_safe
 import json
+from django.http import JsonResponse
 
 # Funciones auxiliares
 def limpiar_sesion_productos_salida(request):
@@ -646,7 +647,6 @@ def buscar_codigos_barra(request):
     productos = Producto.objects.filter(codigo_barra__startswith=term).order_by('codigo_barra')[:10]
     codigos = [{'label': f"{p.codigo_barra} - {p.descripcion}", 'value': p.codigo_barra} for p in productos]
     return JsonResponse(codigos, safe=False)
-
 @login_required
 def bincard_historial(request, codigo_barra):
     limpiar_sesion_productos_salida(request)
@@ -975,3 +975,33 @@ def deshabilitar_usuario(request, rut):
         return redirect('listar-usuarios')
     
     return render(request, 'accounts/deshabilitar_usuario.html', {'usuario': usuario})
+
+@login_required
+@permission_required('accounts.can_access_admin', raise_exception=True)
+def verify_password(request):
+    """Vista para verificar la contraseña del administrador antes de acceder al panel de administración"""
+    # Verificar si el usuario tiene permisos para acceder al panel de admin
+    if not request.user.is_staff or not request.user.is_superuser:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'message': 'No tienes permisos suficientes para acceder al panel de administración.'}, status=403)
+        messages.error(request, 'No tienes permisos suficientes para acceder al panel de administración. Contacta a un administrador.')
+        return redirect('home')
+
+    if request.method == 'POST':
+        password = request.POST.get('password')
+        user = request.user
+
+        # Verificar si la contraseña proporcionada es correcta
+        if user.check_password(password):
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True})
+            messages.success(request, 'Contraseña verificada correctamente. Redirigiendo al panel de administración...')
+            return redirect('/admin/')
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'message': 'Contraseña incorrecta. Por favor, intenta de nuevo.'})
+            messages.error(request, 'Contraseña incorrecta. Por favor, intenta de nuevo.')
+            return render(request, 'accounts/verify_password.html')
+
+    # Si es un GET, renderizar el formulario de verificación
+    return render(request, 'accounts/verify_password.html')

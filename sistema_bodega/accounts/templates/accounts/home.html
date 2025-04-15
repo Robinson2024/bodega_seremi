@@ -81,6 +81,15 @@
             background-color: #e6f0fa;
             transform: translateY(-1px);
         }
+        /* Estilo para el botón de Panel de Administración */
+        .admin-access-btn {
+            background-color: #dc3545 !important;
+            color: white !important;
+        }
+        .admin-access-btn:hover {
+            background-color: #c82333 !important;
+            transform: translateY(-1px);
+        }
         main {
             flex: 1;
             padding: 30px 20px;
@@ -230,6 +239,67 @@
             background-color: #f1f5f9;
             color: #1a3c5e;
         }
+        /* Estilos para el modal */
+        .modal-content {
+            border-radius: 8px;
+            border: none;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        }
+        .modal-header {
+            background-color: #1a3c5e;
+            color: white;
+            border-bottom: none;
+            padding: 15px 20px;
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 500;
+        }
+        .modal-body {
+            padding: 20px;
+            font-size: 14px;
+            color: #374151;
+        }
+        .modal-footer {
+            border-top: none;
+            padding: 15px 20px;
+        }
+        .btn-cancel {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        .btn-cancel:hover {
+            background-color: #c82333;
+        }
+        .btn-submit {
+            background-color: #1a3c5e;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        .btn-submit:hover {
+            background-color: #153048;
+        }
+        .error-message {
+            color: #dc3545;
+            font-size: 13px;
+            margin-top: 5px;
+            display: none;
+        }
+        .success-message {
+            color: #28a745;
+            font-size: 13px;
+            margin-top: 5px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -290,9 +360,9 @@
                     <a href="{% url 'listar-usuarios' %}" onclick="showMessage('Gestión de Usuarios y Roles')"><i class="fas fa-users-cog"></i> Gestión de Usuarios y Roles</a>
                 {% endif %}
 
-                <!-- Botón "Acceso a la Base de Datos" (visible solo para Administrador) -->
+                <!-- Botón "Panel de Administración" (visible solo para Administrador) -->
                 {% if request.user.groups.all.0.name == "Administrador" %}
-                    <a href="{% url 'admin:index' %}" onclick="showMessage('Acceso a la Base de Datos')"><i class="fas fa-database"></i> Acceso a la Base de Datos</a>
+                    <a href="#" class="admin-access-btn" data-toggle="modal" data-target="#passwordModal" onclick="showMessage('Panel de Administración')"><i class="fas fa-database"></i> Panel de Administración</a>
                 {% endif %}
 
                 <!-- Botón "Cerrar Sesión" (visible para todos) -->
@@ -303,6 +373,36 @@
             </nav>
         </div>
     </header>
+
+    <!-- Modal para verificación de contraseña -->
+    <div class="modal fade" id="passwordModal" tabindex="-1" role="dialog" aria-labelledby="passwordModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="passwordModalLabel">Verificación de Administrador</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="passwordForm" action="{% url 'verify_password' %}" method="post">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="adminPassword">Ingrese su contraseña:</label>
+                            <input type="password" class="form-control" id="adminPassword" name="password" required>
+                            <div class="error-message" id="errorMessage"></div>
+                            <div class="success-message" id="successMessage"></div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" form="passwordForm" class="btn-submit">Verificar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <main>
         {% block content %}
             <h2>Bienvenido al Sistema de Bodega</h2>
@@ -341,6 +441,43 @@
                 messageDiv.style.display = 'none';
             }, 2000);
         }
+
+        // Manejo del formulario de verificación de contraseña con AJAX
+        $(document).ready(function() {
+            $('#passwordForm').on('submit', function(e) {
+                e.preventDefault();
+                const errorMessage = $('#errorMessage');
+                const successMessage = $('#successMessage');
+                errorMessage.hide();
+                successMessage.hide();
+
+                $.ajax({
+                    url: $(this).attr('action'),
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    success: function(response) {
+                        if (response.success) {
+                            successMessage.text('Contraseña verificada correctamente. Redirigiendo...').show();
+                            setTimeout(function() {
+                                window.location.href = '/admin/';
+                            }, 2000); // Redirige después de 2 segundos para mostrar el mensaje
+                        } else {
+                            errorMessage.text(response.message).show();
+                        }
+                    },
+                    error: function(xhr) {
+                        errorMessage.text('Error al verificar la contraseña. Intente de nuevo.').show();
+                    }
+                });
+            });
+
+            // Limpiar el formulario y los mensajes al cerrar el modal
+            $('#passwordModal').on('hidden.bs.modal', function() {
+                $('#adminPassword').val('');
+                $('#errorMessage').hide();
+                $('#successMessage').hide();
+            });
+        });
     </script>
 </body>
 </html>
