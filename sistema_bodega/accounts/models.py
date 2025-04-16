@@ -79,15 +79,31 @@ class Producto(models.Model):
 
     codigo_barra = models.CharField(max_length=50, unique=True)
     descripcion = models.CharField(max_length=200)
-    stock = models.IntegerField(default=0)
+    stock = models.IntegerField(default=0, db_index=True)  # Agregamos índice para mejorar rendimiento
     categoria = models.CharField(max_length=100, choices=CATEGORIAS, blank=True)
     rut_proveedor = models.CharField(max_length=12, blank=True)
     guia_despacho = models.CharField(max_length=50, blank=True)
     numero_factura = models.CharField(max_length=50, blank=True)
     orden_compra = models.CharField(max_length=50, blank=True)
 
+    def get_stock_category(self):
+        """Clasifica el stock del producto en Bajo, Medio, Alto o Sin Stock."""
+        if self.stock == 0:
+            return "Sin Stock"
+        elif 1 <= self.stock <= 10:
+            return "Bajo"
+        elif 11 <= self.stock <= 50:
+            return "Medio"
+        else:  # stock > 50
+            return "Alto"
+
     def __str__(self):
         return f"{self.descripcion} ({self.codigo_barra})"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['stock'], name='idx_producto_stock')
+        ]
 
 class Transaccion(models.Model):
     TIPO_CHOICES = [

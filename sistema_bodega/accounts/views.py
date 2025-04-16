@@ -223,8 +223,63 @@ def exportar_excel(request, datos, nombre_base, columnas, campos):
 # Vistas
 @login_required
 def home(request):
+    # Limpiar la sesión de productos de salida
     limpiar_sesion_productos_salida(request)
-    return render(request, 'accounts/home.html')
+
+    # Calcular métricas para el gráfico de dona
+    # Total de productos con stock mayor a 0
+    total_productos = Producto.objects.filter(stock__gt=0).count()
+    
+    if total_productos > 0:
+        # Productos con stock bajo (1-10)
+        stock_bajo = Producto.objects.filter(stock__gte=1, stock__lte=10).count()
+        # Productos con stock medio (11-50)
+        stock_medio = Producto.objects.filter(stock__gt=10, stock__lte=50).count()
+        # Productos con stock alto (>50)
+        stock_alto = Producto.objects.filter(stock__gt=50).count()
+
+        # Calcular porcentajes (evitando división por cero)
+        porcentaje_bajo = (stock_bajo / total_productos * 100) if total_productos > 0 else 0
+        porcentaje_medio = (stock_medio / total_productos * 100) if total_productos > 0 else 0
+        porcentaje_alto = (stock_alto / total_productos * 100) if total_productos > 0 else 0
+
+        # Redondear los porcentajes a 2 decimales
+        porcentaje_bajo = round(porcentaje_bajo, 2)
+        porcentaje_medio = round(porcentaje_medio, 2)
+        porcentaje_alto = round(porcentaje_alto, 2)
+
+        # Ajustar los porcentajes para que sumen exactamente 100%
+        suma_porcentajes = porcentaje_bajo + porcentaje_medio + porcentaje_alto
+        if suma_porcentajes != 100.0:
+            # Ajustar el porcentaje más grande para compensar el error de redondeo
+            if porcentaje_bajo >= porcentaje_medio and porcentaje_bajo >= porcentaje_alto:
+                porcentaje_bajo = porcentaje_bajo + (100.0 - suma_porcentajes)
+            elif porcentaje_medio >= porcentaje_bajo and porcentaje_medio >= porcentaje_alto:
+                porcentaje_medio = porcentaje_medio + (100.0 - suma_porcentajes)
+            else:
+                porcentaje_alto = porcentaje_alto + (100.0 - suma_porcentajes)
+    else:
+        stock_bajo = stock_medio = stock_alto = 0
+        porcentaje_bajo = porcentaje_medio = porcentaje_alto = 0
+
+    # Preparar los datos para el gráfico de dona en formato JSON
+    chart_data = {
+        'totalProductos': total_productos,
+        'porcentajes': [porcentaje_bajo, porcentaje_medio, porcentaje_alto]
+    }
+
+    # Preparar el contexto para la plantilla
+    context = {
+        'total_productos': total_productos,
+        'stock_bajo': stock_bajo,
+        'stock_medio': stock_medio,
+        'stock_alto': stock_alto,
+        'porcentaje_bajo': porcentaje_bajo,
+        'porcentaje_medio': porcentaje_medio,
+        'porcentaje_alto': porcentaje_alto,
+        'chart_data_json': mark_safe(json.dumps(chart_data))  # Usar mark_safe para asegurar que el JSON sea seguro para JavaScript
+    }
+    return render(request, 'accounts/home.html', context)
 
 class CustomLoginView(LoginView):
     template_name = 'accounts/login.html'
@@ -982,6 +1037,7 @@ def deshabilitar_usuario(request, rut):
         return redirect('listar-usuarios')
     
     return render(request, 'accounts/deshabilitar_usuario.html', {'usuario': usuario})
+
 @login_required
 @permission_required('accounts.can_access_admin', raise_exception=True)
 def verify_password(request):
