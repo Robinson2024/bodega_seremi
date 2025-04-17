@@ -2,100 +2,102 @@
 {% load static %}
 
 {% block content %}
-<div class="container">
-    <h2>Agregar Usuario</h2>
-    <p>Complete el formulario para registrar un nuevo usuario en el sistema.</p>
+<div class="container mt-4">
+    <div class="form-card shadow-sm mb-4">
+        <h2 class="text-center mb-3" style="color: #1a3c5e; font-weight: 600;">Agregar Usuario</h2>
+        <p class="text-center mb-4" style="color: #64748b;">Complete el formulario para registrar un nuevo usuario en el sistema.</p>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">×</span>
-                </button>
-            </div>
-        {% endfor %}
-    {% endif %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center mb-4" role="alert">
+                    {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+            {% endfor %}
+        {% endif %}
 
-    <form method="post" class="mb-4">
-        {% csrf_token %}
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <label for="id_rut" class="form-label">RUT</label>
-                {{ form.rut }}
-                {% if form.rut.errors %}
-                    <div class="text-danger">
-                        {% for error in form.rut.errors %}
-                            <small>{{ error }}</small>
-                        {% endfor %}
-                    </div>
-                {% endif %}
+        <form method="post" class="mb-4">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="id_rut" class="form-label">RUT</label>
+                    {{ form.rut }}
+                    {% if form.rut.errors %}
+                        <div class="text-danger">
+                            {% for error in form.rut.errors %}
+                                <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="id_nombre" class="form-label">Nombre</label>
+                    {{ form.nombre }}
+                    {% if form.nombre.errors %}
+                        <div class="text-danger">
+                            {% for error in form.nombre.errors %}
+                                <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="id_email" class="form-label">Email</label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                        <div class="text-danger">
+                            {% for error in form.email.errors %}
+                                <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="id_password1" class="form-label">Contraseña</label>
+                    {{ form.password1 }}
+                    {% if form.password1.errors %}
+                        <div class="text-danger">
+                            {% for error in form.password1.errors %}
+                                <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="id_password2" class="form-label">Confirmar Contraseña</label>
+                    {{ form.password2 }}
+                    {% if form.password2.errors %}
+                        <div class="text-danger">
+                            {% for error in form.password2.errors %}
+                                <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="id_grupo" class="form-label">Rol</label>
+                    {{ form.grupo }}
+                    {% if form.grupo.errors %}
+                        <div class="text-danger">
+                            {% for error in form.grupo.errors %}
+                                <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
             </div>
-            <div class="col-md-6 mb-3">
-                <label for="id_nombre" class="form-label">Nombre</label>
-                {{ form.nombre }}
-                {% if form.nombre.errors %}
-                    <div class="text-danger">
-                        {% for error in form.nombre.errors %}
-                            <small>{{ error }}</small>
-                        {% endfor %}
-                    </div>
-                {% endif %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <button type="submit" class="btn btn-primary-custom btn-block"><i class="fas fa-save"></i> Guardar</button>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <a href="{% url 'listar-usuarios' %}" class="btn btn-cancel-custom btn-block"><i class="fas fa-arrow-left"></i> Volver</a>
+                </div>
             </div>
-            <div class="col-md-6 mb-3">
-                <label for="id_email" class="form-label">Email</label>
-                {{ form.email }}
-                {% if form.email.errors %}
-                    <div class="text-danger">
-                        {% for error in form.email.errors %}
-                            <small>{{ error }}</small>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
-            <div class="col-md-6 mb-3">
-                <label for="id_password1" class="form-label">Contraseña</label>
-                {{ form.password1 }}
-                {% if form.password1.errors %}
-                    <div class="text-danger">
-                        {% for error in form.password1.errors %}
-                            <small>{{ error }}</small>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
-            <div class="col-md-6 mb-3">
-                <label for="id_password2" class="form-label">Confirmar Contraseña</label>
-                {{ form.password2 }}
-                {% if form.password2.errors %}
-                    <div class="text-danger">
-                        {% for error in form.password2.errors %}
-                            <small>{{ error }}</small>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
-            <div class="col-md-6 mb-3">
-                <label for="id_grupo" class="form-label">Rol</label>
-                {{ form.grupo }}
-                {% if form.grupo.errors %}
-                    <div class="text-danger">
-                        {% for error in form.grupo.errors %}
-                            <small>{{ error }}</small>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <button type="submit" class="btn btn-success btn-block"><i class="fas fa-save"></i> Guardar</button>
-            </div>
-            <div class="col-md-6 mb-3">
-                <a href="{% url 'listar-usuarios' %}" class="btn btn-secondary btn-block"><i class="fas fa-arrow-left"></i> Volver</a>
-            </div>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
 
 <script>
@@ -108,4 +110,212 @@
         });
     });
 </script>
+
+<style>
+    /* Estilo del contenedor tipo tarjeta */
+    .form-card {
+        background-color: #ffffff;
+        border-radius: 10px;
+        padding: 30px;
+        max-width: 100%;
+        margin: 0 auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Estilos para las etiquetas */
+    .form-label {
+        color: #1a3c5e;
+        font-weight: 500;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    /* Estilos para los campos del formulario */
+    .form-control,
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    select,
+    .select2-container--default .select2-selection--single {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 100% !important;
+        height: 40px !important; /* Altura estrictamente uniforme */
+        padding: 0.375rem 0.75rem !important; /* Padding uniforme */
+        font-size: 0.9rem !important;
+        line-height: 1.5 !important; /* Asegurar alineación vertical del texto */
+        color: #495057;
+        background-color: #fff;
+        border: 1px solid #ced4da;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+        margin: 0; /* Eliminar márgenes que puedan alterar el tamaño */
+        display: block; /* Asegurar que todos los campos se comporten igual */
+    }
+
+    /* Asegurar que los campos de contraseña no tengan estilos diferentes */
+    input[type="password"] {
+        height: 40px !important;
+        padding: 0.375rem 0.75rem !important;
+        font-size: 0.9rem !important;
+        line-height: 1.5 !important;
+    }
+
+    .form-control:focus,
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="password"]:focus,
+    select:focus,
+    .select2-container--default .select2-selection--single:focus {
+        border-color: #1d4ed8;
+        box-shadow: 0 0 0 0.2rem rgba(29, 78, 216, 0.25);
+        outline: none;
+    }
+
+    .form-control:hover,
+    input[type="text"]:hover,
+    input[type="email"]:hover,
+    input[type="password"]:hover,
+    select:hover,
+    .select2-container--default .select2-selection--single:hover {
+        border-color: #1d4ed8;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Ajustar el contenedor de Select2 para que coincida con los otros campos */
+    .select2-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 100% !important;
+    }
+
+    .select2-container--default .select2-selection--single {
+        height: 40px !important;
+        padding: 0 !important;
+        border: 1px solid #ced4da !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 40px !important; /* Alinear el texto verticalmente */
+        padding-left: 10px !important;
+        padding-right: 30px !important; /* Espacio para la flecha */
+        color: #374151;
+        height: 40px !important;
+        display: flex;
+        align-items: center;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 40px !important;
+        right: 10px !important;
+        top: 0 !important;
+        display: flex;
+        align-items: center;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__arrow b {
+        border-width: 5px 5px 0 5px !important;
+        margin-top: 0 !important;
+    }
+
+    /* Estilos para los mensajes de error */
+    .text-danger {
+        font-size: 0.8rem;
+        margin-top: 5px;
+        color: #dc3545;
+    }
+
+    /* Estilos para los mensajes de alerta */
+    .alert-success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+
+    .alert-error {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+
+    /* Estilos para los botones */
+    .btn-primary-custom {
+        background-color: #1d4ed8;
+        border-color: #1d4ed8;
+        padding: 10px 20px;
+        font-size: 0.9rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        color: white;
+    }
+
+    .btn-primary-custom:hover {
+        background-color: #1e40af;
+        border-color: #1e40af;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .btn-cancel-custom {
+        background-color: #f87171;
+        border-color: #f87171;
+        padding: 10px 20px;
+        font-size: 0.9rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-cancel-custom:hover {
+        background-color: #ef4444;
+        border-color: #ef4444;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+        color: white;
+    }
+
+    /* Ajustar el espaciado de los botones */
+    .btn-block {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px; /* Espacio entre el ícono y el texto */
+    }
+
+    /* Responsividad */
+    @media (max-width: 768px) {
+        .col-md-6 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+        .form-control,
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        select,
+        .select2-container--default .select2-selection--single {
+            font-size: 0.85rem !important;
+            height: 38px !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 38px !important;
+            height: 38px !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 38px !important;
+        }
+        .btn-primary-custom, .btn-cancel-custom {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+    }
+</style>
 {% endblock %}

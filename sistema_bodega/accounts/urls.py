@@ -43,8 +43,14 @@ urlpatterns = [
     path('deshabilitar-usuario/<str:rut>/', views.deshabilitar_usuario, name='deshabilitar-usuario'),  # Deshabilitar un usuario por RUT
 ]
 
-# Servir archivos estáticos en modo de desarrollo
-# Esto permite que Django sirva archivos estáticos (CSS, JS, imágenes) cuando DEBUG=True
-# Aunque django.contrib.staticfiles lo hace automáticamente, es buena práctica incluirlo explícitamente
+# Servir archivos estáticos en modo de desarrollo de forma más robusta
 if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATICFILES_DIRS[0])
+    # Verificamos que STATICFILES_DIRS no esté vacío para evitar errores
+    if settings.STATICFILES_DIRS:
+        urlpatterns += static(settings.STATIC_URL, document_root=settings.STATICFILES_DIRS[0])
+    else:
+        # Si STATICFILES_DIRS está vacío, podemos registrar un mensaje de advertencia
+        # (esto no detendrá la ejecución, pero es útil para depuración)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("STATICFILES_DIRS está vacío. Los archivos estáticos no se servirán desde settings.STATICFILES_DIRS.")

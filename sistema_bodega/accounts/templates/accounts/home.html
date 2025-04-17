@@ -100,10 +100,10 @@
             overflow: visible;
         }
         main .container {
-            max-width: 100% !important;
             width: 100%;
             padding: 0 15px;
             box-sizing: border-box;
+            /* Dejamos que Bootstrap maneje el max-width responsivo */
         }
         main h2 {
             color: #1a3c5e;
@@ -228,9 +228,7 @@
             border-radius: 6px;
             font-family: 'Roboto', Arial, sans-serif;
             font-size: 14px;
-            width: 100% !important;
-            min-width: 100%;
-            max-width: 100%;
+            /* Eliminamos las restricciones de ancho global para evitar conflictos */
         }
         .select2-results__option {
             padding: 8px 10px;

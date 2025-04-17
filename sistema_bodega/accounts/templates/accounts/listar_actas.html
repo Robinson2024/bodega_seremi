@@ -54,7 +54,7 @@
                                     <th>N° Documento</th>
                                     <th>Fecha Entrega</th>
                                     <th>Entregado a</th>
-                                    <th>Acta de Entrega</th>
+                                    <th class="action-column">Acta de Entrega</th>
                                 </tr>
                             </thead>
                             <tbody id="actas-table-body">
@@ -63,8 +63,8 @@
                                         <td>{{ acta.numero_acta }}</td>
                                         <td>{{ acta.fecha|date:"d/m/Y H:i" }}</td>
                                         <td>{{ acta.responsable }}</td>
-                                        <td>
-                                            <a href="{% url 'ver-acta-pdf' acta.numero_acta 'inline' %}" class="btn btn-preview-custom btn-sm mr-2" target="_blank">Previsualizar</a>
+                                        <td class="action-buttons">
+                                            <a href="{% url 'ver-acta-pdf' acta.numero_acta 'inline' %}" class="btn btn-preview-custom btn-sm" target="_blank">Previsualizar</a>
                                             <a href="{% url 'ver-acta-pdf' acta.numero_acta 'attachment' %}" class="btn btn-download-custom btn-sm">Descargar</a>
                                         </td>
                                     </tr>
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
         font-size: 0.9rem;
     }
 
-    /* Estilos para los botones */
+    /* Estilos para los botones del formulario (Filtrar y Limpiar Filtros) */
     .btn-primary-custom {
         background-color: #1d4ed8;
         border-color: #1d4ed8;
@@ -304,16 +304,37 @@ document.addEventListener('DOMContentLoaded', function() {
         color: white;
     }
 
-    .btn-preview-custom {
-        background-color: #1d4ed8;
-        border-color: #1d4ed8;
-        padding: 6px 12px;
+    /* Estilos para la columna de acciones */
+    .action-column {
+        min-width: 250px; /* Asegurar suficiente espacio para los botones */
+    }
+
+    /* Estilos para los botones de la tabla (Previsualizar y Descargar) */
+    .action-buttons {
+        display: flex;
+        flex-direction: row; /* Forzar disposición horizontal */
+        flex-wrap: nowrap; /* Evitar que los botones se apilen */
+        gap: 8px; /* Espacio entre los botones */
+        justify-content: center;
+        align-items: center;
+    }
+
+    .btn-preview-custom, .btn-download-custom {
+        padding: 6px 12px; /* Reducir padding para que quepan mejor */
         font-size: 0.85rem;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         transition: all 0.3s ease;
         color: white;
         text-decoration: none;
+        min-width: 100px; /* Reducir el ancho mínimo para que quepan en la celda */
+        text-align: center;
+        display: inline-block; /* Asegurar que se comporte como un elemento en línea */
+    }
+
+    .btn-preview-custom {
+        background-color: #1d4ed8;
+        border-color: #1d4ed8;
     }
 
     .btn-preview-custom:hover {
@@ -321,19 +342,11 @@ document.addEventListener('DOMContentLoaded', function() {
         border-color: #1e40af;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         transform: translateY(-2px);
-        color: white;
     }
 
     .btn-download-custom {
         background-color: #f59e0b;
         border-color: #f59e0b;
-        padding: 6px 12px;
-        font-size: 0.85rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-        color: white;
-        text-decoration: none;
     }
 
     .btn-download-custom:hover {
@@ -341,7 +354,6 @@ document.addEventListener('DOMContentLoaded', function() {
         border-color: #d97706;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         transform: translateY(-2px);
-        color: white;
     }
 
     /* Estilos para la tabla */
@@ -423,15 +435,43 @@ document.addEventListener('DOMContentLoaded', function() {
             flex: 0 0 100%;
             max-width: 100%;
         }
-        .btn-primary-custom, .btn-cancel-custom, .btn-preview-custom, .btn-download-custom {
+        .btn-primary-custom, .btn-cancel-custom {
             width: 100%;
             margin-bottom: 10px;
+        }
+        .action-column {
+            min-width: 200px; /* Reducir el ancho mínimo en pantallas más pequeñas */
+        }
+        .action-buttons {
+            flex-direction: row; /* Mantener en línea */
+            gap: 6px;
+        }
+        .btn-preview-custom, .btn-download-custom {
+            min-width: 90px; /* Reducir aún más el ancho mínimo */
+            padding: 5px 10px;
+            font-size: 0.8rem;
         }
         .pagination {
             flex-wrap: wrap;
         }
         .pagination .page-item {
             margin-bottom: 5px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .action-column {
+            min-width: 100%; /* Ocupar todo el ancho disponible */
+        }
+        .action-buttons {
+            flex-direction: column; /* Apilar los botones en pantallas muy pequeñas */
+            gap: 8px;
+        }
+        .btn-preview-custom, .btn-download-custom {
+            width: 100%; /* Ocupar todo el ancho disponible */
+            min-width: unset;
+            padding: 6px 12px;
+            font-size: 0.85rem;
         }
     }
 </style>

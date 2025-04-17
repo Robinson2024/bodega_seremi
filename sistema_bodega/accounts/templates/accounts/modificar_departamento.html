@@ -286,19 +286,30 @@ h2 {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar Select2
-    try {
-        console.log("Inicializando Select2 en #id_departamento");
+    // Depuración: Imprimir el HTML del select para verificar las opciones
+    const selectElement = document.getElementById('id_departamento');
+    console.log("HTML del select #id_departamento:", selectElement.outerHTML);
+    const options = Array.from(selectElement.options).map(opt => ({ id: opt.value, text: opt.text }));
+    console.log("Opciones disponibles en el select:", selectElement.options.length, options);
+
+    // Retrasar la inicialización de Select2 para asegurar que el DOM esté completamente cargado
+    setTimeout(function() {
+        console.log("Inicializando Select2 en #id_departamento con retraso");
         $('#id_departamento').select2({
+            data: options, // Pasamos las opciones manualmente
             placeholder: "Seleccione un departamento",
-            allowClear: true,
             width: '100%',
             dropdownAutoWidth: false,
             dropdownParent: $('.form-wrapper') // Anclamos el desplegable al contenedor .form-wrapper
         });
-    } catch (error) {
-        console.error("Error al inicializar Select2:", error);
-    }
+
+        // Depuración: Verificar las opciones después de inicializar Select2
+        const select2Data = $('#id_departamento').select2('data');
+        console.log("Datos detectados por Select2 después de inicialización:", select2Data);
+
+        // Forzar una actualización de Select2
+        $('#id_departamento').trigger('change.select2');
+    }, 1000); // Retraso de 1 segundo
 
     // Datos de los responsables por departamento (pasados desde la vista)
     let responsablesPorDepartamento;
