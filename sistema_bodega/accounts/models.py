@@ -2,53 +2,49 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 
-# Funciones para validar y normalizar RUT
+# Funciones para RUT
 def clean_rut(rut):
-    """Normaliza el RUT eliminando puntos y guiones."""
+    """Elimina puntos y guiones del RUT."""
     return ''.join(filter(str.isalnum, str(rut)))
 
 def validate_rut(value):
     """Valida el dígito verificador de un RUT chileno."""
     cleaned_rut = clean_rut(value)
     
-    # Permitir RUT no estándar para roles como Auditor
     if not cleaned_rut.isdigit():
-        return  # No validar si no es un RUT numérico (como "Auditor2025")
+        return  # Ignora validación para RUT no numérico (ej. Auditor2025)
 
     if len(cleaned_rut) < 2:
-        raise ValidationError("El RUT debe tener al menos 2 caracteres.")
+        raise ValidationError("RUT debe tener al menos 2 caracteres.")
 
     body, dv = cleaned_rut[:-1], cleaned_rut[-1].upper()
     if not body.isdigit():
-        raise ValidationError("El cuerpo del RUT debe ser numérico.")
+        raise ValidationError("Cuerpo del RUT debe ser numérico.")
 
-    # Calcular el dígito verificador
     total = 0
     factor = 2
     for digit in reversed(body):
         total += int(digit) * factor
         factor = factor + 1 if factor < 7 else 2
-    remainder = total % 11
-    expected_dv = 11 - remainder
+    expected_dv = 11 - (total % 11)
     expected_dv = 'K' if expected_dv == 10 else '0' if expected_dv == 11 else str(expected_dv)
 
     if dv != expected_dv:
-        raise ValidationError("El dígito verificador del RUT es incorrecto.")
+        raise ValidationError("Dígito verificador incorrecto.")
 
 # Modelo de usuario personalizado
 class CustomUser(AbstractUser):
     rut = models.CharField(
-        max_length=12,
-        unique=True,
-        validators=[validate_rut],
-        help_text="Ingrese el RUT sin puntos ni guiones (ejemplo: 12345678K)",
+        max_length=12, 
+        unique=True, 
+        validators=[validate_rut], 
+        help_text="RUT sin puntos ni guiones (ej. 12345678K)"
     )
     nombre = models.CharField(max_length=100, verbose_name="Nombre completo")
 
     def save(self, *args, **kwargs):
-        # Normalizar el RUT antes de guardar
+        """Normaliza RUT y asigna username si no existe."""
         self.rut = clean_rut(self.rut)
-        # Generar un username a partir del RUT si no se proporciona
         if not self.username:
             self.username = self.rut
         super().save(*args, **kwargs)
@@ -60,13 +56,13 @@ class CustomUser(AbstractUser):
         verbose_name = "Usuario"
         verbose_name_plural = "Usuarios"
         permissions = [
-            ("can_access_admin", "Puede acceder al panel de administración"),
-            ("can_manage_users", "Puede gestionar usuarios"),
-            ("can_manage_departments", "Puede gestionar departamentos"),
-            ("can_edit", "Puede editar registros"),
+            ("can_access_admin", "Acceso al panel de administración"),
+            ("can_manage_users", "Gestión de usuarios"),
+            ("can_manage_departments", "Gestión de departamentos"),
+            ("can_edit", "Edición de registros"),
         ]
 
-# Modelos existentes
+# Modelos de inventario
 class Producto(models.Model):
     CATEGORIAS = [
         ('Insumos de Aseo', 'Insumos de Aseo'),
@@ -79,7 +75,7 @@ class Producto(models.Model):
 
     codigo_barra = models.CharField(max_length=50, unique=True)
     descripcion = models.CharField(max_length=200)
-    stock = models.IntegerField(default=0, db_index=True)  # Agregamos índice para mejorar rendimiento
+    stock = models.IntegerField(default=0, db_index=True)
     categoria = models.CharField(max_length=100, choices=CATEGORIAS, blank=True)
     rut_proveedor = models.CharField(max_length=12, blank=True)
     guia_despacho = models.CharField(max_length=50, blank=True)
@@ -87,29 +83,23 @@ class Producto(models.Model):
     orden_compra = models.CharField(max_length=50, blank=True)
 
     def get_stock_category(self):
-        """Clasifica el stock del producto en Bajo, Medio, Alto o Sin Stock."""
+        """Clasifica stock: Sin Stock, Bajo, Medio, Alto."""
         if self.stock == 0:
             return "Sin Stock"
         elif 1 <= self.stock <= 10:
             return "Bajo"
         elif 11 <= self.stock <= 50:
             return "Medio"
-        else:  # stock > 50
-            return "Alto"
+        return "Alto"
 
     def __str__(self):
         return f"{self.descripcion} ({self.codigo_barra})"
 
     class Meta:
-        indexes = [
-            models.Index(fields=['stock'], name='idx_producto_stock')
-        ]
+        indexes = [models.Index(fields=['stock'], name='idx_producto_stock')]
 
 class Transaccion(models.Model):
-    TIPO_CHOICES = [
-        ('entrada', 'Entrada'),
-        ('salida', 'Salida'),
-    ]
+    TIPO_CHOICES = [('entrada', 'Entrada'), ('salida', 'Salida')]
 
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
@@ -149,20 +139,20 @@ class ActaEntrega(models.Model):
     numero_acta = models.IntegerField()
     departamento = models.CharField(max_length=100)
     responsable = models.ForeignKey(
-        'Responsable',  # Usamos una string para referirnos al modelo Responsable
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='actas_responsable',
+        'Responsable', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='actas_responsable', 
         verbose_name="Responsable"
     )
     fecha = models.DateTimeField(auto_now_add=True)
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     cantidad = models.IntegerField()
     generador = models.ForeignKey(
-        CustomUser,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='actas_generadas',
+        CustomUser, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='actas_generadas', 
         verbose_name="Generador"
     )
     numero_siscom = models.CharField(max_length=50, blank=True, null=True)

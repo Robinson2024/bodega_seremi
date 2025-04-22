@@ -1,27 +1,51 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required, permission_required
-from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
-from django.contrib.auth.views import LoginView
-from django.contrib.auth import authenticate, login
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+# Módulos de la biblioteca estándar de Python
 from datetime import datetime
+import json
 import os
 import urllib.parse
+
+# Módulos de bibliotecas de terceros
 import openpyxl
 import pytz
-from django.utils.text import slugify
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import cm, inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
-from .forms import ProductoForm, TransaccionForm, ActaEntregaForm, DepartamentoForm, ModificarDepartamentoForm, EliminarDepartamentoForm, CustomUserCreationForm, CustomUserEditForm, SearchUserForm
-from .models import Producto, Transaccion, ActaEntrega, Funcionario, Departamento, Responsable, CustomUser
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm, inch
+from reportlab.pdfgen import canvas
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+
+# Módulos de Django
+from django.contrib import messages
+from django.contrib.auth import authenticate, login
+from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.views import LoginView
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.safestring import mark_safe
-import json
-from django.http import JsonResponse
+from django.utils.text import slugify
+
+# Módulos locales del proyecto
+from .forms import (
+    ActaEntregaForm,
+    CustomUserCreationForm,
+    CustomUserEditForm,
+    DepartamentoForm,
+    EliminarDepartamentoForm,
+    ModificarDepartamentoForm,
+    ProductoForm,
+    SearchUserForm,
+    TransaccionForm,
+)
+from .models import (
+    ActaEntrega,
+    CustomUser,
+    Departamento,
+    Funcionario,
+    Producto,
+    Responsable,
+    Transaccion,
+)
 
 # Funciones auxiliares
 def limpiar_sesion_productos_salida(request):
@@ -940,23 +964,30 @@ def listar_usuarios(request):
     query_nombre = request.GET.get('nombre', '')
     query_rol = request.GET.get('rol', '')
 
-    # Depuración: Verificar si el formulario es válido y qué contiene cleaned_data
-    print(f"Formulario válido: {form.is_valid()}")
-    if form.is_valid():
-        print(f"Datos limpiados: {form.cleaned_data}")
-        query_rut = form.cleaned_data['rut']
-        query_nombre = form.cleaned_data['nombre']
-        query_rol = form.cleaned_data['rol']  # Este valor debería ser el nombre del grupo (como "Administrador") o None
+    # Solo validar el formulario si se enviaron datos (request.GET no vacío)
+    if request.GET:
+        if form.is_valid():
+            print(f"Formulario válido: True")
+            print(f"Datos limpiados: {form.cleaned_data}")
+            query_rut = form.cleaned_data['rut']
+            query_nombre = form.cleaned_data['nombre']
+            query_rol = form.cleaned_data['rol']  # Este valor será el nombre del grupo o None
 
-        if query_rut:
-            usuarios = usuarios.filter(rut__icontains=query_rut)
-        if query_nombre:
-            usuarios = usuarios.filter(nombre__icontains=query_nombre)
-        if query_rol:  # query_rol será el nombre del grupo (como "Administrador") o None
-            print(f"Filtrando por rol: {query_rol}")
-            usuarios = usuarios.filter(groups__name=query_rol)
+            if query_rut:
+                usuarios = usuarios.filter(rut__icontains=query_rut)
+            if query_nombre:
+                usuarios = usuarios.filter(nombre__icontains=query_nombre)
+            if query_rol:  # query_rol será el nombre del grupo (como "Administrador") o None
+                print(f"Filtrando por rol: {query_rol}")
+                usuarios = usuarios.filter(groups__name=query_rol)
+        else:
+            print(f"Formulario válido: False")
+            print(f"Errores del formulario: {form.errors.as_json()}")  # Mostrar errores en formato JSON para mejor depuración
     else:
-        print(f"Errores del formulario: {form.errors}")
+        # Si no se enviaron datos, no filtramos
+        query_rut = ''
+        query_nombre = ''
+        query_rol = ''
 
     page_obj = paginar_resultados(request, usuarios)
 

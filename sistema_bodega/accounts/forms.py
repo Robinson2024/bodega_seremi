@@ -28,16 +28,26 @@ class SearchUserForm(forms.Form):
     )
 
     def clean_rol(self):
-        """Convierte el valor del campo rol en el nombre del grupo (str) o None si no se seleccionó."""
+        """Valida que el rol sea un grupo existente y devuelve su nombre o None."""
         rol = self.cleaned_data.get('rol')
-        return rol.name if rol else None
+        if rol:  # Si se seleccionó un rol, devolvemos su nombre
+            return rol.name
+        return None  # Si no se seleccionó un rol, devolvemos None
+
+    def clean(self):
+        """Valida que los datos del formulario sean consistentes."""
+        cleaned_data = super().clean()
+        # No necesitamos validaciones adicionales aquí, pero lo dejamos como buena práctica
+        return cleaned_data
 
 class CustomUserCreationForm(UserCreationForm):
+    # Campo para el correo electrónico del usuario
     email = forms.EmailField(
         label='Email',
         required=False,
         widget=forms.EmailInput(attrs={'class': 'form-control'}),
     )
+    # Campo para asignar un rol al usuario
     grupo = forms.ModelChoiceField(
         queryset=Group.objects.all(),
         label="Rol",
@@ -60,6 +70,7 @@ class CustomUserCreationForm(UserCreationForm):
         }
 
     def clean_rut(self):
+        """Valida que el RUT sea único y cumpla con el formato correcto."""
         rut = self.cleaned_data.get('rut')
         cleaned_rut = clean_rut(rut)
         validate_rut(cleaned_rut)
@@ -68,6 +79,7 @@ class CustomUserCreationForm(UserCreationForm):
         return cleaned_rut
 
     def save(self, commit=True):
+        """Guarda el usuario y asigna el grupo seleccionado."""
         user = super().save(commit=False)
         if commit:
             user.save()
@@ -78,25 +90,27 @@ class CustomUserCreationForm(UserCreationForm):
         return user
 
 class CustomUserEditForm(UserChangeForm):
-    # Eliminamos 'password = None' para permitir manejar contraseñas
+    # Campo para el correo electrónico del usuario
     email = forms.EmailField(
         label='Email',
         required=False,
         widget=forms.EmailInput(attrs={'class': 'form-control'}),
     )
+    # Campo para actualizar el rol del usuario
     grupo = forms.ModelChoiceField(
         queryset=Group.objects.all(),
         label="Rol",
         help_text="Seleccione el rol del usuario (Administrador, Usuario de Bodega, Auditor).",
         widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_grupo'}),
     )
-    # Nuevos campos para la contraseña
+    # Campo para establecer una nueva contraseña
     password = forms.CharField(
         label="Nueva Contraseña",
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
         required=False,
         help_text="Deje en blanco si no desea cambiar la contraseña."
     )
+    # Campo para confirmar la nueva contraseña
     password_confirm = forms.CharField(
         label="Confirmar Nueva Contraseña",
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
@@ -119,6 +133,7 @@ class CustomUserEditForm(UserChangeForm):
         }
 
     def clean_rut(self):
+        """Valida que el RUT sea único (excluyendo el usuario actual) y cumpla con el formato correcto."""
         rut = self.cleaned_data.get('rut')
         cleaned_rut = clean_rut(rut)
         validate_rut(cleaned_rut)
@@ -129,6 +144,7 @@ class CustomUserEditForm(UserChangeForm):
         return cleaned_rut
 
     def clean(self):
+        """Valida que las contraseñas coincidan y cumplan con los requisitos."""
         cleaned_data = super().clean()
         password = cleaned_data.get('password')
         password_confirm = cleaned_data.get('password_confirm')
@@ -150,6 +166,7 @@ class CustomUserEditForm(UserChangeForm):
                 self.fields['grupo'].initial = groups.first()
 
     def save(self, commit=True):
+        """Guarda los cambios del usuario y actualiza su grupo."""
         user = super().save(commit=False)
         if commit:
             user.save()
@@ -163,6 +180,7 @@ class CustomUserEditForm(UserChangeForm):
 
 # Formularios existentes
 def calcularDigitoVerificador(rut):
+    """Calcula el dígito verificador de un RUT dado."""
     cuerpo = rut
     suma = 0
     multiplo = 2
@@ -178,6 +196,7 @@ def calcularDigitoVerificador(rut):
     return str(dv)
 
 class ProductoForm(forms.ModelForm):
+    # Campo para el código de barra del producto
     codigo_barra = forms.CharField(
         max_length=50,
         validators=[
@@ -190,12 +209,14 @@ class ProductoForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para la descripción del producto
     descripcion = forms.CharField(
         max_length=200,
         label='Descripción',
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para el stock del producto
     stock = forms.IntegerField(
         validators=[
             MinValueValidator(0, message='El stock no puede ser negativo.')
@@ -204,6 +225,7 @@ class ProductoForm(forms.ModelForm):
         widget=forms.NumberInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para la guía de despacho
     guia_despacho = forms.CharField(
         max_length=50,
         validators=[
@@ -217,6 +239,7 @@ class ProductoForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para el número de factura
     numero_factura = forms.CharField(
         max_length=50,
         required=False,
@@ -230,6 +253,7 @@ class ProductoForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para la orden de compra
     orden_compra = forms.CharField(
         max_length=50,
         validators=[
@@ -243,6 +267,7 @@ class ProductoForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para el RUT del proveedor
     rut_proveedor = forms.CharField(
         max_length=12,
         label='Rut del Proveedor',
@@ -250,6 +275,7 @@ class ProductoForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para la categoría del producto
     categoria = forms.ChoiceField(
         choices=[('', 'Seleccione una categoría')] + Producto.CATEGORIAS,
         label='Categoría',
@@ -262,12 +288,14 @@ class ProductoForm(forms.ModelForm):
         fields = ['codigo_barra', 'descripcion', 'stock', 'categoria', 'rut_proveedor', 'guia_despacho', 'numero_factura', 'orden_compra']
 
     def clean_categoria(self):
+        """Valida que se haya seleccionado una categoría."""
         categoria = self.cleaned_data.get('categoria')
         if not categoria:
             raise ValidationError('Debe seleccionar una categoría.')
         return categoria
 
 class TransaccionForm(forms.ModelForm):
+    # Campo para la cantidad de productos en la transacción
     cantidad = forms.IntegerField(
         validators=[
             MinValueValidator(1, message='La cantidad debe ser un número positivo.')
@@ -276,6 +304,7 @@ class TransaccionForm(forms.ModelForm):
         widget=forms.NumberInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para el RUT del proveedor
     rut_proveedor = forms.CharField(
         max_length=12,
         label='RUT del Proveedor',
@@ -283,6 +312,7 @@ class TransaccionForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para la guía de despacho
     guia_despacho = forms.CharField(
         max_length=50,
         required=False,
@@ -296,6 +326,7 @@ class TransaccionForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para el número de factura
     numero_factura = forms.CharField(
         max_length=50,
         required=False,
@@ -309,6 +340,7 @@ class TransaccionForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para la orden de compra
     orden_compra = forms.CharField(
         max_length=50,
         required=False,
@@ -322,6 +354,7 @@ class TransaccionForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para observaciones adicionales
     observacion = forms.CharField(
         widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         required=False,
@@ -333,6 +366,7 @@ class TransaccionForm(forms.ModelForm):
         fields = ['cantidad', 'rut_proveedor', 'guia_despacho', 'numero_factura', 'orden_compra', 'observacion']
 
     def clean_rut_proveedor(self):
+        """Valida el formato y el dígito verificador del RUT del proveedor."""
         rut = self.cleaned_data.get('rut_proveedor')
         if not rut:
             return rut
@@ -357,12 +391,14 @@ class TransaccionForm(forms.ModelForm):
         return rut
 
 class ActaEntregaForm(forms.ModelForm):
+    # Campo para seleccionar el departamento
     departamento = forms.ChoiceField(
         choices=[],
         label='Departamento',
         widget=forms.Select(attrs={'class': 'form-control'})
     )
 
+    # Campo para seleccionar el responsable
     responsable = forms.ModelChoiceField(
         queryset=Responsable.objects.all(),
         label='Responsable',
@@ -396,6 +432,7 @@ class ActaEntregaForm(forms.ModelForm):
             self.fields['responsable'].queryset = Responsable.objects.none()
 
     def clean(self):
+        """Valida que el departamento y el responsable sean válidos y estén relacionados."""
         cleaned_data = super().clean()
         departamento = cleaned_data.get('departamento')
         responsable = cleaned_data.get('responsable')
@@ -420,12 +457,14 @@ class ActaEntregaForm(forms.ModelForm):
         return cleaned_data
 
 class DepartamentoForm(forms.ModelForm):
+    # Campo para el nombre del departamento
     nombre = forms.CharField(
         max_length=100,
         label='Nombre del Departamento',
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para la jefatura del departamento
     jefatura = forms.CharField(
         max_length=100,
         required=False,
@@ -433,6 +472,7 @@ class DepartamentoForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para la jefatura subrogante
     jefatura_subrogante = forms.CharField(
         max_length=100,
         required=False,
@@ -440,6 +480,7 @@ class DepartamentoForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para la secretaria
     secretaria = forms.CharField(
         max_length=100,
         required=False,
@@ -447,6 +488,7 @@ class DepartamentoForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
+    # Campo para la secretaria subrogante
     secretaria_subrogante = forms.CharField(
         max_length=100,
         required=False,
@@ -459,6 +501,7 @@ class DepartamentoForm(forms.ModelForm):
         fields = ['nombre']
 
     def save(self, commit=True):
+        """Guarda el departamento y crea los responsables asociados."""
         departamento = super().save(commit=commit)
         if commit:
             jefatura = self.cleaned_data.get('jefatura') or f"Jefatura {departamento.nombre}"
@@ -474,35 +517,41 @@ class DepartamentoForm(forms.ModelForm):
         return departamento
 
 class ModificarDepartamentoForm(forms.Form):
+    # Campo para seleccionar el departamento a modificar
     departamento = forms.ChoiceField(
         choices=[],
         label='Departamento a Modificar',
         widget=forms.Select(attrs={'class': 'form-control'})
     )
+    # Campo para el nuevo nombre del departamento
     nuevo_nombre = forms.CharField(
         max_length=100,
         label='Nuevo Nombre del Departamento',
         required=True,
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
+    # Campo para la jefatura
     jefatura = forms.CharField(
         max_length=100,
         required=False,
         label='Jefatura',
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
+    # Campo para la jefatura subrogante
     jefatura_subrogante = forms.CharField(
         max_length=100,
         required=False,
         label='Jefatura Subrogante',
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
+    # Campo para la secretaria
     secretaria = forms.CharField(
         max_length=100,
         required=False,
         label='Secretaria',
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
+    # Campo para la secretaria subrogante
     secretaria_subrogante = forms.CharField(
         max_length=100,
         required=False,
@@ -520,6 +569,7 @@ class ModificarDepartamentoForm(forms.Form):
         self.fields['departamento'].choices = choices
 
     def clean(self):
+        """Valida que el departamento seleccionado y el nuevo nombre sean válidos."""
         cleaned_data = super().clean()
         departamento = cleaned_data.get('departamento')
         nuevo_nombre = cleaned_data.get('nuevo_nombre')
@@ -536,6 +586,7 @@ class ModificarDepartamentoForm(forms.Form):
         return cleaned_data
 
 class EliminarDepartamentoForm(forms.Form):
+    # Campo para seleccionar el departamento a deshabilitar
     departamento = forms.ChoiceField(
         choices=[],
         label='Departamento a Deshabilitar',
@@ -552,6 +603,7 @@ class EliminarDepartamentoForm(forms.Form):
         self.fields['departamento'].choices = choices
 
     def clean(self):
+        """Valida que se haya seleccionado un departamento."""
         cleaned_data = super().clean()
         departamento = cleaned_data.get('departamento')
 
