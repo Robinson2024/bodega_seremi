@@ -472,67 +472,99 @@ def salida_productos(request):
 
     page_obj = paginar_resultados(request, productos)
 
+    # Manejar solicitud AJAX para obtener datos de salida
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and request.GET.get('action') == 'get_salida_data':
+        return JsonResponse({'success': True, 'productos_salida': productos_salida})
+
     if request.method == 'POST':
         print(f"POST recibido: {request.POST}")
 
-        # Manejar solicitudes AJAX para actualizar datos
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and request.POST.get('action') == 'update_data':
-            codigo_barra = request.POST.get('codigo_barra')
-            updated = False
-            for item in productos_salida:
-                if item['codigo_barra'] == codigo_barra:
-                    item.update({
-                        'numero_siscom': request.POST.get('numero_siscom', ''),
-                        'cantidad': request.POST.get('cantidad', ''),
-                        'observacion': request.POST.get('observacion', '')
-                    })
-                    updated = True
-                    break
-            if updated:
-                request.session['productos_salida'] = productos_salida
-                request.session.modified = True
-                print(f"Datos actualizados para el producto {codigo_barra}: {item}")
-            else:
-                print(f"No se encontró el producto {codigo_barra} para actualizar")
-            return JsonResponse({'success': True})
+        # Manejar solicitudes AJAX
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Acción para agregar un producto
+            if 'agregar_producto' in request.POST:
+                codigo_barra = request.POST.get('codigo_barra')
+                try:
+                    producto = Producto.objects.get(codigo_barra=codigo_barra)
+                    if any(item['codigo_barra'] == codigo_barra for item in productos_salida):
+                        return JsonResponse({'success': False, 'error': 'Este producto ya está en la lista de salida.'})
+                    if producto.stock == 0:
+                        return JsonResponse({'success': False, 'error': 'No se puede retirar este producto porque no tiene stock.'})
 
-        # Manejar el botón "Agregar producto"
-        elif 'agregar_producto' in request.POST:
-            codigo_barra = request.POST.get('codigo_barra')
-            try:
-                producto = Producto.objects.get(codigo_barra=codigo_barra)
-                if any(item['codigo_barra'] == codigo_barra for item in productos_salida):
-                    messages.error(request, 'Este producto ya está en la lista de salida.')
-                elif producto.stock == 0:
-                    messages.error(request, 'No se puede retirar este producto porque no tiene stock.')
-                else:
                     productos_salida.append({
                         'codigo_barra': producto.codigo_barra,
                         'descripcion': producto.descripcion,
                         'stock': producto.stock,
                         'numero_siscom': '',
-                        'cantidad': '',
+                        'cantidad': '',  # Inicializar cantidad como vacía en lugar de "1"
                         'observacion': '',
                     })
                     request.session['productos_salida'] = productos_salida
                     request.session.modified = True
-                    messages.success(request, 'Producto agregado a la lista de salida.')
                     print(f"Producto agregado: {producto.codigo_barra}")
-            except Producto.DoesNotExist:
-                messages.error(request, 'Producto no encontrado.')
-            return redirect('salida-productos')
+                    return JsonResponse({'success': True})
 
-        # Manejar el botón "Eliminar producto"
-        elif 'eliminar_producto' in request.POST:
-            codigo_barra = request.POST.get('codigo_barra')
-            productos_salida = [item for item in productos_salida if item['codigo_barra'] != codigo_barra]
-            request.session['productos_salida'] = productos_salida
-            request.session.modified = True
-            print(f"Producto eliminado: {codigo_barra}")
-            return JsonResponse({'success': True}) if request.headers.get('X-Requested-With') == 'XMLHttpRequest' else redirect('salida-productos')
+                except Producto.DoesNotExist:
+                    return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
+
+            # Acción para eliminar un producto
+            elif 'eliminar_producto' in request.POST:
+                codigo_barra = request.POST.get('codigo_barra')
+                productos_salida = [item for item in productos_salida if item['codigo_barra'] != codigo_barra]
+                request.session['productos_salida'] = productos_salida
+                request.session.modified = True
+                print(f"Producto eliminado: {codigo_barra}")
+                return JsonResponse({'success': True})
+
+            # Acción para actualizar datos de un producto
+            elif request.POST.get('action') == 'update_data':
+                codigo_barra = request.POST.get('codigo_barra')
+                numero_siscom = request.POST.get('numero_siscom', '').strip()
+                cantidad = request.POST.get('cantidad', '').strip()
+                observacion = request.POST.get('observacion', '').strip()
+
+                try:
+                    producto = Producto.objects.get(codigo_barra=codigo_barra)
+                    # Validar número SISCOM
+                    if numero_siscom and not numero_siscom.isdigit():
+                        return JsonResponse({'success': False, 'error': f'El Número de SISCOM para el producto {codigo_barra} debe ser un número entero.'})
+
+                    # Validar cantidad solo si no está vacía
+                    if cantidad:
+                        if not cantidad.isdigit():
+                            return JsonResponse({'success': False, 'error': f'La cantidad para el producto {codigo_barra} debe ser un número entero.'})
+                        cantidad_int = int(cantidad)
+                        if cantidad_int <= 0:
+                            return JsonResponse({'success': False, 'error': f'La cantidad para el producto {codigo_barra} debe ser mayor que 0.'})
+                        if cantidad_int > producto.stock:
+                            return JsonResponse({'success': False, 'error': f'La cantidad para el producto {codigo_barra} no puede superar el stock ({producto.stock}).'})
+
+                    # Actualizar el producto en la lista
+                    updated = False
+                    for item in productos_salida:
+                        if item['codigo_barra'] == codigo_barra:
+                            item.update({
+                                'numero_siscom': numero_siscom,
+                                'cantidad': cantidad,
+                                'observacion': observacion,
+                                'stock': producto.stock,  # Actualizar el stock por si cambió
+                            })
+                            updated = True
+                            print(f"Datos actualizados para el producto {codigo_barra}: {item}")
+                            break
+
+                    if updated:
+                        request.session['productos_salida'] = productos_salida
+                        request.session.modified = True
+                        return JsonResponse({'success': True})
+                    else:
+                        return JsonResponse({'success': False, 'error': f'No se encontró el producto {codigo_barra} en la lista de salida.'})
+
+                except Producto.DoesNotExist:
+                    return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
 
         # Manejar el formulario de salida de productos (botón "Siguiente")
-        elif 'siguiente' in request.POST or any(key.startswith('numero_siscom_') for key in request.POST):
+        if 'siguiente' in request.POST or any(key.startswith('numero_siscom_') for key in request.POST):
             print("Procesando formulario de salida de productos (botón 'Siguiente')")
             print(f"Productos en la sesión antes de validar: {productos_salida}")
 
@@ -571,7 +603,7 @@ def salida_productos(request):
                     # Validar que la cantidad sea positiva
                     if cantidad <= 0:
                         print(f"Error: Cantidad no positiva para el producto {item['codigo_barra']}: {cantidad}")
-                        messages.error(request, f"La cantidad para el producto {item['codigo_barra']} debe ser un número positivo (valor recibido: {cantidad}).")
+                        messages.error(request, f"La cantidad para el producto {item['codigo_barra']} debe ser mayor que 0 (valor recibido: {cantidad}).")
                         return redirect('salida-productos')
 
                     # Validar que la cantidad no supere el stock

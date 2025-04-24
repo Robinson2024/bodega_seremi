@@ -21,11 +21,11 @@
     <div class="card form-card shadow-sm mb-4">
         <div class="card-body">
             <h4 class="text-center mb-3" style="color: #1a3c5e;">Productos a Retirar</h4>
+            <div id="salida-loading" class="text-center" style="display: none; color: #64748b;">Cargando lista de salida...</div>
             <div id="salida-container">
                 {% if productos_salida %}
                     <form method="post" id="salida-form">
                         {% csrf_token %}
-                        <!-- Campo oculto para asegurar que 'siguiente' siempre se envíe -->
                         <input type="hidden" name="siguiente" value="siguiente">
                         <div class="table-responsive">
                             <table class="table table-striped table-hover">
@@ -50,7 +50,7 @@
                                             </td>
                                             <td>{{ item.stock }}</td>
                                             <td>
-                                                <input type="number" name="cantidad_{{ item.codigo_barra }}" class="form-control form-control-sm update-field cantidad" value="{{ item.cantidad }}" data-codigo="{{ item.codigo_barra }}" data-stock="{{ item.stock }}" min="1" required>
+                                                <input type="number" name="cantidad_{{ item.codigo_barra }}" class="form-control form-control-sm update-field cantidad" value="" data-codigo="{{ item.codigo_barra }}" data-stock="{{ item.stock }}" min="1" required>
                                             </td>
                                             <td>
                                                 <textarea name="observacion_{{ item.codigo_barra }}" class="form-control form-control-sm update-field observacion" maxlength="300" data-codigo="{{ item.codigo_barra }}" rows="3">{{ item.observacion }}</textarea>
@@ -93,7 +93,7 @@
     <!-- Tabla de productos disponibles -->
     <div class="card table-card shadow-sm">
         <div class="card-body">
-            <div id="loading" class="text-center" style="display: none; color: #64748b;">Cargando...</div>
+            <div id="loading" class="text-center" style="display: none; color: #64748b;">Cargando productos...</div>
             <div id="table-container">
                 {% if page_obj %}
                     <div class="table-responsive">
@@ -113,10 +113,10 @@
                                         <td>{{ producto.descripcion }}</td>
                                         <td>{{ producto.stock }}</td>
                                         <td>
-                                            <form method="post" style="display:inline;">
+                                            <form class="add-product-form" style="display:inline;">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="codigo_barra" value="{{ producto.codigo_barra }}">
-                                                <button type="submit" name="agregar_producto" class="btn btn-sm btn-success">Salida de productos</button>
+                                                <button type="button" name="agregar_producto" class="btn btn-sm btn-success add-product-btn">Agregar a salida</button>
                                             </form>
                                         </td>
                                     </tr>
@@ -128,7 +128,6 @@
                     <!-- Controles de paginación -->
                     <div class="pagination justify-content-center mt-3">
                         <ul class="pagination">
-                            <!-- Botón "Anterior" -->
                             {% if page_obj.has_previous %}
                                 <li class="page-item">
                                     <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}" data-page="{{ page_obj.previous_page_number }}">Anterior</a>
@@ -139,7 +138,6 @@
                                 </li>
                             {% endif %}
 
-                            <!-- Páginas numeradas -->
                             {% with start=page_obj.number|add:-5 end=page_obj.number|add:5 %}
                                 {% for num in page_obj.paginator.page_range %}
                                     {% if num >= start and num <= end %}
@@ -156,7 +154,6 @@
                                 {% endfor %}
                             {% endwith %}
 
-                            <!-- Botón "Siguiente" -->
                             {% if page_obj.has_next %}
                                 <li class="page-item">
                                     <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}" data-page="{{ page_obj.next_page_number }}">Siguiente</a>
@@ -167,7 +164,6 @@
                                 </li>
                             {% endif %}
 
-                            <!-- Botón "Última página" -->
                             <li class="page-item">
                                 <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}" data-page="{{ page_obj.paginator.num_pages }}">Última página</a>
                             </li>
@@ -181,11 +177,14 @@
     </div>
 </div>
 
+<!-- Agregar SweetAlert2 CDN -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 // Función para ajustar el tamaño del textarea dinámicamente
 function autoResizeTextarea(element) {
-    element.style.height = 'auto'; // Resetea la altura
-    element.style.height = `${element.scrollHeight}px`; // Ajusta la altura según el contenido
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
 }
 
 // Función para obtener los parámetros de la URL
@@ -198,19 +197,23 @@ function getQueryParams() {
     };
 }
 
-// Función para actualizar la tabla con búsqueda automática y paginación
+// Función para obtener el token CSRF
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// Función para actualizar la tabla de productos con búsqueda y paginación
 function updateProductList(page = null) {
     const codigoBarra = document.getElementById('codigo_barra').value.trim();
     const descripcion = document.getElementById('descripcion').value.trim();
     const params = getQueryParams();
-    const currentPage = page || params.page; // Usar la página proporcionada o la actual
+    const currentPage = page || params.page;
     const loading = document.getElementById('loading');
     const tableContainer = document.getElementById('table-container');
 
     loading.style.display = 'block';
     tableContainer.style.display = 'none';
 
-    // Construir la URL con los parámetros de búsqueda y paginación
     let url = `/accounts/salida-productos/?page=${currentPage}`;
     if (codigoBarra) url += `&codigo_barra=${encodeURIComponent(codigoBarra)}`;
     if (descripcion) url += `&descripcion=${encodeURIComponent(descripcion)}`;
@@ -232,19 +235,18 @@ function updateProductList(page = null) {
             tableContainer.style.display = 'block';
             loading.style.display = 'none';
 
-            // Actualizar la URL en el navegador sin recargar la página
             const newUrl = `/accounts/salida-productos/?page=${currentPage}${codigoBarra ? `&codigo_barra=${encodeURIComponent(codigoBarra)}` : ''}${descripcion ? `&descripcion=${encodeURIComponent(descripcion)}` : ''}`;
             window.history.pushState({}, '', newUrl);
 
-            // Volver a añadir los event listeners para los enlaces de paginación
             addPaginationListeners();
+            addProductFormListeners();
         } else {
             throw new Error('No se encontró #table-container en la respuesta');
         }
     })
     .catch(error => {
         console.error('Error al cargar los productos:', error);
-        tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar los productos.</p>';
+        tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar los productos. Por favor, intenta de nuevo.</p>';
         tableContainer.style.display = 'block';
         loading.style.display = 'none';
     });
@@ -253,51 +255,239 @@ function updateProductList(page = null) {
 // Función para añadir event listeners a los enlaces de paginación
 function addPaginationListeners() {
     document.querySelectorAll('.page-link[data-page]').forEach(link => {
-        link.addEventListener('click', function(event) {
-            event.preventDefault(); // Evitar la navegación por defecto
-            const page = this.getAttribute('data-page');
-            updateProductList(page); // Actualizar la tabla usando AJAX
-        });
+        link.removeEventListener('click', handlePaginationClick); // Evitar duplicados
+        link.addEventListener('click', handlePaginationClick);
     });
+}
+
+function handlePaginationClick(event) {
+    event.preventDefault();
+    const page = this.getAttribute('data-page');
+    updateProductList(page);
+}
+
+// Función para renderizar dinámicamente la tabla de salida
+function renderSalidaTable(productos) {
+    const salidaContainer = document.getElementById('salida-container');
+    const salidaLoading = document.getElementById('salida-loading');
+
+    salidaLoading.style.display = 'none';
+    salidaContainer.style.display = 'block';
+
+    if (productos && productos.length > 0) {
+        let tableRows = '';
+        productos.forEach((item, index) => {
+            const isLast = index === productos.length - 1; // Identificar la última fila
+            tableRows += `
+                <tr data-codigo-barra="${item.codigo_barra}" class="${isLast ? 'highlight' : ''}">
+                    <td>${item.codigo_barra}</td>
+                    <td>${item.descripcion}</td>
+                    <td>
+                        <input type="text" name="numero_siscom_${item.codigo_barra}" class="form-control form-control-sm update-field numero-siscom" value="${item.numero_siscom || ''}" data-codigo="${item.codigo_barra}" required>
+                    </td>
+                    <td>${item.stock}</td>
+                    <td>
+                        <input type="number" name="cantidad_${item.codigo_barra}" class="form-control form-control-sm update-field cantidad" value="${item.cantidad || ''}" data-codigo="${item.codigo_barra}" data-stock="${item.stock}" required>
+                    </td>
+                    <td>
+                        <textarea name="observacion_${item.codigo_barra}" class="form-control form-control-sm update-field observacion" maxlength="300" data-codigo="${item.codigo_barra}" rows="3">${item.observacion || ''}</textarea>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-danger delete-button" data-codigo="${item.codigo_barra}">Eliminar</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        salidaContainer.innerHTML = `
+            <form method="post" id="salida-form">
+                <input type="hidden" name="csrfmiddlewaretoken" value="${getCsrfToken()}">
+                <input type="hidden" name="siguiente" value="siguiente">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead style="background-color: #1a3c5e; color: white;">
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Nro. SISCOM</th>
+                                <th>Stock</th>
+                                <th>Cantidad</th>
+                                <th>Observación</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salida-table-body">
+                            ${tableRows}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-center">
+                    <button type="submit" id="siguiente-btn" class="btn btn-primary btn-sm">Siguiente</button>
+                </div>
+            </form>
+        `;
+        // Desplazar hacia el producto recién agregado
+        const lastRow = document.querySelector('#salida-table-body tr:last-child');
+        if (lastRow) {
+            lastRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    } else {
+        salidaContainer.innerHTML = '<p class="text-center" style="color: #64748b;">No hay productos seleccionados para la salida.</p>';
+    }
+
+    addSalidaEventListeners();
 }
 
 // Función para actualizar la lista de productos a retirar
 function updateSalidaList() {
-    fetch('/accounts/salida-productos/', {
+    const salidaContainer = document.getElementById('salida-container');
+    const salidaLoading = document.getElementById('salida-loading');
+
+    salidaContainer.style.display = 'none';
+    salidaLoading.style.display = 'block';
+
+    fetch('/accounts/salida-productos/?action=get_salida_data', {
         method: 'GET',
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
         },
     })
-    .then(response => response.text())
-    .then(html => {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const newSalidaContainer = doc.querySelector('#salida-container');
-
-        const salidaContainer = document.getElementById('salida-container');
-        if (newSalidaContainer) {
-            salidaContainer.innerHTML = newSalidaContainer.innerHTML;
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderSalidaTable(data.productos_salida);
         } else {
-            salidaContainer.innerHTML = '<p class="text-center" style="color: #64748b;">No hay productos seleccionados para la salida.</p>';
+            salidaContainer.innerHTML = `<p class="text-center" style="color: #64748b;">Error al cargar la lista de salida: ${data.error || 'Error desconocido'}</p>`;
+            salidaContainer.style.display = 'block';
+            salidaLoading.style.display = 'none';
         }
-
-        // Volver a añadir los event listeners después de actualizar la lista
-        addEventListeners();
     })
     .catch(error => {
         console.error('Error al actualizar la lista de salida:', error);
-        const salidaContainer = document.getElementById('salida-container');
-        salidaContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar la lista de salida.</p>';
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al cargar la lista de salida. Por favor, intenta de nuevo.',
+            confirmButtonColor: '#3b82f6',
+            confirmButtonText: 'Aceptar'
+        });
+        salidaContainer.style.display = 'block';
+        salidaLoading.style.display = 'none';
     });
 }
 
-// Validaciones en tiempo real y guardado automático con debounce
-document.addEventListener('DOMContentLoaded', function() {
+// Función para añadir un producto usando AJAX
+function addProduct(codigoBarra) {
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', getCsrfToken());
+    formData.append('codigo_barra', codigoBarra);
+    formData.append('agregar_producto', 'true');
+
+    fetch('/accounts/salida-productos/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateSalidaList();
+            // Desplazar la vista hacia la tabla de productos a retirar
+            const salidaContainer = document.getElementById('salida-container');
+            if (salidaContainer) {
+                salidaContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.error || 'Error desconocido al agregar el producto.',
+                confirmButtonColor: '#3b82f6',
+                confirmButtonText: 'Aceptar'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error al agregar el producto:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al agregar el producto. Por favor, intenta de nuevo.',
+            confirmButtonColor: '#3b82f6',
+            confirmButtonText: 'Aceptar'
+        });
+    });
+}
+
+// Función para eliminar un producto usando AJAX
+function deleteProduct(codigoBarra) {
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', getCsrfToken());
+    formData.append('codigo_barra', codigoBarra);
+    formData.append('eliminar_producto', 'true');
+
+    fetch('/accounts/salida-productos/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateSalidaList();
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.error || 'Error desconocido al eliminar el producto.',
+                confirmButtonColor: '#3b82f6',
+                confirmButtonText: 'Aceptar'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error al eliminar el producto:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al eliminar el producto. Por favor, intenta de nuevo.',
+            confirmButtonColor: '#3b82f6',
+            confirmButtonText: 'Aceptar'
+        });
+    });
+}
+
+// Función para añadir event listeners a los formularios de agregar producto
+function addProductFormListeners() {
+    document.querySelectorAll('.add-product-btn').forEach(button => {
+        button.removeEventListener('click', handleAddProductClick); // Evitar duplicados
+        button.addEventListener('click', handleAddProductClick);
+    });
+}
+
+function handleAddProductClick(event) {
+    event.preventDefault();
+    const form = this.closest('.add-product-form');
+    const codigoBarra = form.querySelector('input[name="codigo_barra"]').value;
+    addProduct(codigoBarra);
+}
+
+// Variable global para rastrear solicitudes AJAX
+let pendingRequests = [];
+
+// Variable para evitar envíos duplicados del formulario
+let formSubmitted = false;
+
+// Función para añadir event listeners a los campos y botones de la tabla de salida
+function addSalidaEventListeners() {
     let isUpdating = false;
     let debounceTimeout;
 
-    // Función de debounce para evitar múltiples solicitudes AJAX
+    // Función de debounce
     function debounce(func, wait) {
         return function() {
             const context = this;
@@ -309,18 +499,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Función para guardar los datos automáticamente usando AJAX
     const saveData = debounce(function(codigoBarra, numeroSiscom, cantidad, observacion) {
-        if (isUpdating) return; // Evitar múltiples actualizaciones simultáneas
+        if (isUpdating) return;
         isUpdating = true;
 
         const formData = new FormData();
-        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        formData.append('csrfmiddlewaretoken', getCsrfToken());
         formData.append('codigo_barra', codigoBarra);
         formData.append('numero_siscom', numeroSiscom);
         formData.append('cantidad', cantidad);
         formData.append('observacion', observacion);
         formData.append('action', 'update_data');
 
-        fetch('/accounts/salida-productos/', {
+        const request = fetch('/accounts/salida-productos/', {
             method: 'POST',
             body: formData,
             headers: {
@@ -331,143 +521,220 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (!data.success) {
                 console.error('Error al guardar los datos:', data.error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.error || 'Error desconocido al guardar los datos.',
+                    confirmButtonColor: '#3b82f6',
+                    confirmButtonText: 'Aceptar'
+                });
             }
         })
         .catch(error => {
             console.error('Error al guardar los datos:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al guardar los datos. Por favor, intenta de nuevo.',
+                confirmButtonColor: '#3b82f6',
+                confirmButtonText: 'Aceptar'
+            });
         })
         .finally(() => {
             isUpdating = false;
+            pendingRequests = pendingRequests.filter(r => r !== request);
         });
-    }, 500); // 500ms de espera antes de enviar la solicitud AJAX
 
-    // Función para eliminar un producto usando AJAX
-    function deleteProduct(codigoBarra) {
-        const formData = new FormData();
-        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-        formData.append('codigo_barra', codigoBarra);
-        formData.append('eliminar_producto', 'true');
+        pendingRequests.push(request);
+    }, 200);
 
-        fetch('/accounts/salida-productos/', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Actualizar la interfaz después de eliminar
-                updateSalidaList();
+    // Ajustar todos los textareas
+    document.querySelectorAll('.observacion').forEach(textarea => {
+        autoResizeTextarea(textarea);
+    });
+
+    // Manejar cambios en los campos
+    document.querySelectorAll('.update-field').forEach(field => {
+        field.removeEventListener('input', handleFieldInput); // Evitar duplicados
+        field.addEventListener('input', handleFieldInput);
+    });
+
+    function handleFieldInput() {
+        const codigo = this.getAttribute('data-codigo');
+        const numeroSiscom = document.querySelector(`input[name="numero_siscom_${codigo}"]`).value.trim();
+        const cantidad = document.querySelector(`input[name="cantidad_${codigo}"]`).value.trim();
+        const observacion = document.querySelector(`textarea[name="observacion_${codigo}"]`).value;
+
+        // Validaciones locales solo para numero_siscom y observacion
+        if (this.classList.contains('numero-siscom')) {
+            if (!/^\d*$/.test(numeroSiscom) && numeroSiscom !== '') {
+                this.classList.add('is-invalid');
+                this.setCustomValidity(`El Número de SISCOM para el producto ${codigo} debe ser un número entero.`);
+                return;
             } else {
-                alert('Error al eliminar el producto: ' + data.error);
+                this.classList.remove('is-invalid');
+                this.setCustomValidity('');
             }
-        })
-        .catch(error => {
-            console.error('Error al eliminar el producto:', error);
-            alert('Error al eliminar el producto. Por favor, intenta de nuevo.');
-        });
+        }
+
+        if (this.classList.contains('observacion')) {
+            autoResizeTextarea(this);
+        }
+
+        saveData(codigo, numeroSiscom, cantidad, observacion);
     }
 
-    // Función para añadir event listeners a los campos y botones
-    function addEventListeners() {
-        // Ajustar todos los textareas al cargar la página
-        document.querySelectorAll('.observacion').forEach(textarea => {
-            autoResizeTextarea(textarea);
-        });
+    // Manejar eliminación de productos
+    document.querySelectorAll('.delete-button').forEach(button => {
+        button.removeEventListener('click', handleDeleteClick); // Evitar duplicados
+        button.addEventListener('click', handleDeleteClick);
+    });
 
-        // Manejar cambios en los campos con la clase "update-field"
-        document.querySelectorAll('.update-field').forEach(field => {
-            field.addEventListener('input', function() {
-                const codigo = this.getAttribute('data-codigo');
-                const numeroSiscom = document.querySelector(`input[name="numero_siscom_${codigo}"]`).value.trim();
-                const cantidad = document.querySelector(`input[name="cantidad_${codigo}"]`).value.trim();
-                const observacion = document.querySelector(`textarea[name="observacion_${codigo}"]`).value;
+    function handleDeleteClick() {
+        const codigoBarra = this.getAttribute('data-codigo');
+        deleteProduct(codigoBarra);
+    }
 
-                // Validaciones locales mínimas antes de enviar
-                if (this.classList.contains('numero-siscom')) {
-                    if (!/^\d*$/.test(numeroSiscom) && numeroSiscom !== '') {
-                        this.classList.add('is-invalid');
-                        this.setCustomValidity(`El Número de SISCOM para el producto ${codigo} debe ser un número entero.`);
-                        return;
-                    } else {
-                        this.classList.remove('is-invalid');
-                        this.setCustomValidity('');
-                    }
+    // Manejar el envío del formulario
+    const salidaForm = document.getElementById('salida-form');
+    const siguienteBtn = document.getElementById('siguiente-btn');
+    if (salidaForm && siguienteBtn) {
+        salidaForm.removeEventListener('submit', handleFormSubmit); // Evitar duplicados
+        salidaForm.addEventListener('submit', handleFormSubmit);
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+
+            // Evitar envíos duplicados
+            if (formSubmitted) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Formulario ya enviado',
+                    text: 'El formulario ya ha sido enviado. Serás redirigido a la siguiente página.',
+                    confirmButtonColor: '#3b82f6',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+
+            // Validar cantidades antes de proceder
+            const cantidades = document.querySelectorAll('.cantidad');
+            let hasError = false;
+            cantidades.forEach(campo => {
+                const codigo = campo.getAttribute('data-codigo');
+                const cantidad = campo.value.trim();
+                const stock = parseInt(campo.getAttribute('data-stock'));
+
+                if (cantidad === '' || parseInt(cantidad) <= 0) {
+                    campo.classList.add('is-invalid');
+                    campo.setCustomValidity(`La cantidad para el producto ${codigo} debe ser mayor que 0.`);
+                    hasError = true;
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: `La cantidad para el producto ${codigo} debe ser mayor que 0.`,
+                        confirmButtonColor: '#3b82f6',
+                        confirmButtonText: 'Aceptar'
+                    });
+                } else if (parseInt(cantidad) > stock) {
+                    campo.classList.add('is-invalid');
+                    campo.setCustomValidity(`La cantidad para el producto ${codigo} no puede superar el stock (${stock}).`);
+                    hasError = true;
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: `La cantidad para el producto ${codigo} no puede superar el stock (${stock}).`,
+                        confirmButtonColor: '#3b82f6',
+                        confirmButtonText: 'Aceptar'
+                    });
+                } else {
+                    campo.classList.remove('is-invalid');
+                    campo.setCustomValidity('');
                 }
-
-                if (this.classList.contains('cantidad')) {
-                    const stock = parseInt(this.getAttribute('data-stock'));
-                    if (!/^\d+$/.test(cantidad) && cantidad !== '') {
-                        this.classList.add('is-invalid');
-                        this.setCustomValidity(`La cantidad para el producto ${codigo} debe ser un número entero.`);
-                        return;
-                    } else if (cantidad !== '' && parseInt(cantidad) <= 0) {
-                        this.classList.add('is-invalid');
-                        this.setCustomValidity(`La cantidad para el producto ${codigo} debe ser mayor que 0.`);
-                        return;
-                    } else if (cantidad !== '' && parseInt(cantidad) > stock) {
-                        this.classList.add('is-invalid');
-                        this.setCustomValidity(`La cantidad para el producto ${codigo} no puede superar el stock (${stock}).`);
-                        return;
-                    } else {
-                        this.classList.remove('is-invalid');
-                        this.setCustomValidity('');
-                    }
-                }
-
-                if (this.classList.contains('observacion')) {
-                    autoResizeTextarea(this); // Ajustar el tamaño dinámicamente
-                }
-
-                // Guardar los datos
-                saveData(codigo, numeroSiscom, cantidad, observacion);
             });
-        });
 
-        // Manejar eliminación de productos
-        document.querySelectorAll('.delete-button').forEach(button => {
-            button.addEventListener('click', function() {
-                const codigoBarra = this.getAttribute('data-codigo');
-                deleteProduct(codigoBarra);
-            });
-        });
+            if (hasError) {
+                siguienteBtn.disabled = false;
+                siguienteBtn.innerText = 'Siguiente';
+                return;
+            }
 
-        // Manejar el envío del formulario (botón "Siguiente")
-        const salidaForm = document.getElementById('salida-form');
-        const siguienteBtn = document.getElementById('siguiente-btn');
-        if (salidaForm && siguienteBtn) {
-            salidaForm.addEventListener('submit', function(e) {
-                if (isUpdating) {
-                    e.preventDefault();
-                    alert('Por favor, espera a que se terminen de actualizar los datos.');
+            // Esperar a que todas las solicitudes AJAX se completen
+            if (pendingRequests.length > 0) {
+                siguienteBtn.disabled = true;
+                siguienteBtn.innerText = 'Guardando datos...';
+
+                // Mostrar una alerta con temporizador
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Guardando datos',
+                    text: 'Hay cambios pendientes de guardar. Por favor, espere un momento...',
+                    showConfirmButton: false,
+                    timer: 5000, // 5 segundos de espera máxima
+                    willClose: () => {
+                        // Reintentar el envío del formulario después de que se cierre la alerta
+                        if (pendingRequests.length === 0) {
+                            submitForm();
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'No se pudieron guardar todos los datos a tiempo. Por favor, intenta de nuevo.',
+                                confirmButtonColor: '#3b82f6',
+                                confirmButtonText: 'Aceptar'
+                            });
+                            siguienteBtn.disabled = false;
+                            siguienteBtn.innerText = 'Siguiente';
+                        }
+                    }
+                });
+
+                try {
+                    await Promise.all(pendingRequests);
+                } catch (error) {
+                    console.error('Error al esperar las solicitudes pendientes:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error al guardar los datos. Por favor, intenta de nuevo.',
+                        confirmButtonColor: '#3b82f6',
+                        confirmButtonText: 'Aceptar'
+                    });
                     siguienteBtn.disabled = false;
                     siguienteBtn.innerText = 'Siguiente';
                     return;
                 }
+            }
 
-                // Deshabilitar el botón para evitar múltiples envíos
-                siguienteBtn.disabled = true;
-                siguienteBtn.innerText = 'Procesando...';
-            });
+            submitForm();
+        }
+
+        function submitForm() {
+            // Proceder con el envío del formulario
+            siguienteBtn.disabled = true;
+            siguienteBtn.innerText = 'Procesando...';
+            formSubmitted = true; // Marcar el formulario como enviado
+            salidaForm.submit();
         }
     }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Cargar la lista de salida al iniciar
+    updateSalidaList();
 
     // Añadir event listeners iniciales
-    addEventListeners();
+    addProductFormListeners();
+    addPaginationListeners();
 
-    // Escuchar cambios en los campos de entrada de búsqueda
+    // Escuchar cambios en los campos de búsqueda
     document.getElementById('codigo_barra').addEventListener('input', function() {
-        updateProductList(1); // Reiniciar a la página 1 al cambiar el filtro
+        updateProductList(1);
     });
 
     document.getElementById('descripcion').addEventListener('input', function() {
-        updateProductList(1); // Reiniciar a la página 1 al cambiar el filtro
+        updateProductList(1);
     });
-
-    // Añadir event listeners a los enlaces de paginación
-    addPaginationListeners();
 });
 </script>
 
@@ -523,14 +790,12 @@ document.addEventListener('DOMContentLoaded', function() {
     .form-control-sm, .form-control-sm:focus {
         box-shadow: none;
     }
-    /* Estilo para el textarea de observación */
     textarea.form-control-sm {
-        resize: vertical; /* Permite ajustar manualmente el tamaño verticalmente */
-        overflow: hidden; /* Oculta la barra de desplazamiento inicialmente */
-        min-height: 38px; /* Altura mínima */
+        resize: vertical;
+        overflow: hidden;
+        min-height: 38px;
         box-sizing: border-box;
     }
-    /* Estilo para los botones de paginación */
     .pagination .page-link {
         color: #3b82f6;
         border: 1px solid #dee2e6;
@@ -551,6 +816,38 @@ document.addEventListener('DOMContentLoaded', function() {
     .pagination .page-link:hover {
         background-color: #e9ecef;
         color: #2563eb;
+    }
+    #salida-loading, #loading {
+        padding: 10px;
+        font-style: italic;
+    }
+    .highlight {
+        background-color: #e0f7fa !important;
+        transition: background-color 1s ease;
+    }
+    /* Estilos personalizados para SweetAlert2 */
+    .swal2-popup {
+        width: 300px !important;
+        padding: 1rem !important;
+        border-radius: 8px !important;
+    }
+    .swal2-title {
+        font-size: 1.2rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    .swal2-content {
+        font-size: 0.9rem !important;
+        line-height: 1.3 !important;
+    }
+    .swal2-icon {
+        width: 50px !important;
+        height: 50px !important;
+        margin: 0.5rem auto !important;
+    }
+    .swal2-confirm {
+        font-size: 0.9rem !important;
+        padding: 0.4rem 1rem !important;
+        border-radius: 5px !important;
     }
     @media (max-width: 768px) {
         .form-row {
@@ -573,6 +870,31 @@ document.addEventListener('DOMContentLoaded', function() {
         .pagination .page-item {
             margin-bottom: 5px;
         }
+        .table-responsive {
+            font-size: 0.85rem;
+        }
+        .btn-sm {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+        }
+        .swal2-popup {
+            width: 260px !important;
+        }
+        .swal2-title {
+            font-size: 1.1rem !important;
+        }
+        .swal2-content {
+            font-size: 0.85rem !important;
+        }
+        .swal2-icon {
+            width: 40px !important;
+            height: 40px !important;
+        }
+        .swal2-confirm {
+            font-size: 0.85rem !important;
+            padding: 0.3rem 0.8rem !important;
+        }
     }
 </style>
+
 {% endblock %}
