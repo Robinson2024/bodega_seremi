@@ -91,7 +91,7 @@ def generar_pdf_acta(actas, disposition='attachment'):
         response['Content-Type'] = 'application/pdf; charset=utf-8'
 
         doc = SimpleDocTemplate(response, pagesize=letter, leftMargin=0.75*inch, rightMargin=0.75*inch,
-                            topMargin=0.5*inch, bottomMargin=0.5*inch)
+                                topMargin=0.5*inch, bottomMargin=0.5*inch)
         styles = getSampleStyleSheet()
 
         # Definir estilos personalizados en un diccionario separado
@@ -131,13 +131,15 @@ def generar_pdf_acta(actas, disposition='attachment'):
         ]))
 
         header_table = Table([[logo, acta_number_table]], colWidths=[3*inch, 4.5*inch])
-        header_table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('ALIGN', (0, 0), (0, 0), 'LEFT'), ('ALIGN', (1, 0), (1, 0), 'RIGHT')]))
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT')
+        ]))
 
         # Asegurarse de que los textos estén codificados correctamente
         departamento_text = acta.departamento.encode('utf-8').decode('utf-8')
-        # Usar el nombre del responsable desde el modelo Responsable
         responsable_text = acta.responsable.nombre.encode('utf-8').decode('utf-8') if acta.responsable else 'No especificado'
-        # Usar solo el nombre del generador (sin RUT)
         generador_text = acta.generador.nombre.encode('utf-8').decode('utf-8') if acta.generador else 'No especificado'
         fecha_text = acta.fecha.strftime('%d-%m-%Y')
         print(f"Textos para el PDF - Departamento: {departamento_text}, Responsable: {responsable_text}, Generador: {generador_text}, Fecha: {fecha_text}")
@@ -162,7 +164,12 @@ def generar_pdf_acta(actas, disposition='attachment'):
             descripcion_text = item['descripcion'].encode('utf-8').decode('utf-8')
             numero_siscom_text = item['numero_siscom'].encode('utf-8').decode('utf-8')
             observacion_text = (item['observacion'] or '-').replace('\n', '<br/>').encode('utf-8').decode('utf-8')
-            data.append([descripcion_text, numero_siscom_text, str(item['cantidad']), Paragraph(observacion_text, custom_styles['TableCell'])])
+            data.append([
+                descripcion_text,
+                numero_siscom_text,
+                str(item['cantidad']),
+                Paragraph(observacion_text, custom_styles['TableCell'])
+            ])
             print(f"Fila de la tabla: {descripcion_text}, {numero_siscom_text}, {item['cantidad']}, {observacion_text}")
 
         table = Table(data, colWidths=[1.8*inch, 2.0*inch, 0.8*inch, 2.4*inch])
@@ -184,7 +191,9 @@ def generar_pdf_acta(actas, disposition='attachment'):
         ]))
 
         responsable_lower = responsable_text.lower()
-        cargo = "SECRETARIA DEL DEPARTAMENTO" if 'secretaria' in responsable_lower else "JEFE DEL DEPARTAMENTO" if 'jefe' in responsable_lower or 'jefatura' in responsable_lower else "RESPONSABLE DEL DEPARTAMENTO"
+        cargo = ("SECRETARIA DEL DEPARTAMENTO" if 'secretaria' in responsable_lower 
+                else "JEFE DEL DEPARTAMENTO" if 'jefe' in responsable_lower or 'jefatura' in responsable_lower 
+                else "RESPONSABLE DEL DEPARTAMENTO")
 
         firma_table = Table([
             [Paragraph(f"{generador_text}", custom_styles['Signature']), Paragraph(f"Sr./Sra. {responsable_text}", custom_styles['Signature'])],
@@ -192,7 +201,13 @@ def generar_pdf_acta(actas, disposition='attachment'):
             ['', Paragraph(cargo, custom_styles['SignatureCargo'])],
             [Paragraph("_____________________________", custom_styles['Signature']), Paragraph("_____________________________", custom_styles['Signature'])],
         ], colWidths=[3*inch, 3*inch])
-        firma_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'), ('FONTSIZE', (0, 0), (-1, -1), 10), ('LEADING', (0, 0), (-1, -1), 12)]))
+        firma_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('LEADING', (0, 0), (-1, -1), 12)
+        ]))
 
         elements.extend([table, Spacer(1, 4*inch), firma_table])
         print("Construyendo el PDF...")
@@ -204,7 +219,7 @@ def generar_pdf_acta(actas, disposition='attachment'):
         response = HttpResponse(f"Error al generar el PDF: {str(e)}", content_type='text/plain')
         response.status_code = 500
         return response
-    
+
 def exportar_excel(request, datos, nombre_base, columnas, campos):
     """Genera y devuelve un archivo Excel"""
     wb = openpyxl.Workbook()
@@ -238,7 +253,7 @@ def exportar_excel(request, datos, nombre_base, columnas, campos):
     fecha = datetime.now().strftime('%Y-%m-%d')
     filename = f"{nombre_base}_{fecha}.xlsx"
     encoded_filename = urllib.parse.quote(filename)
-    
+
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="{encoded_filename}"'
     wb.save(response)
@@ -247,35 +262,26 @@ def exportar_excel(request, datos, nombre_base, columnas, campos):
 # Vistas
 @login_required
 def home(request):
-    # Limpiar la sesión de productos de salida
+    """Vista para la página de inicio con métricas de stock"""
     limpiar_sesion_productos_salida(request)
 
-    # Calcular métricas para el gráfico de dona
-    # Total de productos con stock mayor a 0
     total_productos = Producto.objects.filter(stock__gt=0).count()
     
     if total_productos > 0:
-        # Productos con stock bajo (1-10)
         stock_bajo = Producto.objects.filter(stock__gte=1, stock__lte=10).count()
-        # Productos con stock medio (11-50)
         stock_medio = Producto.objects.filter(stock__gt=10, stock__lte=50).count()
-        # Productos con stock alto (>50)
         stock_alto = Producto.objects.filter(stock__gt=50).count()
 
-        # Calcular porcentajes (evitando división por cero)
         porcentaje_bajo = (stock_bajo / total_productos * 100) if total_productos > 0 else 0
         porcentaje_medio = (stock_medio / total_productos * 100) if total_productos > 0 else 0
         porcentaje_alto = (stock_alto / total_productos * 100) if total_productos > 0 else 0
 
-        # Redondear los porcentajes a 2 decimales
         porcentaje_bajo = round(porcentaje_bajo, 2)
         porcentaje_medio = round(porcentaje_medio, 2)
         porcentaje_alto = round(porcentaje_alto, 2)
 
-        # Ajustar los porcentajes para que sumen exactamente 100%
         suma_porcentajes = porcentaje_bajo + porcentaje_medio + porcentaje_alto
         if suma_porcentajes != 100.0:
-            # Ajustar el porcentaje más grande para compensar el error de redondeo
             if porcentaje_bajo >= porcentaje_medio and porcentaje_bajo >= porcentaje_alto:
                 porcentaje_bajo = porcentaje_bajo + (100.0 - suma_porcentajes)
             elif porcentaje_medio >= porcentaje_bajo and porcentaje_medio >= porcentaje_alto:
@@ -286,13 +292,11 @@ def home(request):
         stock_bajo = stock_medio = stock_alto = 0
         porcentaje_bajo = porcentaje_medio = porcentaje_alto = 0
 
-    # Preparar los datos para el gráfico de dona en formato JSON
     chart_data = {
         'totalProductos': total_productos,
         'porcentajes': [porcentaje_bajo, porcentaje_medio, porcentaje_alto]
     }
 
-    # Preparar el contexto para la plantilla
     context = {
         'total_productos': total_productos,
         'stock_bajo': stock_bajo,
@@ -301,17 +305,18 @@ def home(request):
         'porcentaje_bajo': porcentaje_bajo,
         'porcentaje_medio': porcentaje_medio,
         'porcentaje_alto': porcentaje_alto,
-        'chart_data_json': mark_safe(json.dumps(chart_data))  # Usar mark_safe para asegurar que el JSON sea seguro para JavaScript
+        'chart_data_json': mark_safe(json.dumps(chart_data))
     }
     return render(request, 'accounts/home.html', context)
 
 class CustomLoginView(LoginView):
+    """Vista personalizada para el inicio de sesión"""
     template_name = 'accounts/login.html'
 
     def post(self, request, *args, **kwargs):
-        rut = request.POST.get('username')  # Cambiamos 'username' a 'rut' en el formulario
+        rut = request.POST.get('username')
         password = request.POST.get('password')
-        user = authenticate(request, rut=rut, password=password)  # Usamos 'rut' para autenticar
+        user = authenticate(request, rut=rut, password=password)
         if user is not None:
             login(request, user)
             return HttpResponseRedirect(self.get_success_url())
@@ -323,6 +328,7 @@ class CustomLoginView(LoginView):
 
 @login_required
 def registrar_producto(request):
+    """Vista para registrar un nuevo producto"""
     limpiar_sesion_productos_salida(request)
     if not request.user.has_perm('accounts.can_edit'):
         messages.error(request, 'No tienes permiso para registrar productos.')
@@ -352,6 +358,7 @@ def registrar_producto(request):
 
 @login_required
 def listar_productos(request):
+    """Vista para listar productos con filtros y exportación a Excel"""
     limpiar_sesion_productos_salida(request)
     params = request.POST if request.method == 'POST' else request.GET
     query_codigo = params.get('codigo_barra', '')
@@ -383,6 +390,7 @@ def listar_productos(request):
 
 @login_required
 def agregar_stock(request):
+    """Vista para listar productos y agregar stock"""
     limpiar_sesion_productos_salida(request)
     if not request.user.has_perm('accounts.can_edit'):
         messages.error(request, 'No tienes permiso para agregar stock.')
@@ -405,6 +413,7 @@ def agregar_stock(request):
 
 @login_required
 def agregar_stock_detalle(request, codigo_barra):
+    """Vista para agregar stock a un producto específico"""
     limpiar_sesion_productos_salida(request)
     if not request.user.has_perm('accounts.can_edit'):
         messages.error(request, 'No tienes permiso para agregar stock.')
@@ -443,10 +452,15 @@ def agregar_stock_detalle(request, codigo_barra):
 
 @login_required
 def salida_productos(request):
+    """Vista para gestionar la salida de productos"""
     if not request.user.has_perm('accounts.can_edit'):
         messages.error(request, 'No tienes permiso para realizar salidas de productos.')
         return redirect('home')
+    
+    # Cargar productos_salida desde la sesión
     productos_salida = request.session.get('productos_salida', [])
+    
+    # Preparar la lista de productos para mostrar
     productos = Producto.objects.all().order_by('codigo_barra')
     query_codigo = request.GET.get('codigo_barra', '')
     query_descripcion = request.GET.get('descripcion', '')
@@ -459,8 +473,12 @@ def salida_productos(request):
     page_obj = paginar_resultados(request, productos)
 
     if request.method == 'POST':
+        print(f"POST recibido: {request.POST}")
+
+        # Manejar solicitudes AJAX para actualizar datos
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and request.POST.get('action') == 'update_data':
             codigo_barra = request.POST.get('codigo_barra')
+            updated = False
             for item in productos_salida:
                 if item['codigo_barra'] == codigo_barra:
                     item.update({
@@ -468,11 +486,17 @@ def salida_productos(request):
                         'cantidad': request.POST.get('cantidad', ''),
                         'observacion': request.POST.get('observacion', '')
                     })
+                    updated = True
                     break
-            request.session['productos_salida'] = productos_salida
-            request.session.modified = True
+            if updated:
+                request.session['productos_salida'] = productos_salida
+                request.session.modified = True
+                print(f"Datos actualizados para el producto {codigo_barra}: {item}")
+            else:
+                print(f"No se encontró el producto {codigo_barra} para actualizar")
             return JsonResponse({'success': True})
 
+        # Manejar el botón "Agregar producto"
         elif 'agregar_producto' in request.POST:
             codigo_barra = request.POST.get('codigo_barra')
             try:
@@ -493,40 +517,85 @@ def salida_productos(request):
                     request.session['productos_salida'] = productos_salida
                     request.session.modified = True
                     messages.success(request, 'Producto agregado a la lista de salida.')
+                    print(f"Producto agregado: {producto.codigo_barra}")
             except Producto.DoesNotExist:
                 messages.error(request, 'Producto no encontrado.')
             return redirect('salida-productos')
 
+        # Manejar el botón "Eliminar producto"
         elif 'eliminar_producto' in request.POST:
             codigo_barra = request.POST.get('codigo_barra')
             productos_salida = [item for item in productos_salida if item['codigo_barra'] != codigo_barra]
             request.session['productos_salida'] = productos_salida
             request.session.modified = True
+            print(f"Producto eliminado: {codigo_barra}")
             return JsonResponse({'success': True}) if request.headers.get('X-Requested-With') == 'XMLHttpRequest' else redirect('salida-productos')
 
-        elif 'siguiente' in request.POST:
+        # Manejar el formulario de salida de productos (botón "Siguiente")
+        elif 'siguiente' in request.POST or any(key.startswith('numero_siscom_') for key in request.POST):
+            print("Procesando formulario de salida de productos (botón 'Siguiente')")
+            print(f"Productos en la sesión antes de validar: {productos_salida}")
+
+            # Verificar si hay productos en la lista de salida
             if not productos_salida:
+                print("Error: No hay productos en la lista de salida")
                 messages.error(request, 'Debes agregar al menos un producto para continuar.')
                 return redirect('salida-productos')
+
+            # Validar cada producto en la lista de salida
             for item in productos_salida:
-                if not item['numero_siscom'] or not item['numero_siscom'].isdigit():
-                    messages.error(request, f"El Número de SISCOM para el producto {item['codigo_barra']} debe ser un número entero.")
+                print(f"Validando producto: {item}")
+
+                # Validar número SISCOM
+                numero_siscom = str(item.get('numero_siscom', '')).strip()
+                if not numero_siscom:
+                    print(f"Error: Número SISCOM vacío para el producto {item['codigo_barra']}")
+                    messages.error(request, f"El Número de SISCOM para el producto {item['codigo_barra']} no puede estar vacío.")
                     return redirect('salida-productos')
+                if not numero_siscom.isdigit():
+                    print(f"Error: Número SISCOM inválido para el producto {item['codigo_barra']}: {numero_siscom}")
+                    messages.error(request, f"El Número de SISCOM para el producto {item['codigo_barra']} debe ser un número entero válido (valor recibido: '{numero_siscom}').")
+                    return redirect('salida-productos')
+
+                # Validar cantidad
+                cantidad_str = str(item.get('cantidad', '')).strip()
+                if not cantidad_str:
+                    print(f"Error: Cantidad vacía para el producto {item['codigo_barra']}")
+                    messages.error(request, f"La cantidad para el producto {item['codigo_barra']} no puede estar vacía.")
+                    return redirect('salida-productos')
+
                 try:
-                    cantidad = int(item['cantidad'])
+                    cantidad = int(cantidad_str)
+                    print(f"Cantidad convertida para el producto {item['codigo_barra']}: {cantidad}")
+
+                    # Validar que la cantidad sea positiva
                     if cantidad <= 0:
-                        messages.error(request, f"La cantidad para el producto {item['codigo_barra']} debe ser un número positivo.")
+                        print(f"Error: Cantidad no positiva para el producto {item['codigo_barra']}: {cantidad}")
+                        messages.error(request, f"La cantidad para el producto {item['codigo_barra']} debe ser un número positivo (valor recibido: {cantidad}).")
                         return redirect('salida-productos')
+
+                    # Validar que la cantidad no supere el stock
                     if cantidad > item['stock']:
+                        print(f"Error: Cantidad excede el stock para el producto {item['codigo_barra']}. Cantidad: {cantidad}, Stock: {item['stock']}")
                         messages.error(request, f"La cantidad a retirar ({cantidad}) para el producto {item['codigo_barra']} no puede superar el stock actual ({item['stock']}).")
                         return redirect('salida-productos')
+
+                    # Actualizar cantidad en el producto
                     item['cantidad'] = cantidad
+
                 except ValueError:
-                    messages.error(request, f"La cantidad para el producto {item['codigo_barra']} debe ser un número entero.")
+                    print(f"Error: Cantidad no convertible a entero para el producto {item['codigo_barra']}: {cantidad_str}")
+                    messages.error(request, f"La cantidad para el producto {item['codigo_barra']} debe ser un número entero (valor recibido: '{cantidad_str}').")
                     return redirect('salida-productos')
+
+            # Si todas las validaciones pasaron, redirigir a la siguiente etapa
+            print("Todas las validaciones pasaron. Redirigiendo a salida-productos-seleccion")
             request.session['productos_salida'] = productos_salida
             request.session.modified = True
             return redirect('salida-productos-seleccion')
+
+        else:
+            print("Acción POST no reconocida")
 
     return render(request, 'accounts/salida_productos.html', {
         'page_obj': page_obj,
@@ -537,9 +606,11 @@ def salida_productos(request):
 
 @login_required
 def salida_productos_seleccion(request):
+    """Vista para seleccionar departamento y responsable, y generar el acta de entrega"""
     if not request.user.has_perm('accounts.can_edit'):
         messages.error(request, 'No tienes permiso para realizar salidas de productos.')
         return redirect('home')
+    
     productos_salida = request.session.get('productos_salida', [])
     if not productos_salida:
         messages.error(request, 'No hay productos seleccionados para la salida.')
@@ -558,11 +629,9 @@ def salida_productos_seleccion(request):
                     producto = Producto.objects.get(codigo_barra=item['codigo_barra'])
                     cantidad = int(item['cantidad'] or 0)
 
-                    # Calcular el saldo real basado en transacciones y actas
                     transacciones = Transaccion.objects.filter(producto=producto).order_by('fecha')
                     actas = ActaEntrega.objects.filter(producto=producto).order_by('fecha')
 
-                    # Crear una lista de eventos combinada (entradas y salidas)
                     eventos = []
                     for transaccion in transacciones.filter(tipo='entrada'):
                         eventos.append({
@@ -581,7 +650,6 @@ def salida_productos_seleccion(request):
                             })
                     eventos.sort(key=lambda x: x['fecha'])
 
-                    # Calcular el saldo
                     saldo = 0
                     for evento in eventos:
                         if evento['tipo'] == 'entrada':
@@ -589,7 +657,6 @@ def salida_productos_seleccion(request):
                         else:
                             saldo -= evento['salida']
 
-                    # Si el saldo calculado no coincide con el stock actual, corregirlo
                     if saldo != producto.stock:
                         messages.warning(request, f'El stock del producto {producto.descripcion} (Código: {producto.codigo_barra}) estaba desincronizado. Stock actual: {producto.stock}, Saldo calculado: {saldo}.')
                         producto.stock = saldo
@@ -601,15 +668,12 @@ def salida_productos_seleccion(request):
                         messages.error(request, f'No hay suficiente stock para {producto.descripcion} (Código: {producto.codigo_barra}). Stock actual: {producto.stock}, Solicitado: {cantidad}.')
                         return redirect('salida-productos-seleccion')
 
-                # Generar un nuevo número de acta
                 ultimo_acta = ActaEntrega.objects.order_by('-numero_acta').first()
                 numero_acta = 1 if not ultimo_acta else ultimo_acta.numero_acta + 1
                 print(f"Nuevo número de acta: {numero_acta}")
 
-                # Obtener el objeto Responsable del formulario
                 responsable = form.cleaned_data['responsable']
 
-                # Crear las actas y transacciones
                 for item in productos_salida:
                     print(f"Creando acta para el producto: {item}")
                     producto = Producto.objects.get(codigo_barra=item['codigo_barra'])
@@ -617,33 +681,30 @@ def salida_productos_seleccion(request):
                     acta = ActaEntrega(
                         numero_acta=numero_acta,
                         departamento=form.cleaned_data['departamento'],
-                        responsable=responsable,  # Asignamos el objeto Responsable
-                        generador=request.user,  # Asignamos el usuario autenticado
+                        responsable=responsable,
+                        generador=request.user,
                         producto=producto,
                         cantidad=cantidad,
-                        numero_siscom=item['numero_siscom'],  # Tomamos el valor de productos_salida
-                        observacion=item['observacion'],  # Tomamos el valor de productos_salida
+                        numero_siscom=item['numero_siscom'],
+                        observacion=item['observacion'],
                     )
                     acta.save()
                     print(f"Acta creada: N°{acta.numero_acta}, Producto: {producto.descripcion}, Cantidad: {cantidad}")
 
-                    # Crear una transacción de salida asociada al acta con fecha explícita
                     Transaccion.objects.create(
                         producto=producto,
                         tipo='salida',
                         cantidad=cantidad,
                         acta_entrega=acta,
-                        fecha=datetime.now(pytz.UTC),  # Aseguramos que la transacción tenga una fecha
+                        fecha=datetime.now(pytz.UTC),
                         observacion=f"Salida asociada al Acta N°{numero_acta}"
                     )
                     print(f"Transacción creada: Tipo: salida, Cantidad: {cantidad}")
 
-                    # Actualizar el stock del producto
                     producto.stock -= cantidad
                     producto.save()
                     print(f"Stock actualizado: {producto.descripcion}, Nuevo stock: {producto.stock}")
 
-                # Generar el PDF del acta
                 actas = ActaEntrega.objects.filter(numero_acta=numero_acta)
                 print(f"Actas para el PDF: {list(actas)}")
 
@@ -669,13 +730,12 @@ def salida_productos_seleccion(request):
 
 @login_required
 def listar_actas(request):
-    """Vista para listar las actas de entrega."""
+    """Vista para listar las actas de entrega"""
     limpiar_sesion_productos_salida(request)
     actas = ActaEntrega.objects.all().order_by('-numero_acta')
     query_numero_acta = request.GET.get('numero_acta', '')
     query_responsable = request.GET.get('responsable', '')
 
-    # Aplicar filtros
     if query_numero_acta:
         try:
             actas = actas.filter(numero_acta__startswith=int(query_numero_acta))
@@ -684,14 +744,11 @@ def listar_actas(request):
     if query_responsable:
         actas = actas.filter(responsable__nombre__icontains=query_responsable)
 
-    # Eliminar duplicados por número de acta y ordenar
     actas_dict = {acta.numero_acta: acta for acta in actas}
     actas_lista = sorted(actas_dict.values(), key=lambda x: x.numero_acta, reverse=True)
 
-    # Paginar las actas (20 por página)
     page_obj = paginar_resultados(request, actas_lista, items_por_pagina=20)
 
-    # Renderizar la página completa
     return render(request, 'accounts/listar_actas.html', {
         'actas': page_obj,
         'query_numero_acta': query_numero_acta,
@@ -700,6 +757,7 @@ def listar_actas(request):
 
 @login_required
 def ver_acta_pdf(request, numero_acta, disposition):
+    """Vista para visualizar un acta de entrega en PDF"""
     actas = ActaEntrega.objects.filter(numero_acta=numero_acta)
     if not actas.exists():
         return HttpResponse("Acta no encontrada.", status=404)
@@ -707,6 +765,7 @@ def ver_acta_pdf(request, numero_acta, disposition):
 
 @login_required
 def bincard_buscar(request):
+    """Vista para buscar un producto por código de barra y ver su historial"""
     limpiar_sesion_productos_salida(request)
     if request.method == 'POST':
         codigo_barra = request.POST.get('codigo_barra', '').strip()
@@ -726,6 +785,7 @@ def bincard_buscar(request):
 
 @login_required
 def buscar_codigos_barra(request):
+    """Vista para buscar códigos de barra mediante autocompletado"""
     term = request.GET.get('term', '').strip()
     if not term:
         return JsonResponse([], safe=False)
@@ -735,6 +795,7 @@ def buscar_codigos_barra(request):
 
 @login_required
 def bincard_historial(request, codigo_barra):
+    """Vista para mostrar el historial de transacciones de un producto"""
     limpiar_sesion_productos_salida(request)
     if not codigo_barra.isdigit():
         messages.error(request, 'El código de barra debe contener solo números.')
@@ -746,13 +807,10 @@ def bincard_historial(request, codigo_barra):
         messages.error(request, 'Producto no encontrado.')
         return redirect('bincard-buscar')
 
-    # Obtener transacciones y actas
     transacciones = Transaccion.objects.filter(producto=producto).order_by('fecha')
     actas = ActaEntrega.objects.filter(producto=producto).order_by('fecha')
 
-    # Crear una lista de eventos combinada (entradas y salidas)
     eventos = []
-    # Agregar transacciones de entrada
     for transaccion in transacciones.filter(tipo='entrada'):
         guia_o_factura = transaccion.guia_despacho or transaccion.numero_factura or "-"
         if transaccion.guia_despacho:
@@ -762,7 +820,7 @@ def bincard_historial(request, codigo_barra):
 
         eventos.append({
             'tipo': 'entrada',
-            'fecha': transaccion.fecha or datetime.now(pytz.UTC),  # Usar fecha actual si es NULL
+            'fecha': transaccion.fecha or datetime.now(pytz.UTC),
             'guia_o_factura': guia_o_factura,
             'numero_acta': None,
             'rut_proveedor': transaccion.rut_proveedor or '-',
@@ -771,12 +829,11 @@ def bincard_historial(request, codigo_barra):
             'salida': 0,
         })
 
-    # Agregar transacciones de salida (vinculadas a actas)
     for transaccion in transacciones.filter(tipo='salida'):
-        if transaccion.acta_entrega:  # Solo incluir transacciones asociadas a un acta
+        if transaccion.acta_entrega:
             eventos.append({
                 'tipo': 'salida',
-                'fecha': transaccion.fecha or transaccion.acta_entrega.fecha or datetime.now(pytz.UTC),  # Usar fecha de la transacción, o del acta, o actual
+                'fecha': transaccion.fecha or transaccion.acta_entrega.fecha or datetime.now(pytz.UTC),
                 'guia_o_factura': "-",
                 'numero_acta': transaccion.acta_entrega.numero_acta,
                 'rut_proveedor': None,
@@ -785,16 +842,14 @@ def bincard_historial(request, codigo_barra):
                 'salida': transaccion.cantidad,
             })
 
-    # Ordenar eventos por fecha
-    eventos.sort(key=lambda x: x['fecha'] or datetime.now(pytz.UTC))  # Asegurarse de que eventos sin fecha se ordenen al final
+    eventos.sort(key=lambda x: x['fecha'] or datetime.now(pytz.UTC))
 
-    # Calcular el saldo de forma incremental
     saldo = 0
     movimientos = []
     for evento in eventos:
         if evento['tipo'] == 'entrada':
             saldo += evento['entrada']
-        else:  # tipo == 'salida'
+        else:
             saldo -= evento['salida']
 
         if saldo < 0:
@@ -807,15 +862,12 @@ def bincard_historial(request, codigo_barra):
     total_entradas = sum(m['entrada'] for m in movimientos)
     total_salidas = sum(m['salida'] for m in movimientos)
 
-    # Verificar si el saldo calculado coincide con el stock actual
     if saldo != producto.stock:
         messages.warning(request, f'Advertencia: El saldo calculado ({saldo}) no coincide con el stock actual del producto ({producto.stock}).')
-        # Corregir el stock del producto
         producto.stock = saldo
         producto.save()
         messages.info(request, f'El stock del producto ha sido corregido a {saldo} para que coincida con el saldo calculado.')
 
-    # Exportar a Excel si se solicita
     if request.method == 'POST' and 'exportar_excel' in request.POST:
         columnas = ['Fecha', 'Guía o Factura', 'N° Acta', 'Proveedor (RUT)', 'Programa/Departamento', 'Entrada', 'Salida', 'Saldo']
         campos = ['fecha', 'guia_o_factura', 'numero_acta', 'rut_proveedor', 'departamento', 'entrada', 'salida', 'saldo']
@@ -831,6 +883,7 @@ def bincard_historial(request, codigo_barra):
 
 @login_required
 def agregar_departamento(request):
+    """Vista para agregar un nuevo departamento"""
     limpiar_sesion_productos_salida(request)
     if not request.user.has_perm('accounts.can_manage_departments'):
         messages.error(request, 'No tienes permiso para agregar departamentos.')
@@ -848,6 +901,7 @@ def agregar_departamento(request):
 
 @login_required
 def modificar_departamento(request):
+    """Vista para modificar un departamento existente"""
     limpiar_sesion_productos_salida(request)
     if not request.user.has_perm('accounts.can_manage_departments'):
         messages.error(request, 'No tienes permiso para modificar departamentos.')
@@ -866,7 +920,6 @@ def modificar_departamento(request):
             departamento.nombre = nuevo_nombre
             departamento.save()
 
-            # Actualizar los responsables asociados al departamento
             responsables = Responsable.objects.filter(departamento=departamento)
             
             if not jefatura:
@@ -895,24 +948,23 @@ def modificar_departamento(request):
     else:
         form = ModificarDepartamentoForm()
         departamentos = Departamento.objects.filter(activo=True)
-        # Crear un diccionario con los responsables de cada departamento
         responsables_por_departamento = {}
         for dept in departamentos:
             responsables = dept.responsables.all()
             responsables_dict = {r.tipo: r.nombre for r in responsables}
             responsables_por_departamento[dept.nombre] = responsables_dict
-        # Convertir el diccionario a JSON y marcarlo como seguro
         responsables_json = mark_safe(json.dumps(responsables_por_departamento))
         print("Departamentos disponibles en la vista modificar_departamento:", list(departamentos))
         print("Opciones del campo departamento:", form.fields['departamento'].choices)
         print("Responsables por departamento:", responsables_por_departamento)
     return render(request, 'accounts/modificar_departamento.html', {
         'form': form,
-        'responsables_json': responsables_json  # Pasamos el JSON en lugar del diccionario
+        'responsables_json': responsables_json
     })
 
 @login_required
 def eliminar_departamento(request):
+    """Vista para deshabilitar un departamento"""
     limpiar_sesion_productos_salida(request)
     if not request.user.has_perm('accounts.can_manage_departments'):
         messages.error(request, 'No tienes permiso para deshabilitar departamentos.')
@@ -922,7 +974,7 @@ def eliminar_departamento(request):
         if form.is_valid():
             departamento_nombre = form.cleaned_data['departamento']
             departamento = Departamento.objects.get(nombre=departamento_nombre, activo=True)
-            departamento.activo = False  # Deshabilitar en lugar de eliminar
+            departamento.activo = False
             departamento.save()
             messages.success(request, 'Departamento deshabilitado con éxito.')
             return redirect('home')
@@ -936,6 +988,7 @@ def eliminar_departamento(request):
 
 @login_required
 def funcionarios_por_departamento(request):
+    """Vista para obtener los responsables de un departamento"""
     departamento = request.GET.get('departamento', '')
     if not departamento:
         return JsonResponse({'error': 'Departamento no especificado'}, status=400)
@@ -943,7 +996,7 @@ def funcionarios_por_departamento(request):
     try:
         departamento_obj = Departamento.objects.get(nombre=departamento)
         responsables = departamento_obj.responsables.all()
-        responsables_list = [{'id': r.id, 'nombre': r.nombre} for r in responsables]  # Incluimos el ID
+        responsables_list = [{'id': r.id, 'nombre': r.nombre} for r in responsables]
         print(f"Responsables encontrados para {departamento}: {responsables_list}")
         return JsonResponse({'funcionarios': responsables_list})
     except Departamento.DoesNotExist:
@@ -964,27 +1017,25 @@ def listar_usuarios(request):
     query_nombre = request.GET.get('nombre', '')
     query_rol = request.GET.get('rol', '')
 
-    # Solo validar el formulario si se enviaron datos (request.GET no vacío)
     if request.GET:
         if form.is_valid():
             print(f"Formulario válido: True")
             print(f"Datos limpiados: {form.cleaned_data}")
             query_rut = form.cleaned_data['rut']
             query_nombre = form.cleaned_data['nombre']
-            query_rol = form.cleaned_data['rol']  # Este valor será el nombre del grupo o None
+            query_rol = form.cleaned_data['rol']
 
             if query_rut:
                 usuarios = usuarios.filter(rut__icontains=query_rut)
             if query_nombre:
                 usuarios = usuarios.filter(nombre__icontains=query_nombre)
-            if query_rol:  # query_rol será el nombre del grupo (como "Administrador") o None
+            if query_rol:
                 print(f"Filtrando por rol: {query_rol}")
                 usuarios = usuarios.filter(groups__name=query_rol)
         else:
             print(f"Formulario válido: False")
-            print(f"Errores del formulario: {form.errors.as_json()}")  # Mostrar errores en formato JSON para mejor depuración
+            print(f"Errores del formulario: {form.errors.as_json()}")
     else:
-        # Si no se enviaron datos, no filtramos
         query_rut = ''
         query_nombre = ''
         query_rol = ''
@@ -1031,11 +1082,9 @@ def editar_usuario(request, rut):
     if request.method == 'POST':
         form = CustomUserEditForm(request.POST, instance=usuario)
         if form.is_valid():
-            # Guardar los datos del formulario
             usuario = form.save()
-            # Verificar si se proporcionó una nueva contraseña
             password = form.cleaned_data.get('password')
-            if password:  # Solo cambiamos la contraseña si se proporcionó una
+            if password:
                 usuario.set_password(password)
                 usuario.save()
                 messages.info(request, 'La contraseña ha sido actualizada.')
@@ -1073,7 +1122,6 @@ def deshabilitar_usuario(request, rut):
 @permission_required('accounts.can_access_admin', raise_exception=True)
 def verify_password(request):
     """Vista para verificar la contraseña del administrador antes de acceder al panel de administración"""
-    # Verificar si el usuario tiene permisos para acceder al panel de admin
     if not request.user.is_staff or not request.user.is_superuser:
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'message': 'No tienes permisos suficientes para acceder al panel de administración.'}, status=403)
@@ -1084,7 +1132,6 @@ def verify_password(request):
         password = request.POST.get('password')
         user = request.user
 
-        # Verificar si la contraseña proporcionada es correcta
         if user.check_password(password):
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
@@ -1096,5 +1143,4 @@ def verify_password(request):
             messages.error(request, 'Contraseña incorrecta. Por favor, intenta de nuevo.')
             return render(request, 'accounts/verify_password.html')
 
-    # Si es un GET, renderizar el formulario de verificación
     return render(request, 'accounts/verify_password.html')

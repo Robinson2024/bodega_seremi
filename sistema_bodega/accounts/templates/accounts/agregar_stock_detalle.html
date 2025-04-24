@@ -23,16 +23,17 @@
                 <p style="color: #64748b;">Stock actual: {{ producto.stock }}</p>
             </div>
             <!-- Formulario para agregar stock -->
-            <form method="post" class="needs-validation" novalidate>
+            <form method="post" class="needs-validation" novalidate id="stock-form">
                 {% csrf_token %}
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <div class="input-group input-group-sm">
-                            {{ form.cantidad|add_class:"form-control" }}
+                            {{ form.cantidad|add_class:"form-control cantidad-input" }}
                             <div class="input-group-append">
                                 <span class="input-group-text">Cantidad</span>
                             </div>
                         </div>
+                        <div class="invalid-feedback" id="cantidad-error"></div>
                         {% if form.cantidad.errors %}
                             <div class="text-danger small">{{ form.cantidad.errors }}</div>
                         {% endif %}
@@ -44,6 +45,7 @@
                                 <span class="input-group-text">RUT Proveedor</span>
                             </div>
                         </div>
+                        <div class="invalid-feedback" id="rut-error"></div>
                         {% if form.rut_proveedor.errors %}
                             <div class="text-danger small">{{ form.rut_proveedor.errors }}</div>
                         {% endif %}
@@ -87,7 +89,7 @@
                     </div>
                 </div>
                 <div class="text-center">
-                    <button type="submit" class="btn btn-primary btn-sm mr-2">Agregar Stock</button>
+                    <button type="submit" id="submit-btn" class="btn btn-primary btn-sm mr-2">Agregar Stock</button>
                     <a href="{% url 'agregar-stock' %}" class="btn btn-secondary btn-sm">Cancelar</a>
                 </div>
             </form>
@@ -142,11 +144,12 @@
         margin-top: 10px;
         border-radius: 5px;
     }
-    .text-danger {
+    .text-danger, .invalid-feedback {
         font-size: 0.8rem;
         margin-top: 5px;
+        color: #dc3545;
     }
-    .rut-input:invalid:not(:focus):not(:placeholder-shown) {
+    .form-control.is-invalid {
         border-color: #dc3545;
         background-color: #fff3f3;
     }
@@ -159,125 +162,161 @@
 </style>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const rutInput = document.querySelector('.rut-input');
+document.addEventListener('DOMContentLoaded', function() {
+    const rutInput = document.querySelector('.rut-input');
+    const cantidadInput = document.querySelector('.cantidad-input');
+    const form = document.getElementById('stock-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const cantidadError = document.getElementById('cantidad-error');
+    const rutError = document.getElementById('rut-error');
 
-        // Función para validar el RUT
-        function validarRut(rut) {
-            rut = rut.replace(/\./g, '').replace(/\-/g, '').toUpperCase();
-            var rutLimpio = rut.slice(0, -1);
-            var dv = rut.slice(-1);
+    // Función para validar el RUT
+    function validarRut(rut) {
+        rut = rut.replace(/\./g, '').replace(/\-/g, '').toUpperCase();
+        var rutLimpio = rut.slice(0, -1);
+        var dv = rut.slice(-1);
 
-            if (rutLimpio.length < 2) return false;
+        if (rutLimpio.length < 2) return false;
 
-            var suma = 0;
-            var multiplo = 2;
+        var suma = 0;
+        var multiplo = 2;
 
-            for (var i = rutLimpio.length - 1; i >= 0; i--) {
-                suma += rutLimpio.charAt(i) * multiplo;
-                multiplo = (multiplo == 7) ? 2 : multiplo + 1;
+        for (var i = rutLimpio.length - 1; i >= 0; i--) {
+            suma += rutLimpio.charAt(i) * multiplo;
+            multiplo = (multiplo == 7) ? 2 : multiplo + 1;
+        }
+
+        var dvEsperado = 11 - (suma % 11);
+        if (dvEsperado == 11) dvEsperado = 0;
+        if (dvEsperado == 10) dvEsperado = 'K';
+
+        return dv == dvEsperado;
+    }
+
+    // Función para formatear el RUT con puntos y guion
+    function formatearRut(rut) {
+        rut = rut.replace(/\./g, '').replace(/\-/g, '').toUpperCase();
+        var rutLimpio = rut.slice(0, -1);
+        var dv = rut.slice(-1);
+        var rutFormateado = '';
+
+        for (var i = rutLimpio.length - 1; i >= 0; i--) {
+            rutFormateado = rutLimpio.charAt(i) + rutFormateado;
+            if (i > 0 && (rutLimpio.length - i) % 3 === 0) {
+                rutFormateado = '.' + rutFormateado;
+            }
+        }
+
+        return rutFormateado + '-' + dv;
+    }
+
+    // Función para limpiar el RUT (quitar puntos) antes de enviarlo
+    function cleanRut(rut) {
+        return rut.replace(/[^0-9K-]/g, '').toUpperCase();
+    }
+
+    // Validación de la cantidad en tiempo real
+    if (cantidadInput) {
+        cantidadInput.addEventListener('input', function() {
+            const value = this.value.trim();
+            if (!/^\d+$/.test(value)) {
+                this.classList.add('is-invalid');
+                cantidadError.textContent = 'La cantidad debe ser un número entero.';
+            } else if (parseInt(value) <= 0) {
+                this.classList.add('is-invalid');
+                cantidadError.textContent = 'La cantidad debe ser mayor que 0.';
+            } else {
+                this.classList.remove('is-invalid');
+                cantidadError.textContent = '';
+            }
+        });
+    }
+
+    // Validación y formateo del RUT
+    if (rutInput) {
+        rutInput.oninput = function(e) {
+            let value = this.value;
+            // Permitir números, guion y K
+            let cleanedValue = value.replace(/[^0-9-K]/gi, '');
+            let parts = cleanedValue.split('-');
+            let body = parts[0] || '';
+            let dv = parts[1] || '';
+
+            // Limitar cuerpo a 8 dígitos
+            body = body.replace(/[^0-9]/g, '').slice(0, 8);
+
+            // Permitir guion y dígito verificador (0-9 o K)
+            if (parts.length > 1) {
+                dv = dv.replace(/[^0-9K]/gi, '').slice(0, 1);
+            } else if (value.includes('-')) {
+                dv = ''; // Mantener el guion si no hay dígito verificador aún
             }
 
-            var dvEsperado = 11 - (suma % 11);
-            if (dvEsperado == 11) dvEsperado = 0;
-            if (dvEsperado == 10) dvEsperado = 'K';
+            // Reconstruir el valor
+            let formattedValue = body;
+            if (body) {
+                // Formatear el cuerpo con puntos
+                let tempBody = '';
+                for (let i = body.length - 1; i >= 0; i--) {
+                    tempBody = body[i] + tempBody;
+                    if (i > 0 && (body.length - i) % 3 === 0) {
+                        tempBody = '.' + tempBody;
+                    }
+                }
+                formattedValue = tempBody;
 
-            return dv == dvEsperado;
-        }
-
-        // Función para formatear el RUT con puntos y guion
-        function formatearRut(rut) {
-            rut = rut.replace(/\./g, '').replace(/\-/g, '').toUpperCase();
-            var rutLimpio = rut.slice(0, -1);
-            var dv = rut.slice(-1);
-            var rutFormateado = '';
-
-            for (var i = rutLimpio.length - 1; i >= 0; i--) {
-                rutFormateado = rutLimpio.charAt(i) + rutFormateado;
-                if (i > 0 && (rutLimpio.length - i) % 3 === 0) {
-                    rutFormateado = '.' + rutFormateado;
+                // Agregar el guion y el dígito verificador si existe
+                if (value.includes('-')) {
+                    formattedValue += '-';
+                    if (dv) {
+                        formattedValue += dv.toUpperCase();
+                    }
                 }
             }
 
-            return rutFormateado + '-' + dv;
-        }
+            this.value = formattedValue;
+            this.classList.remove('is-invalid');
+            rutError.textContent = '';
+        };
 
-        // Función para limpiar el RUT (quitar puntos) antes de enviarlo
-        function cleanRut(rut) {
-            return rut.replace(/[^0-9K-]/g, '').toUpperCase();
-        }
+        // Validación al perder el foco
+        rutInput.addEventListener('blur', function() {
+            let value = this.value;
+            if (!value) return;
 
-        // Evento oninput para permitir entrada en tiempo real
-        if (rutInput) {
-            rutInput.oninput = function(e) {
-                let value = this.value;
-                console.log('Valor antes de procesar:', value);
+            let cleanedValue = cleanRut(value);
+            if (validarRut(cleanedValue)) {
+                this.value = formatearRut(cleanedValue);
+                this.classList.remove('is-invalid');
+                rutError.textContent = '';
+            } else {
+                this.classList.add('is-invalid');
+                rutError.textContent = 'El RUT ingresado no es válido.';
+                this.value = '';
+            }
+        });
 
-                // Permitir números, guion y K
-                let cleanedValue = value.replace(/[^0-9-K]/gi, '');
-                let parts = cleanedValue.split('-');
-                let body = parts[0] || '';
-                let dv = parts[1] || '';
+        // Limpiar el RUT antes de enviar al backend
+        form.addEventListener('submit', function(e) {
+            let rawValue = rutInput.value;
+            let cleanValue = cleanRut(rawValue);
+            rutInput.value = cleanValue;
+        });
+    }
 
-                // Limitar cuerpo a 8 dígitos
-                body = body.replace(/[^0-9]/g, '').slice(0, 8);
-
-                // Permitir guion y dígito verificador (0-9 o K)
-                if (parts.length > 1) {
-                    dv = dv.replace(/[^0-9K]/gi, '').slice(0, 1);
-                } else if (value.includes('-')) {
-                    dv = ''; // Mantener el guion si no hay dígito verificador aún
-                }
-
-                // Reconstruir el valor
-                let formattedValue = body;
-                if (body) {
-                    // Formatear el cuerpo con puntos
-                    let tempBody = '';
-                    for (let i = body.length - 1; i >= 0; i--) {
-                        tempBody = body[i] + tempBody;
-                        if (i > 0 && (body.length - i) % 3 === 0) {
-                            tempBody = '.' + tempBody;
-                        }
-                    }
-                    formattedValue = tempBody;
-
-                    // Agregar el guion y el dígito verificador si existe
-                    if (value.includes('-')) {
-                        formattedValue += '-';
-                        if (dv) {
-                            formattedValue += dv.toUpperCase();
-                        }
-                    }
-                }
-
-                this.value = formattedValue;
-                console.log('Valor después de procesar:', formattedValue);
-                this.setCustomValidity('');
-            };
-
-            // Validación y formateo al perder el foco
-            rutInput.addEventListener('blur', function() {
-                let value = this.value;
-                if (!value) return;
-
-                let cleanedValue = cleanRut(value);
-                if (validarRut(cleanedValue)) {
-                    this.value = formatearRut(cleanedValue);
-                } else {
-                    console.log('El RUT ingresado no es válido');
-                    this.value = '';
-                }
-            });
-
-            // Limpiar el RUT antes de enviar al backend
-            document.querySelector('form').addEventListener('submit', function(e) {
-                let rawValue = rutInput.value;
-                let cleanValue = cleanRut(rawValue);
-                console.log('Valor enviado al backend:', cleanValue);
-                rutInput.value = cleanValue;
-            });
-        }
-    });
+    // Deshabilitar el botón de envío después del primer clic
+    if (submitBtn) {
+        submitBtn.addEventListener('click', function() {
+            const formIsValid = form.checkValidity();
+            if (formIsValid) {
+                this.disabled = true; // Deshabilitar el botón
+                this.innerText = 'Procesando...'; // Cambiar el texto para feedback visual
+                form.submit(); // Enviar el formulario
+            } else {
+                form.reportValidity(); // Mostrar mensajes de validación
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

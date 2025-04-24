@@ -31,7 +31,7 @@
                     <input type="text" name="responsable" id="responsable" class="form-control" value="{{ query_responsable }}" placeholder="Ej: Jefe, Secretaria">
                 </div>
                 <div class="col-md-2 mb-3 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary-custom btn-sm w-100">Filtrar</button>
+                    <button type="button" id="filter-btn" class="btn btn-primary-custom btn-sm w-100">Filtrar</button>
                 </div>
                 <div class="col-md-2 mb-3 d-flex align-items-end">
                     <a href="{% url 'listar-actas' %}" class="btn btn-cancel-custom btn-sm w-100">Limpiar Filtros</a>
@@ -80,7 +80,7 @@
                                 <!-- Botón "Anterior" -->
                                 {% if actas.has_previous %}
                                     <li class="page-item">
-                                        <a class="page-link" href="?page={{ actas.previous_page_number }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}" aria-label="Anterior">
+                                        <a class="page-link" href="?page={{ actas.previous_page_number }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}" data-page="{{ actas.previous_page_number }}" aria-label="Anterior">
                                             <span aria-hidden="true">« Anterior</span>
                                         </a>
                                     </li>
@@ -102,7 +102,7 @@
                                                 </li>
                                             {% else %}
                                                 <li class="page-item">
-                                                    <a class="page-link" href="?page={{ num }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}">{{ num }}</a>
+                                                    <a class="page-link" href="?page={{ num }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}" data-page="{{ num }}">{{ num }}</a>
                                                 </li>
                                             {% endif %}
                                         {% endif %}
@@ -112,7 +112,7 @@
                                 <!-- Botón "Siguiente" -->
                                 {% if actas.has_next %}
                                     <li class="page-item">
-                                        <a class="page-link" href="?page={{ actas.next_page_number }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}" aria-label="Siguiente">
+                                        <a class="page-link" href="?page={{ actas.next_page_number }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}" data-page="{{ actas.next_page_number }}" aria-label="Siguiente">
                                             <span aria-hidden="true">Siguiente »</span>
                                         </a>
                                     </li>
@@ -126,7 +126,7 @@
 
                                 <!-- Botón "Última página" -->
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ actas.paginator.num_pages }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}" aria-label="Última página">
+                                    <a class="page-link" href="?page={{ actas.paginator.num_pages }}{% if query_numero_acta %}&numero_acta={{ query_numero_acta }}{% endif %}{% if query_responsable %}&responsable={{ query_responsable }}{% endif %}" data-page="{{ actas.paginator.num_pages }}" aria-label="Última página">
                                         <span aria-hidden="true">Última página</span>
                                     </a>
                                 </li>
@@ -153,11 +153,11 @@ function getQueryParams() {
 }
 
 // Función para actualizar la tabla con búsqueda automática y paginación
-function updateActasList() {
+function updateActasList(page = null) {
     const numeroActa = document.getElementById('numero_acta').value.trim();
     const responsable = document.getElementById('responsable').value.trim();
     const params = getQueryParams();
-    const page = params.page; // Mantener la página actual si no se especifica una nueva
+    const currentPage = page || params.page; // Usar la página proporcionada o la actual
     const loading = document.getElementById('loading');
     const tableContainer = document.getElementById('table-container');
 
@@ -165,7 +165,7 @@ function updateActasList() {
     tableContainer.style.display = 'none';
 
     // Construir la URL con los parámetros de búsqueda y paginación
-    let url = `/accounts/listar-actas/?page=${page}`;
+    let url = `/accounts/listar-actas/?page=${currentPage}`;
     if (numeroActa) url += `&numero_acta=${encodeURIComponent(numeroActa)}`;
     if (responsable) url += `&responsable=${encodeURIComponent(responsable)}`;
 
@@ -183,45 +183,56 @@ function updateActasList() {
 
         if (newTableContainer) {
             tableContainer.innerHTML = newTableContainer.innerHTML;
+            tableContainer.style.display = 'block';
+            loading.style.display = 'none';
+
+            // Actualizar la URL en el navegador sin recargar la página
+            const newUrl = `/accounts/listar-actas/?page=${currentPage}${numeroActa ? `&numero_acta=${encodeURIComponent(numeroActa)}` : ''}${responsable ? `&responsable=${encodeURIComponent(responsable)}` : ''}`;
+            window.history.pushState({}, '', newUrl);
+
+            // Volver a añadir los event listeners para los enlaces de paginación
+            addPaginationListeners();
         } else {
-            tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar las actas.</p>';
+            throw new Error('No se encontró #table-container en la respuesta');
         }
-
-        tableContainer.style.display = 'block';
-        loading.style.display = 'none';
-
-        // Actualizar la URL en el navegador sin recargar la página
-        const newUrl = `/accounts/listar-actas/?page=${page}${numeroActa ? `&numero_acta=${encodeURIComponent(numeroActa)}` : ''}${responsable ? `&responsable=${encodeURIComponent(responsable)}` : ''}`;
-        window.history.pushState({}, '', newUrl);
     })
     .catch(error => {
         console.error('Error al cargar las actas:', error);
+        tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar las actas.</p>';
         tableContainer.style.display = 'block';
         loading.style.display = 'none';
-        tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar las actas.</p>';
     });
 }
 
-// Escuchar cambios en los campos de entrada de búsqueda
+// Función para añadir event listeners a los enlaces de paginación
+function addPaginationListeners() {
+    document.querySelectorAll('.page-link[data-page]').forEach(link => {
+        link.addEventListener('click', function(event) {
+            event.preventDefault(); // Evitar la navegación por defecto
+            const page = this.getAttribute('data-page');
+            updateActasList(page); // Actualizar la tabla usando AJAX
+        });
+    });
+}
+
+// Configurar los event listeners al cargar la página
 document.addEventListener('DOMContentLoaded', function() {
+    // Escuchar cambios en los campos de entrada de búsqueda
     document.getElementById('numero_acta').addEventListener('input', function() {
-        // Resetear la página a 1 al cambiar los filtros
-        const params = new URLSearchParams(window.location.search);
-        params.set('page', '1');
-        window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
-        updateActasList();
+        updateActasList(1); // Reiniciar a la página 1 al cambiar el filtro
     });
 
     document.getElementById('responsable').addEventListener('input', function() {
-        // Resetear la página a 1 al cambiar los filtros
-        const params = new URLSearchParams(window.location.search);
-        params.set('page', '1');
-        window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
-        updateActasList();
+        updateActasList(1); // Reiniciar a la página 1 al cambiar el filtro
     });
 
-    // Cargar la lista inicial al cargar la página
-    updateActasList();
+    // Escuchar clic en el botón de filtrar
+    document.getElementById('filter-btn').addEventListener('click', function() {
+        updateActasList(1); // Reiniciar a la página 1 al filtrar
+    });
+
+    // Añadir event listeners a los enlaces de paginación
+    addPaginationListeners();
 });
 </script>
 

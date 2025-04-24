@@ -3,6 +3,8 @@ from . import views
 from django.contrib.auth.views import LogoutView
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
+
 
 urlpatterns = [
     # Rutas de Autenticación
@@ -41,6 +43,7 @@ urlpatterns = [
     path('agregar-usuario/', views.agregar_usuario, name='agregar-usuario'),  # Agregar un nuevo usuario
     path('editar-usuario/<str:rut>/', views.editar_usuario, name='editar-usuario'),  # Editar un usuario por RUT
     path('deshabilitar-usuario/<str:rut>/', views.deshabilitar_usuario, name='deshabilitar-usuario'),  # Deshabilitar un usuario por RUT
+    path('favicon.png', RedirectView.as_view(url=static('images/favicon.png'), permanent=True)),  # Redirigir favicon.png a la ubicación correcta
 ]
 
 # Servir archivos estáticos en modo de desarrollo de forma más robusta

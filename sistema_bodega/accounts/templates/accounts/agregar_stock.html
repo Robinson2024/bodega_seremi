@@ -70,7 +70,7 @@
                             <!-- Botón "Anterior" -->
                             {% if page_obj.has_previous %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}">Anterior</a>
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}" data-page="{{ page_obj.previous_page_number }}">Anterior</a>
                                 </li>
                             {% else %}
                                 <li class="page-item disabled">
@@ -88,7 +88,7 @@
                                             </li>
                                         {% else %}
                                             <li class="page-item">
-                                                <a class="page-link" href="?page={{ num }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}">{{ num }}</a>
+                                                <a class="page-link" href="?page={{ num }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}" data-page="{{ num }}">{{ num }}</a>
                                             </li>
                                         {% endif %}
                                     {% endif %}
@@ -98,7 +98,7 @@
                             <!-- Botón "Siguiente" -->
                             {% if page_obj.has_next %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}">Siguiente</a>
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}" data-page="{{ page_obj.next_page_number }}">Siguiente</a>
                                 </li>
                             {% else %}
                                 <li class="page-item disabled">
@@ -108,7 +108,7 @@
 
                             <!-- Botón "Última página" -->
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}">Última página</a>
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}" data-page="{{ page_obj.paginator.num_pages }}">Última página</a>
                             </li>
                         </ul>
                     </div>
@@ -132,11 +132,11 @@ function getQueryParams() {
 }
 
 // Función para actualizar la tabla con búsqueda automática y paginación
-function updateProductList() {
+function updateProductList(page = null) {
     const codigoBarra = document.getElementById('codigo_barra').value.trim();
     const descripcion = document.getElementById('descripcion').value.trim();
     const params = getQueryParams();
-    const page = params.page; // Mantener la página actual si no se especifica una nueva
+    const currentPage = page || params.page; // Usar la página proporcionada o la actual
     const loading = document.getElementById('loading');
     const tableContainer = document.getElementById('table-container');
 
@@ -144,7 +144,7 @@ function updateProductList() {
     tableContainer.style.display = 'none';
 
     // Construir la URL con los parámetros de búsqueda y paginación
-    let url = `/accounts/agregar-stock/?page=${page}`;
+    let url = `/accounts/agregar-stock/?page=${currentPage}`;
     if (codigoBarra) url += `&codigo_barra=${encodeURIComponent(codigoBarra)}`;
     if (descripcion) url += `&descripcion=${encodeURIComponent(descripcion)}`;
 
@@ -162,45 +162,51 @@ function updateProductList() {
 
         if (newTableContainer) {
             tableContainer.innerHTML = newTableContainer.innerHTML;
+            tableContainer.style.display = 'block';
+            loading.style.display = 'none';
+
+            // Actualizar la URL en el navegador sin recargar la página
+            const newUrl = `/accounts/agregar-stock/?page=${currentPage}${codigoBarra ? `&codigo_barra=${encodeURIComponent(codigoBarra)}` : ''}${descripcion ? `&descripcion=${encodeURIComponent(descripcion)}` : ''}`;
+            window.history.pushState({}, '', newUrl);
+
+            // Volver a añadir los event listeners para los enlaces de paginación
+            addPaginationListeners();
         } else {
-            tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar los productos.</p>';
+            throw new Error('No se encontró #table-container en la respuesta');
         }
-
-        tableContainer.style.display = 'block';
-        loading.style.display = 'none';
-
-        // Actualizar la URL en el navegador sin recargar la página
-        const newUrl = `/accounts/agregar-stock/?page=${page}${codigoBarra ? `&codigo_barra=${encodeURIComponent(codigoBarra)}` : ''}${descripcion ? `&descripcion=${encodeURIComponent(descripcion)}` : ''}`;
-        window.history.pushState({}, '', newUrl);
     })
     .catch(error => {
         console.error('Error al cargar los productos:', error);
+        tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar los productos.</p>';
         tableContainer.style.display = 'block';
         loading.style.display = 'none';
-        tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar los productos.</p>';
     });
 }
 
-// Escuchar cambios en los campos de entrada de búsqueda
+// Función para añadir event listeners a los enlaces de paginación
+function addPaginationListeners() {
+    document.querySelectorAll('.page-link[data-page]').forEach(link => {
+        link.addEventListener('click', function(event) {
+            event.preventDefault(); // Evitar la navegación por defecto
+            const page = this.getAttribute('data-page');
+            updateProductList(page); // Actualizar la tabla usando AJAX
+        });
+    });
+}
+
+// Configurar los event listeners al cargar la página
 document.addEventListener('DOMContentLoaded', function() {
+    // Escuchar cambios en los campos de entrada de búsqueda
     document.getElementById('codigo_barra').addEventListener('input', function() {
-        // Resetear la página a 1 al cambiar los filtros
-        const params = new URLSearchParams(window.location.search);
-        params.set('page', '1');
-        window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
-        updateProductList();
+        updateProductList(1); // Reiniciar a la página 1 al cambiar el filtro
     });
 
     document.getElementById('descripcion').addEventListener('input', function() {
-        // Resetear la página a 1 al cambiar los filtros
-        const params = new URLSearchParams(window.location.search);
-        params.set('page', '1');
-        window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
-        updateProductList();
+        updateProductList(1); // Reiniciar a la página 1 al cambiar el filtro
     });
 
-    // Cargar la lista inicial al cargar la página
-    updateProductList();
+    // Añadir event listeners a los enlaces de paginación
+    addPaginationListeners();
 });
 </script>
 

@@ -92,7 +92,7 @@
                             <!-- Botón "Anterior" -->
                             {% if page_obj.has_previous %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}">Anterior</a>
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}" data-page="{{ page_obj.previous_page_number }}">Anterior</a>
                                 </li>
                             {% else %}
                                 <li class="page-item disabled">
@@ -110,7 +110,7 @@
                                             </li>
                                         {% else %}
                                             <li class="page-item">
-                                                <a class="page-link" href="?page={{ num }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}">{{ num }}</a>
+                                                <a class="page-link" href="?page={{ num }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}" data-page="{{ num }}">{{ num }}</a>
                                             </li>
                                         {% endif %}
                                     {% endif %}
@@ -120,7 +120,7 @@
                             <!-- Botón "Siguiente" -->
                             {% if page_obj.has_next %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}">Siguiente</a>
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}" data-page="{{ page_obj.next_page_number }}">Siguiente</a>
                                 </li>
                             {% else %}
                                 <li class="page-item disabled">
@@ -130,7 +130,7 @@
 
                             <!-- Botón "Última página" -->
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}">Última página</a>
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}" data-page="{{ page_obj.paginator.num_pages }}">Última página</a>
                             </li>
                         </ul>
                     </div>
@@ -155,12 +155,12 @@ function getQueryParams() {
 }
 
 // Función para actualizar la tabla con búsqueda automática y paginación
-function updateProductList() {
+function updateProductList(page = null) {
     const codigoBarra = document.getElementById('codigo_barra').value.trim();
     const descripcion = document.getElementById('descripcion').value.trim();
     const categoria = document.getElementById('categoria').value;
     const params = getQueryParams();
-    const page = params.page; // Mantener la página actual si no se especifica una nueva
+    const currentPage = page || params.page; // Usar la página proporcionada o la actual
     const loading = document.getElementById('loading');
     const tableContainer = document.getElementById('table-container');
 
@@ -168,7 +168,7 @@ function updateProductList() {
     tableContainer.style.display = 'none';
 
     // Construir la URL con los parámetros de búsqueda y paginación
-    let url = `/accounts/listar-productos/?page=${page}`;
+    let url = `/accounts/listar-productos/?page=${currentPage}`;
     if (codigoBarra) url += `&codigo_barra=${encodeURIComponent(codigoBarra)}`;
     if (descripcion) url += `&descripcion=${encodeURIComponent(descripcion)}`;
     if (categoria) url += `&categoria=${encodeURIComponent(categoria)}`;
@@ -187,27 +187,40 @@ function updateProductList() {
 
         if (newTableContainer) {
             tableContainer.innerHTML = newTableContainer.innerHTML;
+            tableContainer.style.display = 'block';
+            loading.style.display = 'none';
+
+            // Actualizar la URL en el navegador sin recargar la página
+            const newUrl = `/accounts/listar-productos/?page=${currentPage}${codigoBarra ? `&codigo_barra=${encodeURIComponent(codigoBarra)}` : ''}${descripcion ? `&descripcion=${encodeURIComponent(descripcion)}` : ''}${categoria ? `&categoria=${encodeURIComponent(categoria)}` : ''}`;
+            window.history.pushState({}, '', newUrl);
+
+            // Actualizar los campos ocultos del formulario de exportación
+            document.getElementById('export-codigo-barra').value = codigoBarra;
+            document.getElementById('export-descripcion').value = descripcion;
+            document.getElementById('export-categoria').value = categoria;
+
+            // Volver a añadir los event listeners para los enlaces de paginación
+            addPaginationListeners();
         } else {
-            tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar los productos.</p>';
+            throw new Error('No se encontró #table-container en la respuesta');
         }
-
-        tableContainer.style.display = 'block';
-        loading.style.display = 'none';
-
-        // Actualizar la URL en el navegador sin recargar la página
-        const newUrl = `/accounts/listar-productos/?page=${page}${codigoBarra ? `&codigo_barra=${encodeURIComponent(codigoBarra)}` : ''}${descripcion ? `&descripcion=${encodeURIComponent(descripcion)}` : ''}${categoria ? `&categoria=${encodeURIComponent(categoria)}` : ''}`;
-        window.history.pushState({}, '', newUrl);
-
-        // Actualizar los campos ocultos del formulario de exportación
-        document.getElementById('export-codigo-barra').value = codigoBarra;
-        document.getElementById('export-descripcion').value = descripcion;
-        document.getElementById('export-categoria').value = categoria;
     })
     .catch(error => {
         console.error('Error al cargar los productos:', error);
+        tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar los productos.</p>';
         tableContainer.style.display = 'block';
         loading.style.display = 'none';
-        tableContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar los productos.</p>';
+    });
+}
+
+// Función para añadir event listeners a los enlaces de paginación
+function addPaginationListeners() {
+    document.querySelectorAll('.page-link[data-page]').forEach(link => {
+        link.addEventListener('click', function(event) {
+            event.preventDefault(); // Evitar la navegación por defecto
+            const page = this.getAttribute('data-page');
+            updateProductList(page); // Actualizar la tabla usando AJAX
+        });
     });
 }
 
@@ -216,25 +229,26 @@ document.getElementById('clear-filters').addEventListener('click', function() {
     document.getElementById('codigo_barra').value = '';
     document.getElementById('descripcion').value = '';
     document.getElementById('categoria').value = '';
-    updateProductList();
+    updateProductList(1); // Reiniciar a la página 1 al limpiar filtros
 });
 
-// Escuchar cambios en los campos de entrada
-document.getElementById('codigo_barra').addEventListener('input', function() {
-    updateProductList();
-});
-
-document.getElementById('descripcion').addEventListener('input', function() {
-    updateProductList();
-});
-
-document.getElementById('categoria').addEventListener('change', function() {
-    updateProductList();
-});
-
-// Cargar la lista inicial al cargar la página
+// Configurar los event listeners al cargar la página
 document.addEventListener('DOMContentLoaded', function() {
-    updateProductList();
+    // Escuchar cambios en los campos de entrada de búsqueda
+    document.getElementById('codigo_barra').addEventListener('input', function() {
+        updateProductList(1); // Reiniciar a la página 1 al cambiar el filtro
+    });
+
+    document.getElementById('descripcion').addEventListener('input', function() {
+        updateProductList(1); // Reiniciar a la página 1 al cambiar el filtro
+    });
+
+    document.getElementById('categoria').addEventListener('change', function() {
+        updateProductList(1); // Reiniciar a la página 1 al cambiar el filtro
+    });
+
+    // Añadir event listeners a los enlaces de paginación
+    addPaginationListeners();
 });
 </script>
 
