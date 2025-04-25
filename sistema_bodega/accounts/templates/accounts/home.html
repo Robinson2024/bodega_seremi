@@ -103,7 +103,6 @@
             width: 100%;
             padding: 0 15px;
             box-sizing: border-box;
-            /* Dejamos que Bootstrap maneje el max-width responsivo */
         }
         main h2 {
             color: #1a3c5e;
@@ -186,14 +185,12 @@
                 padding: 20px 10px;
             }
         }
-        /* Aseguramos que los <select> dentro de main no tengan restricciones */
         main .form-select {
             display: block !important;
             width: 100% !important;
             max-width: 100% !important;
             min-width: 0 !important;
         }
-        /* Estilos para Select2 */
         .select2-container {
             width: 100% !important;
             max-width: 100% !important;
@@ -228,7 +225,6 @@
             border-radius: 6px;
             font-family: 'Roboto', Arial, sans-serif;
             font-size: 14px;
-            /* Eliminamos las restricciones de ancho global para evitar conflictos */
         }
         .select2-results__option {
             padding: 8px 10px;
@@ -239,7 +235,6 @@
             background-color: #f1f5f9;
             color: #1a3c5e;
         }
-        /* Estilos para el modal */
         .modal-content {
             border-radius: 8px;
             border: none;
@@ -300,7 +295,6 @@
             margin-top: 5px;
             display: none;
         }
-        /* Estilos para el gráfico y la leyenda */
         .form-card {
             background-color: #ffffff;
             border-radius: 10px;
@@ -525,6 +519,8 @@
                     {% endfor %}
                 {% endif %}
             </div>
+            <!-- Cargar chart-init.js solo en la página de inicio -->
+            <script src="{% static 'js/chart-init.js' %}"></script>
         {% endblock %}
     </main>
     <footer>
@@ -536,8 +532,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Incluir Select2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <!-- Cargar el script externo para el gráfico -->
-    <script src="{% static 'js/chart-init.js' %}"></script>
     <script>
         function showMessage(action) {
             const messageDiv = document.getElementById('action-message');
@@ -579,7 +573,7 @@
                             successMessage.text('Contraseña verificada correctamente. Redirigiendo...').show();
                             setTimeout(function() {
                                 window.location.href = '/admin/';
-                            }, 2000); // Redirige después de 2 segundos para mostrar el mensaje
+                            }, 2000);
                         } else {
                             errorMessage.text(response.message).show();
                         }

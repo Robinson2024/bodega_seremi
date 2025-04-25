@@ -52,7 +52,7 @@
                                             </td>
                                             <td>{{ item.stock }}</td>
                                             <td>
-                                                <input type="number" name="cantidad_{{ item.codigo_barra }}" class="form-control form-control-sm update-field cantidad" value="{{ item.cantidad }}" data-codigo="{{ item.codigo_barra }}" data-stock="{{ item.stock }}" min="1" required>
+                                                <input type="number" name="cantidad_{{ item.codigo_barra }}" class="form-control form-control-sm update-field cantidad" value="" data-codigo="{{ item.codigo_barra }}" data-stock="{{ item.stock }}" min="1" required>
                                             </td>
                                             <td>
                                                 <textarea name="observacion_{{ item.codigo_barra }}" class="form-control form-control-sm update-field observacion" maxlength="300" data-codigo="{{ item.codigo_barra }}" rows="3">{{ item.observacion }}</textarea>
@@ -314,7 +314,7 @@ function renderSalidaTable(productos) {
                     </td>
                     <td>${item.stock}</td>
                     <td>
-                        <input type="number" name="cantidad_${item.codigo_barra}" class="form-control form-control-sm update-field cantidad" value="${item.cantidad || ''}" data-codigo="${item.codigo_barra}" data-stock="${item.stock}" min="1" required>
+                        <input type="number" name="cantidad_${item.codigo_barra}" class="form-control form-control-sm update-field cantidad" value="" data-codigo="${item.codigo_barra}" data-stock="${item.stock}" min="1" required>
                     </td>
                     <td>
                         <textarea name="observacion_${item.codigo_barra}" class="form-control form-control-sm update-field observacion" maxlength="300" data-codigo="${item.codigo_barra}" rows="3">${item.observacion || ''}</textarea>
@@ -597,7 +597,6 @@ function updateProductData(codigoBarra, numeroSiscom, cantidad, observacion) {
         const descripcionCorta = descripcion.length > 30 ? descripcion.slice(0, 27) + '...' : descripcion;
         Swal.fire({
             title: 'Error',
-
             html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>Error al actualizar los datos del producto ' + descripcionCorta + ': ' + error.message + '. Por favor, intenta de nuevo.</div>',
             confirmButtonColor: '#3b82f6',
             confirmButtonText: 'Aceptar'
@@ -669,7 +668,7 @@ function handleFieldChange() {
             this.classList.add('is-invalid');
             Swal.fire({
                 title: 'Error',
-                html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>La cantidad para el producto ' + descripcionCorta + ' debe ser mayor que 0.</div>',
+                html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>La cantidad para el producto ' + descripcionCorta + ' debe ser mayor que 0.</div>',
                 confirmButtonColor: '#3b82f6',
                 confirmButtonText: 'Aceptar'
             });
@@ -678,7 +677,7 @@ function handleFieldChange() {
             this.classList.add('is-invalid');
             Swal.fire({
                 title: 'Error',
-                html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18775M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>La cantidad para el producto ' + descripcionCorta + ' no puede superar el stock (' + stock + ').</div>',
+                html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>La cantidad para el producto ' + descripcionCorta + ' no puede superar el stock (' + stock + ').</div>',
                 confirmButtonColor: '#3b82f6',
                 confirmButtonText: 'Aceptar'
             });
