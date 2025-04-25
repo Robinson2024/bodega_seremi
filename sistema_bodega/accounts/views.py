@@ -73,7 +73,7 @@ def paginar_resultados(request, objetos, items_por_pagina=20):
     return page_obj
 
 def generar_pdf_acta(actas, disposition='attachment'):
-    """Genera un PDF para un acta de entrega"""
+    """Genera un PDF para un acta de entrega con límite de 100 caracteres y texto ajustado."""
     try:
         logger.info("Generando PDF para las actas...")
         acta = actas.first()
@@ -83,13 +83,13 @@ def generar_pdf_acta(actas, disposition='attachment'):
         productos_salida = [
             {
                 'codigo_barra': item.producto.codigo_barra,
-                'descripcion': item.producto.descripcion,
-                'numero_siscom': item.numero_siscom or '',
+                'descripcion': item.producto.descripcion[:100],  # Límite de 100 caracteres
+                'numero_siscom': str(item.numero_siscom or '')[:100],  # Límite de 100 caracteres
                 'cantidad': item.cantidad,
-                'observacion': item.observacion or '',
+                'observacion': str(item.observacion or '')[:100],  # Límite de 100 caracteres
             } for item in actas
         ]
-        logger.info(f"Productos para el PDF: {productos_salida}")
+        logger.info(f"Productos para el PDF (con límite de 100 caracteres): {productos_salida}")
 
         response = HttpResponse(content_type='application/pdf')
         filename = f"Acta_Entrega_Nro_{acta.numero_acta}.pdf"
@@ -101,7 +101,7 @@ def generar_pdf_acta(actas, disposition='attachment'):
                                 topMargin=0.5*inch, bottomMargin=0.5*inch)
         styles = getSampleStyleSheet()
 
-        # Definir estilos personalizados en un diccionario separado
+        # Definir estilos personalizados
         custom_styles = {
             'TitleCustom': ParagraphStyle(name='TitleCustom', fontName='Helvetica-Bold', fontSize=14, alignment=1, spaceAfter=10, leading=16),
             'NormalBold': ParagraphStyle(name='NormalBold', fontName='Helvetica-Bold', fontSize=10, spaceAfter=4, leading=12),
@@ -110,7 +110,7 @@ def generar_pdf_acta(actas, disposition='attachment'):
             'Signature': ParagraphStyle(name='Signature', fontName='Times-Roman', fontSize=10, alignment=1, spaceBefore=10, spaceAfter=4, leading=12),
             'SignatureTitle': ParagraphStyle(name='SignatureTitle', fontName='Times-Bold', fontSize=10, alignment=1, spaceBefore=4, spaceAfter=4, leading=12),
             'SignatureCargo': ParagraphStyle(name='SignatureCargo', fontName='Times-Italic', fontSize=9, alignment=1, spaceBefore=2, spaceAfter=2, leading=11),
-            'TableCell': ParagraphStyle(name='TableCell', fontName='Helvetica-Bold', fontSize=9, leading=11, wordWrap='CJK'),
+            'TableCell': ParagraphStyle(name='TableCell', fontName='Helvetica', fontSize=9, leading=11, wordWrap='CJK', alignment=0),  # Ajuste para envolver texto
         }
 
         elements = []
@@ -144,10 +144,10 @@ def generar_pdf_acta(actas, disposition='attachment'):
             ('ALIGN', (1, 0), (1, 0), 'RIGHT')
         ]))
 
-        # Asegurarse de que los textos estén codificados correctamente
-        departamento_text = acta.departamento.encode('utf-8').decode('utf-8')
-        responsable_text = acta.responsable.nombre.encode('utf-8').decode('utf-8') if acta.responsable else 'No especificado'
-        generador_text = acta.generador.nombre.encode('utf-8').decode('utf-8') if acta.generador else 'No especificado'
+        # Asegurarse de que los textos estén codificados correctamente y truncados
+        departamento_text = acta.departamento.encode('utf-8').decode('utf-8')[:100]
+        responsable_text = (acta.responsable.nombre.encode('utf-8').decode('utf-8') if acta.responsable else 'No especificado')[:100]
+        generador_text = (acta.generador.nombre.encode('utf-8').decode('utf-8') if acta.generador else 'No especificado')[:100]
         fecha_text = acta.fecha.strftime('%d-%m-%Y')
         logger.info(f"Textos para el PDF - Departamento: {departamento_text}, Responsable: {responsable_text}, Generador: {generador_text}, Fecha: {fecha_text}")
 
@@ -166,20 +166,22 @@ def generar_pdf_acta(actas, disposition='attachment'):
             Spacer(1, 0.2*cm)
         ])
 
+        # Crear la tabla con ajuste de texto
         data = [['Descripción', 'Nro. SISCOM', 'Cantidad', 'Observación']]
         for item in productos_salida:
             descripcion_text = item['descripcion'].encode('utf-8').decode('utf-8')
             numero_siscom_text = item['numero_siscom'].encode('utf-8').decode('utf-8')
             observacion_text = (item['observacion'] or '-').replace('\n', '<br/>').encode('utf-8').decode('utf-8')
             data.append([
-                descripcion_text,
-                numero_siscom_text,
-                str(item['cantidad']),
+                Paragraph(descripcion_text, custom_styles['TableCell']),
+                Paragraph(numero_siscom_text, custom_styles['TableCell']),
+                Paragraph(str(item['cantidad']), custom_styles['TableCell']),
                 Paragraph(observacion_text, custom_styles['TableCell'])
             ])
             logger.info(f"Fila de la tabla: {descripcion_text}, {numero_siscom_text}, {item['cantidad']}, {observacion_text}")
 
-        table = Table(data, colWidths=[1.8*inch, 2.0*inch, 0.8*inch, 2.4*inch])
+        # Ajustar anchos de columnas para evitar desbordamiento
+        table = Table(data, colWidths=[2.2*inch, 1.8*inch, 0.8*inch, 2.2*inch])
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -190,11 +192,13 @@ def generar_pdf_acta(actas, disposition='attachment'):
             ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
             ('BACKGROUND', (0, 1), (-1, -1), colors.white),
             ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 1), (-1, -1), 9),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
             ('VALIGN', (0, 1), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
         ]))
 
         responsable_lower = responsable_text.lower()
@@ -518,7 +522,7 @@ def salida_productos(request):
                         'descripcion': producto.descripcion,
                         'stock': producto.stock,
                         'numero_siscom': '',
-                        'cantidad': '',
+                        'cantidad': '',  # Inicialmente vacío
                         'observacion': '',
                     })
                     request.session['productos_salida'] = productos_salida
@@ -582,7 +586,7 @@ def salida_productos(request):
                         if item['codigo_barra'] == codigo_barra:
                             item.update({
                                 'numero_siscom': numero_siscom,
-                                'cantidad': cantidad,
+                                'cantidad': cantidad,  # Mantener el valor de cantidad
                                 'observacion': observacion,
                                 'stock': producto.stock,
                             })
@@ -720,6 +724,12 @@ def salida_productos_seleccion(request):
         return redirect('salida-productos')
 
     if request.method == 'POST':
+        # Manejar el botón "Cancelar"
+        if 'cancelar' in request.POST:
+            logger.info("Botón 'Cancelar' presionado en salida_productos_seleccion. Redirigiendo a salida_productos.")
+            # No limpiamos productos_salida, simplemente redirigimos
+            return redirect('salida-productos')
+
         form = ActaEntregaForm(request.POST)
         logger.info(f"Formulario recibido en salida_productos_seleccion: {request.POST}")
         if form.is_valid():

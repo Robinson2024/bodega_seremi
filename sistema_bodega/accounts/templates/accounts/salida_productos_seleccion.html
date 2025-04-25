@@ -80,9 +80,8 @@
                     </div>
                 </div>
                 <div class="text-center mt-4">
-                    <!-- Botón Cancelar como enlace -->
-                    <a href="{% url 'salida-productos' %}" class="btn btn-cancel-custom btn-sm mr-3" id="cancelButton">Cancelar</a>
-                    <button type="submit" class="btn btn-primary-custom btn-sm" id="generateButton">Generar Acta de Entrega</button>
+                    <button type="submit" name="cancelar" class="btn btn-cancel-custom btn-sm mr-3" id="cancelButton">Cancelar</button>
+                    <button type="submit" name="siguiente" class="btn btn-primary-custom btn-sm" id="generateButton">Generar Acta de Entrega</button>
                 </div>
             </form>
         </div>
@@ -318,11 +317,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Validación del formulario solo para el botón "Generar Acta"
-    generateButton.addEventListener('click', function(event) {
+    // Manejar el envío del formulario
+    form.addEventListener('submit', function(event) {
+        const isCancel = event.submitter && event.submitter.id === 'cancelButton';
+
+        if (isCancel) {
+            // No se necesita validación para "Cancelar"
+            console.log('Botón "Cancelar" presionado. Enviando formulario sin validación.');
+            return; // Permitir el envío del formulario
+        }
+
+        // Validación para "Generar Acta"
+        event.preventDefault(); // Prevenir el envío predeterminado para manejar con fetch
+
         // Validar el formulario con la validación nativa del navegador
         if (!form.checkValidity()) {
-            event.preventDefault();
             event.stopPropagation();
             form.classList.add('was-validated');
             alert('Por favor, completa todos los campos requeridos.');
@@ -332,13 +341,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Validación adicional para el campo responsable
         const responsableValue = responsableSelect.value;
         if (!responsableValue || responsableValue === 'undefined') {
-            event.preventDefault();
             event.stopPropagation();
             alert('Por favor, selecciona un responsable válido.');
             return;
         }
-
-        event.preventDefault(); // Evitar el envío predeterminado del formulario
 
         const formData = new FormData(form);
 
@@ -377,11 +383,6 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error al generar el acta:', error);
             alert('Error al generar el acta: ' + error.message);
         });
-    });
-
-    // El botón "Cancelar" no necesita validación, simplemente redirige
-    cancelButton.addEventListener('click', function(event) {
-        // No se necesita prevenir el evento, ya que es un enlace (<a>)
     });
 
     // Forzar la carga inicial de responsables si hay un departamento seleccionado

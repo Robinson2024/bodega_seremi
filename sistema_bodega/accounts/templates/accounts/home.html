@@ -369,6 +369,26 @@
                 font-size: 0.85rem;
             }
         }
+        /* Estilo para los mensajes */
+        .alert {
+            margin-bottom: 20px;
+            font-size: 14px;
+            border-radius: 8px;
+        }
+        .alert-success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .alert-error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .alert-dismissible .close {
+            padding: 0.75rem 1rem;
+            color: inherit;
+        }
     </style>
 </head>
 <body>
@@ -475,6 +495,18 @@
     <main>
         {% block content %}
             <div class="container">
+                <!-- Mensajes (movido aquí para que aparezca antes del saludo) -->
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center" role="alert">
+                            {{ message }}
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">×</span>
+                            </button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
                 <!-- Mensaje de Bienvenida -->
                 <div class="form-card mb-4">
                     <h2 class="title-custom">Bienvenido(a), {{ user.nombre }}</h2>
@@ -507,17 +539,6 @@
                         <p class="no-data-message">No hay productos con stock disponible para mostrar.</p>
                     {% endif %}
                 </div>
-
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                                <span aria-hidden="true">×</span>
-                            </button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
             </div>
             <!-- Cargar chart-init.js solo en la página de inicio -->
             <script src="{% static 'js/chart-init.js' %}"></script>
