@@ -3,6 +3,7 @@ from datetime import datetime
 import json
 import os
 import urllib.parse
+import logging
 
 # Módulos de bibliotecas de terceros
 import openpyxl
@@ -47,11 +48,17 @@ from .models import (
     Transaccion,
 )
 
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Funciones auxiliares
 def limpiar_sesion_productos_salida(request):
     """Limpia la variable de sesión productos_salida si existe"""
     if 'productos_salida' in request.session:
+        logger.info("Limpiando variable de sesión 'productos_salida'.")
         del request.session['productos_salida']
+        request.session.modified = True
 
 def paginar_resultados(request, objetos, items_por_pagina=20):
     """Aplica paginación a una lista de objetos"""
@@ -68,7 +75,7 @@ def paginar_resultados(request, objetos, items_por_pagina=20):
 def generar_pdf_acta(actas, disposition='attachment'):
     """Genera un PDF para un acta de entrega"""
     try:
-        print("Generando PDF para las actas...")
+        logger.info("Generando PDF para las actas...")
         acta = actas.first()
         if not acta:
             raise ValueError("No se encontraron actas para generar el PDF.")
@@ -82,7 +89,7 @@ def generar_pdf_acta(actas, disposition='attachment'):
                 'observacion': item.observacion or '',
             } for item in actas
         ]
-        print(f"Productos para el PDF: {productos_salida}")
+        logger.info(f"Productos para el PDF: {productos_salida}")
 
         response = HttpResponse(content_type='application/pdf')
         filename = f"Acta_Entrega_Nro_{acta.numero_acta}.pdf"
@@ -108,12 +115,12 @@ def generar_pdf_acta(actas, disposition='attachment'):
 
         elements = []
         logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images', 'seremi_logo.png')
-        print(f"Ruta del logo: {logo_path}")
+        logger.info(f"Ruta del logo: {logo_path}")
         if os.path.exists(logo_path):
             logo = Image(logo_path, width=3*cm, height=3*cm)
-            print("Logo cargado correctamente.")
+            logger.info("Logo cargado correctamente.")
         else:
-            print("Logo no encontrado, usando texto alternativo.")
+            logger.warning("Logo no encontrado, usando texto alternativo.")
             logo = Paragraph("Logo no encontrado", custom_styles['NormalCustom'])
         logo.hAlign = 'LEFT'
 
@@ -142,7 +149,7 @@ def generar_pdf_acta(actas, disposition='attachment'):
         responsable_text = acta.responsable.nombre.encode('utf-8').decode('utf-8') if acta.responsable else 'No especificado'
         generador_text = acta.generador.nombre.encode('utf-8').decode('utf-8') if acta.generador else 'No especificado'
         fecha_text = acta.fecha.strftime('%d-%m-%Y')
-        print(f"Textos para el PDF - Departamento: {departamento_text}, Responsable: {responsable_text}, Generador: {generador_text}, Fecha: {fecha_text}")
+        logger.info(f"Textos para el PDF - Departamento: {departamento_text}, Responsable: {responsable_text}, Generador: {generador_text}, Fecha: {fecha_text}")
 
         elements.extend([
             header_table,
@@ -170,7 +177,7 @@ def generar_pdf_acta(actas, disposition='attachment'):
                 str(item['cantidad']),
                 Paragraph(observacion_text, custom_styles['TableCell'])
             ])
-            print(f"Fila de la tabla: {descripcion_text}, {numero_siscom_text}, {item['cantidad']}, {observacion_text}")
+            logger.info(f"Fila de la tabla: {descripcion_text}, {numero_siscom_text}, {item['cantidad']}, {observacion_text}")
 
         table = Table(data, colWidths=[1.8*inch, 2.0*inch, 0.8*inch, 2.4*inch])
         table.setStyle(TableStyle([
@@ -210,12 +217,12 @@ def generar_pdf_acta(actas, disposition='attachment'):
         ]))
 
         elements.extend([table, Spacer(1, 4*inch), firma_table])
-        print("Construyendo el PDF...")
+        logger.info("Construyendo el PDF...")
         doc.build(elements)
-        print("PDF generado correctamente.")
+        logger.info("PDF generado correctamente.")
         return response
     except Exception as e:
-        print(f"Error al generar el PDF: {str(e)}")
+        logger.error(f"Error al generar el PDF: {str(e)}")
         response = HttpResponse(f"Error al generar el PDF: {str(e)}", content_type='text/plain')
         response.status_code = 500
         return response
@@ -456,10 +463,16 @@ def salida_productos(request):
     if not request.user.has_perm('accounts.can_edit'):
         messages.error(request, 'No tienes permiso para realizar salidas de productos.')
         return redirect('home')
-    
-    # Cargar productos_salida desde la sesión
+
+    # Inicializar o cargar productos_salida desde la sesión
+    if 'productos_salida' not in request.session:
+        logger.info("Inicializando productos_salida en la sesión como lista vacía.")
+        request.session['productos_salida'] = []
+        request.session.modified = True  # Forzar sincronización de la sesión
+
     productos_salida = request.session.get('productos_salida', [])
-    
+    logger.info(f"Contenido inicial de productos_salida en la sesión: {productos_salida}")
+
     # Preparar la lista de productos para mostrar
     productos = Producto.objects.all().order_by('codigo_barra')
     query_codigo = request.GET.get('codigo_barra', '')
@@ -474,21 +487,30 @@ def salida_productos(request):
 
     # Manejar solicitud AJAX para obtener datos de salida
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and request.GET.get('action') == 'get_salida_data':
+        logger.info("Solicitud AJAX para obtener datos de salida.")
+        productos_salida = request.session.get('productos_salida', [])  # Volver a cargar desde la sesión
+        logger.info(f"Enviando productos_salida en respuesta AJAX: {productos_salida}")
         return JsonResponse({'success': True, 'productos_salida': productos_salida})
 
     if request.method == 'POST':
-        print(f"POST recibido: {request.POST}")
+        logger.info(f"POST recibido en salida_productos: {request.POST}")
 
         # Manejar solicitudes AJAX
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             # Acción para agregar un producto
             if 'agregar_producto' in request.POST:
                 codigo_barra = request.POST.get('codigo_barra')
+                logger.info(f"Intentando agregar producto con código de barra: {codigo_barra}")
                 try:
                     producto = Producto.objects.get(codigo_barra=codigo_barra)
+                    productos_salida = request.session.get('productos_salida', [])  # Recargar desde la sesión
+                    logger.info(f"Lista actual de productos_salida antes de agregar: {productos_salida}")
+
                     if any(item['codigo_barra'] == codigo_barra for item in productos_salida):
+                        logger.warning(f"El producto {codigo_barra} ya está en la lista de salida.")
                         return JsonResponse({'success': False, 'error': 'Este producto ya está en la lista de salida.'})
                     if producto.stock == 0:
+                        logger.warning(f"No se puede retirar el producto {codigo_barra} porque no tiene stock.")
                         return JsonResponse({'success': False, 'error': 'No se puede retirar este producto porque no tiene stock.'})
 
                     productos_salida.append({
@@ -496,24 +518,30 @@ def salida_productos(request):
                         'descripcion': producto.descripcion,
                         'stock': producto.stock,
                         'numero_siscom': '',
-                        'cantidad': '',  # Inicializar cantidad como vacía en lugar de "1"
+                        'cantidad': '',
                         'observacion': '',
                     })
                     request.session['productos_salida'] = productos_salida
                     request.session.modified = True
-                    print(f"Producto agregado: {producto.codigo_barra}")
+                    logger.info(f"Producto agregado a la lista de salida: {producto.codigo_barra}")
+                    logger.info(f"Lista actualizada de productos_salida: {productos_salida}")
                     return JsonResponse({'success': True})
 
                 except Producto.DoesNotExist:
+                    logger.error(f"Producto con código {codigo_barra} no encontrado.")
                     return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
 
             # Acción para eliminar un producto
             elif 'eliminar_producto' in request.POST:
                 codigo_barra = request.POST.get('codigo_barra')
+                logger.info(f"Intentando eliminar producto con código de barra: {codigo_barra}")
+                productos_salida = request.session.get('productos_salida', [])  # Recargar desde la sesión
+                logger.info(f"Lista actual de productos_salida antes de eliminar: {productos_salida}")
                 productos_salida = [item for item in productos_salida if item['codigo_barra'] != codigo_barra]
                 request.session['productos_salida'] = productos_salida
                 request.session.modified = True
-                print(f"Producto eliminado: {codigo_barra}")
+                logger.info(f"Producto eliminado de la lista de salida: {codigo_barra}")
+                logger.info(f"Lista actualizada de productos_salida: {productos_salida}")
                 return JsonResponse({'success': True})
 
             # Acción para actualizar datos de un producto
@@ -523,20 +551,29 @@ def salida_productos(request):
                 cantidad = request.POST.get('cantidad', '').strip()
                 observacion = request.POST.get('observacion', '').strip()
 
+                logger.info(f"Actualizando datos del producto {codigo_barra}: SISCOM={numero_siscom}, Cantidad={cantidad}, Observación={observacion}")
+
                 try:
                     producto = Producto.objects.get(codigo_barra=codigo_barra)
+                    productos_salida = request.session.get('productos_salida', [])  # Recargar desde la sesión
+                    logger.info(f"Lista actual de productos_salida antes de actualizar: {productos_salida}")
+
                     # Validar número SISCOM
                     if numero_siscom and not numero_siscom.isdigit():
+                        logger.warning(f"Número SISCOM inválido para el producto {codigo_barra}: {numero_siscom}")
                         return JsonResponse({'success': False, 'error': f'El Número de SISCOM para el producto {codigo_barra} debe ser un número entero.'})
 
                     # Validar cantidad solo si no está vacía
                     if cantidad:
                         if not cantidad.isdigit():
+                            logger.warning(f"Cantidad inválida para el producto {codigo_barra}: {cantidad}")
                             return JsonResponse({'success': False, 'error': f'La cantidad para el producto {codigo_barra} debe ser un número entero.'})
                         cantidad_int = int(cantidad)
                         if cantidad_int <= 0:
+                            logger.warning(f"Cantidad no positiva para el producto {codigo_barra}: {cantidad_int}")
                             return JsonResponse({'success': False, 'error': f'La cantidad para el producto {codigo_barra} debe ser mayor que 0.'})
                         if cantidad_int > producto.stock:
+                            logger.warning(f"Cantidad excede el stock para el producto {codigo_barra}. Cantidad: {cantidad_int}, Stock: {producto.stock}")
                             return JsonResponse({'success': False, 'error': f'La cantidad para el producto {codigo_barra} no puede superar el stock ({producto.stock}).'})
 
                     # Actualizar el producto en la lista
@@ -547,88 +584,114 @@ def salida_productos(request):
                                 'numero_siscom': numero_siscom,
                                 'cantidad': cantidad,
                                 'observacion': observacion,
-                                'stock': producto.stock,  # Actualizar el stock por si cambió
+                                'stock': producto.stock,
                             })
                             updated = True
-                            print(f"Datos actualizados para el producto {codigo_barra}: {item}")
+                            logger.info(f"Datos actualizados para el producto {codigo_barra}: {item}")
                             break
 
                     if updated:
                         request.session['productos_salida'] = productos_salida
                         request.session.modified = True
+                        logger.info(f"Lista actualizada de productos_salida después de actualizar: {productos_salida}")
                         return JsonResponse({'success': True})
                     else:
+                        logger.warning(f"No se encontró el producto {codigo_barra} en la lista de salida.")
                         return JsonResponse({'success': False, 'error': f'No se encontró el producto {codigo_barra} en la lista de salida.'})
 
                 except Producto.DoesNotExist:
+                    logger.error(f"Producto con código {codigo_barra} no encontrado.")
                     return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
 
         # Manejar el formulario de salida de productos (botón "Siguiente")
-        if 'siguiente' in request.POST or any(key.startswith('numero_siscom_') for key in request.POST):
-            print("Procesando formulario de salida de productos (botón 'Siguiente')")
-            print(f"Productos en la sesión antes de validar: {productos_salida}")
+        if 'siguiente' in request.POST:
+            logger.info("Procesando formulario de salida de productos (botón 'Siguiente')")
+            productos_salida = request.session.get('productos_salida', [])  # Recargar desde la sesión
+            logger.info(f"Productos en la sesión antes de validar: {productos_salida}")
 
             # Verificar si hay productos en la lista de salida
             if not productos_salida:
-                print("Error: No hay productos en la lista de salida")
+                logger.warning("No hay productos en la lista de salida.")
                 messages.error(request, 'Debes agregar al menos un producto para continuar.')
                 return redirect('salida-productos')
 
             # Validar cada producto en la lista de salida
             for item in productos_salida:
-                print(f"Validando producto: {item}")
+                logger.info(f"Validando producto: {item}")
 
                 # Validar número SISCOM
                 numero_siscom = str(item.get('numero_siscom', '')).strip()
                 if not numero_siscom:
-                    print(f"Error: Número SISCOM vacío para el producto {item['codigo_barra']}")
+                    logger.warning(f"Número SISCOM vacío para el producto {item['codigo_barra']}")
                     messages.error(request, f"El Número de SISCOM para el producto {item['codigo_barra']} no puede estar vacío.")
                     return redirect('salida-productos')
                 if not numero_siscom.isdigit():
-                    print(f"Error: Número SISCOM inválido para el producto {item['codigo_barra']}: {numero_siscom}")
+                    logger.warning(f"Número SISCOM inválido para el producto {item['codigo_barra']}: {numero_siscom}")
                     messages.error(request, f"El Número de SISCOM para el producto {item['codigo_barra']} debe ser un número entero válido (valor recibido: '{numero_siscom}').")
                     return redirect('salida-productos')
 
                 # Validar cantidad
                 cantidad_str = str(item.get('cantidad', '')).strip()
                 if not cantidad_str:
-                    print(f"Error: Cantidad vacía para el producto {item['codigo_barra']}")
+                    logger.warning(f"Cantidad vacía para el producto {item['codigo_barra']}")
                     messages.error(request, f"La cantidad para el producto {item['codigo_barra']} no puede estar vacía.")
                     return redirect('salida-productos')
 
                 try:
                     cantidad = int(cantidad_str)
-                    print(f"Cantidad convertida para el producto {item['codigo_barra']}: {cantidad}")
+                    logger.info(f"Cantidad convertida para el producto {item['codigo_barra']}: {cantidad}")
 
                     # Validar que la cantidad sea positiva
                     if cantidad <= 0:
-                        print(f"Error: Cantidad no positiva para el producto {item['codigo_barra']}: {cantidad}")
+                        logger.warning(f"Cantidad no positiva para el producto {item['codigo_barra']}: {cantidad}")
                         messages.error(request, f"La cantidad para el producto {item['codigo_barra']} debe ser mayor que 0 (valor recibido: {cantidad}).")
                         return redirect('salida-productos')
 
                     # Validar que la cantidad no supere el stock
-                    if cantidad > item['stock']:
-                        print(f"Error: Cantidad excede el stock para el producto {item['codigo_barra']}. Cantidad: {cantidad}, Stock: {item['stock']}")
-                        messages.error(request, f"La cantidad a retirar ({cantidad}) para el producto {item['codigo_barra']} no puede superar el stock actual ({item['stock']}).")
+                    try:
+                        producto = Producto.objects.get(codigo_barra=item['codigo_barra'])
+                        if cantidad > producto.stock:
+                            logger.warning(f"Cantidad excede el stock para el producto {item['codigo_barra']}. Cantidad: {cantidad}, Stock: {producto.stock}")
+                            messages.error(request, f"La cantidad a retirar ({cantidad}) para el producto {item['codigo_barra']} no puede superar el stock actual ({producto.stock}).")
+                            return redirect('salida-productos')
+                        item['stock'] = producto.stock  # Actualizar el stock en la sesión
+                    except Producto.DoesNotExist:
+                        logger.error(f"Producto con código {item['codigo_barra']} no encontrado durante la validación.")
+                        messages.error(request, f"El producto con código {item['codigo_barra']} no existe.")
                         return redirect('salida-productos')
 
                     # Actualizar cantidad en el producto
                     item['cantidad'] = cantidad
 
                 except ValueError:
-                    print(f"Error: Cantidad no convertible a entero para el producto {item['codigo_barra']}: {cantidad_str}")
+                    logger.warning(f"Cantidad no convertible a entero para el producto {item['codigo_barra']}: {cantidad_str}")
                     messages.error(request, f"La cantidad para el producto {item['codigo_barra']} debe ser un número entero (valor recibido: '{cantidad_str}').")
                     return redirect('salida-productos')
 
             # Si todas las validaciones pasaron, redirigir a la siguiente etapa
-            print("Todas las validaciones pasaron. Redirigiendo a salida-productos-seleccion")
+            logger.info("Todas las validaciones pasaron. Redirigiendo a salida-productos-seleccion")
             request.session['productos_salida'] = productos_salida
             request.session.modified = True
+            logger.info(f"Productos guardados en la sesión antes de redirigir: {request.session['productos_salida']}")
             return redirect('salida-productos-seleccion')
 
         else:
-            print("Acción POST no reconocida")
+            logger.warning("Acción POST no reconocida en salida_productos.")
+            messages.error(request, "Acción no reconocida. Por favor, intenta de nuevo.")
 
+    # Manejar solicitud AJAX para renderizar la tabla de productos disponibles
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and request.method == 'GET':
+        productos_salida = request.session.get('productos_salida', [])  # Volver a cargar desde la sesión
+        logger.info(f"Renderizando tabla de productos disponibles con productos_salida: {productos_salida}")
+        context = {
+            'page_obj': page_obj,
+            'query_codigo': query_codigo,
+            'query_descripcion': query_descripcion,
+            'productos_salida': productos_salida,  # Asegurarse de pasar la lista actualizada
+        }
+        return render(request, 'accounts/salida_productos.html', context)
+
+    logger.info(f"Renderizando salida_productos.html con productos_salida: {productos_salida}")
     return render(request, 'accounts/salida_productos.html', {
         'page_obj': page_obj,
         'query_codigo': query_codigo,
@@ -642,22 +705,30 @@ def salida_productos_seleccion(request):
     if not request.user.has_perm('accounts.can_edit'):
         messages.error(request, 'No tienes permiso para realizar salidas de productos.')
         return redirect('home')
-    
+
+    # Verificar si hay productos en la sesión
     productos_salida = request.session.get('productos_salida', [])
     if not productos_salida:
+        logger.warning("No hay productos seleccionados para la salida en salida_productos_seleccion.")
         messages.error(request, 'No hay productos seleccionados para la salida.')
+        return redirect('salida-productos')
+
+    # Verificar si el acta ya fue generada para evitar duplicados
+    if 'acta_generada' in request.session and request.session['acta_generada']:
+        logger.info("Acta ya generada, redirigiendo a salida-productos.")
+        messages.info(request, 'El acta ya ha sido generada. Por favor, inicia una nueva salida.')
         return redirect('salida-productos')
 
     if request.method == 'POST':
         form = ActaEntregaForm(request.POST)
-        print(f"Formulario recibido: {request.POST}")
+        logger.info(f"Formulario recibido en salida_productos_seleccion: {request.POST}")
         if form.is_valid():
-            print("Formulario válido. Procesando la salida...")
-            print(f"Datos limpiados - Departamento: {form.cleaned_data['departamento']}, Responsable: {form.cleaned_data['responsable']}")
+            logger.info("Formulario válido. Procesando la salida...")
+            logger.info(f"Datos limpiados - Departamento: {form.cleaned_data['departamento']}, Responsable: {form.cleaned_data['responsable']}")
             try:
                 # Validar el stock disponible para cada producto calculando el saldo real
                 for item in productos_salida:
-                    print(f"Validando stock para el producto: {item}")
+                    logger.info(f"Validando stock para el producto: {item}")
                     producto = Producto.objects.get(codigo_barra=item['codigo_barra'])
                     cantidad = int(item['cantidad'] or 0)
 
@@ -690,24 +761,26 @@ def salida_productos_seleccion(request):
                             saldo -= evento['salida']
 
                     if saldo != producto.stock:
+                        logger.warning(f"Stock desincronizado para el producto {producto.descripcion} (Código: {producto.codigo_barra}). Stock actual: {producto.stock}, Saldo calculado: {saldo}.")
                         messages.warning(request, f'El stock del producto {producto.descripcion} (Código: {producto.codigo_barra}) estaba desincronizado. Stock actual: {producto.stock}, Saldo calculado: {saldo}.')
                         producto.stock = saldo
                         producto.save()
                         messages.info(request, f'El stock del producto {producto.descripcion} ha sido corregido a {saldo}.')
 
-                    print(f"Producto: {producto.descripcion}, Stock actual (corregido): {producto.stock}, Cantidad solicitada: {cantidad}")
+                    logger.info(f"Producto: {producto.descripcion}, Stock actual (corregido): {producto.stock}, Cantidad solicitada: {cantidad}")
                     if producto.stock - cantidad < 0:
+                        logger.warning(f"No hay suficiente stock para {producto.descripcion} (Código: {producto.codigo_barra}). Stock actual: {producto.stock}, Solicitado: {cantidad}.")
                         messages.error(request, f'No hay suficiente stock para {producto.descripcion} (Código: {producto.codigo_barra}). Stock actual: {producto.stock}, Solicitado: {cantidad}.')
                         return redirect('salida-productos-seleccion')
 
                 ultimo_acta = ActaEntrega.objects.order_by('-numero_acta').first()
                 numero_acta = 1 if not ultimo_acta else ultimo_acta.numero_acta + 1
-                print(f"Nuevo número de acta: {numero_acta}")
+                logger.info(f"Nuevo número de acta: {numero_acta}")
 
                 responsable = form.cleaned_data['responsable']
 
                 for item in productos_salida:
-                    print(f"Creando acta para el producto: {item}")
+                    logger.info(f"Creando acta para el producto: {item}")
                     producto = Producto.objects.get(codigo_barra=item['codigo_barra'])
                     cantidad = int(item['cantidad'])
                     acta = ActaEntrega(
@@ -721,7 +794,7 @@ def salida_productos_seleccion(request):
                         observacion=item['observacion'],
                     )
                     acta.save()
-                    print(f"Acta creada: N°{acta.numero_acta}, Producto: {producto.descripcion}, Cantidad: {cantidad}")
+                    logger.info(f"Acta creada: N°{acta.numero_acta}, Producto: {producto.descripcion}, Cantidad: {cantidad}")
 
                     Transaccion.objects.create(
                         producto=producto,
@@ -731,32 +804,43 @@ def salida_productos_seleccion(request):
                         fecha=datetime.now(pytz.UTC),
                         observacion=f"Salida asociada al Acta N°{numero_acta}"
                     )
-                    print(f"Transacción creada: Tipo: salida, Cantidad: {cantidad}")
+                    logger.info(f"Transacción creada: Tipo: salida, Cantidad: {cantidad}")
 
                     producto.stock -= cantidad
                     producto.save()
-                    print(f"Stock actualizado: {producto.descripcion}, Nuevo stock: {producto.stock}")
+                    logger.info(f"Stock actualizado: {producto.descripcion}, Nuevo stock: {producto.stock}")
 
                 actas = ActaEntrega.objects.filter(numero_acta=numero_acta)
-                print(f"Actas para el PDF: {list(actas)}")
+                logger.info(f"Actas para el PDF: {list(actas)}")
+
+                # Marcar el acta como generada para evitar duplicados
+                request.session['acta_generada'] = True
+                request.session.modified = True
 
                 response = generar_pdf_acta(actas)
+                # Limpiar la sesión después de generar el PDF
                 limpiar_sesion_productos_salida(request)
+                if 'acta_generada' in request.session:
+                    del request.session['acta_generada']
+                    request.session.modified = True
                 messages.success(request, f'Acta de entrega N°{numero_acta} generada correctamente.')
                 return response
 
             except Exception as e:
-                print(f"Error al procesar el acta: {str(e)}")
+                logger.error(f"Error al procesar el acta: {str(e)}")
                 messages.error(request, f'Error al procesar el acta: {str(e)}')
                 return redirect('salida-productos-seleccion')
         else:
-            print("Formulario no válido.")
+            logger.warning("Formulario no válido en salida_productos_seleccion.")
             for field, errors in form.errors.items():
                 for error in errors:
                     messages.error(request, f"Error en el campo '{form.fields[field].label}': {error}")
             messages.error(request, 'Error al generar el acta. Por favor, verifica los datos e intenta de nuevo.')
     else:
         form = ActaEntregaForm()
+        # Asegurar que la bandera de acta generada esté inicializada
+        request.session['acta_generada'] = False
+        request.session.modified = True
 
     return render(request, 'accounts/salida_productos_seleccion.html', {'form': form, 'productos_salida': productos_salida})
 

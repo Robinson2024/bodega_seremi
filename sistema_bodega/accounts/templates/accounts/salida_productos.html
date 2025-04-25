@@ -11,7 +11,9 @@
             <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center mb-4" role="alert">
                 {{ message }}
                 <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">×</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                 </button>
             </div>
         {% endfor %}
@@ -50,7 +52,7 @@
                                             </td>
                                             <td>{{ item.stock }}</td>
                                             <td>
-                                                <input type="number" name="cantidad_{{ item.codigo_barra }}" class="form-control form-control-sm update-field cantidad" value="" data-codigo="{{ item.codigo_barra }}" data-stock="{{ item.stock }}" min="1" required>
+                                                <input type="number" name="cantidad_{{ item.codigo_barra }}" class="form-control form-control-sm update-field cantidad" value="{{ item.cantidad }}" data-codigo="{{ item.codigo_barra }}" data-stock="{{ item.stock }}" min="1" required>
                                             </td>
                                             <td>
                                                 <textarea name="observacion_{{ item.codigo_barra }}" class="form-control form-control-sm update-field observacion" maxlength="300" data-codigo="{{ item.codigo_barra }}" rows="3">{{ item.observacion }}</textarea>
@@ -108,7 +110,7 @@
                             </thead>
                             <tbody id="product-table-body">
                                 {% for producto in page_obj %}
-                                    <tr>
+                                    <tr data-codigo-barra="{{ producto.codigo_barra }}">
                                         <td>{{ producto.codigo_barra }}</td>
                                         <td>{{ producto.descripcion }}</td>
                                         <td>{{ producto.stock }}</td>
@@ -181,6 +183,29 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+// Verificar si el formulario ya fue enviado al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM completamente cargado. Inicializando scripts...');
+    const formSubmitted = localStorage.getItem('formSubmitted') === 'true';
+    if (formSubmitted) {
+        window.location.href = '/accounts/salida-productos/seleccion/';
+    }
+    // Cargar la lista de salida al iniciar
+    updateSalidaList();
+    // Añadir event listeners iniciales para paginación y búsqueda
+    addPaginationListeners();
+    document.getElementById('codigo_barra').addEventListener('input', debounce(() => updateProductList(), 500));
+    document.getElementById('descripcion').addEventListener('input', debounce(() => updateProductList(), 500));
+});
+
+// Detectar navegación hacia atrás y redirigir
+window.addEventListener('popstate', function(event) {
+    const formSubmitted = localStorage.getItem('formSubmitted') === 'true';
+    if (formSubmitted) {
+        window.location.href = '/accounts/salida-productos/seleccion/';
+    }
+});
+
 // Función para ajustar el tamaño del textarea dinámicamente
 function autoResizeTextarea(element) {
     element.style.height = 'auto';
@@ -239,7 +264,9 @@ function updateProductList(page = null) {
             window.history.pushState({}, '', newUrl);
 
             addPaginationListeners();
-            addProductFormListeners();
+
+            // Desplazar hacia la sección table-container
+            tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
             throw new Error('No se encontró #table-container en la respuesta');
         }
@@ -287,7 +314,7 @@ function renderSalidaTable(productos) {
                     </td>
                     <td>${item.stock}</td>
                     <td>
-                        <input type="number" name="cantidad_${item.codigo_barra}" class="form-control form-control-sm update-field cantidad" value="${item.cantidad || ''}" data-codigo="${item.codigo_barra}" data-stock="${item.stock}" required>
+                        <input type="number" name="cantidad_${item.codigo_barra}" class="form-control form-control-sm update-field cantidad" value="${item.cantidad || ''}" data-codigo="${item.codigo_barra}" data-stock="${item.stock}" min="1" required>
                     </td>
                     <td>
                         <textarea name="observacion_${item.codigo_barra}" class="form-control form-control-sm update-field observacion" maxlength="300" data-codigo="${item.codigo_barra}" rows="3">${item.observacion || ''}</textarea>
@@ -340,6 +367,7 @@ function renderSalidaTable(productos) {
 
 // Función para actualizar la lista de productos a retirar
 function updateSalidaList() {
+    console.log('Iniciando actualización de la lista de salida...');
     const salidaContainer = document.getElementById('salida-container');
     const salidaLoading = document.getElementById('salida-loading');
 
@@ -352,25 +380,39 @@ function updateSalidaList() {
             'X-Requested-With': 'XMLHttpRequest',
         },
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            renderSalidaTable(data.productos_salida);
-        } else {
-            salidaContainer.innerHTML = `<p class="text-center" style="color: #64748b;">Error al cargar la lista de salida: ${data.error || 'Error desconocido'}</p>`;
-            salidaContainer.style.display = 'block';
-            salidaLoading.style.display = 'none';
+    .then(response => {
+        console.log('Respuesta recibida del servidor:', response);
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
         }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Datos recibidos de get_salida_data:', data);
+        if (data.success) {
+            if (!data.productos_salida || data.productos_salida.length === 0) {
+                console.warn('Lista de productos_salida está vacía.');
+                salidaContainer.innerHTML = '<p class="text-center" style="color: #64748b;">No hay productos seleccionados para la salida. Agrega productos desde la tabla inferior.</p>';
+            } else {
+                console.log(`Renderizando ${data.productos_salida.length} productos en la tabla de salida.`);
+                renderSalidaTable(data.productos_salida);
+            }
+        } else {
+            console.error('Error al cargar la lista de salida:', data.error);
+            salidaContainer.innerHTML = `<p class="text-center" style="color: #64748b;">Error al cargar la lista de salida: ${data.error || 'Error desconocido'}</p>`;
+        }
+        salidaContainer.style.display = 'block';
+        salidaLoading.style.display = 'none';
     })
     .catch(error => {
         console.error('Error al actualizar la lista de salida:', error);
         Swal.fire({
-            icon: 'error',
             title: 'Error',
-            text: 'Error al cargar la lista de salida. Por favor, intenta de nuevo.',
+            html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>Error al cargar la lista de salida: ' + error.message + '. Por favor, intenta de nuevo.</div>',
             confirmButtonColor: '#3b82f6',
             confirmButtonText: 'Aceptar'
         });
+        salidaContainer.innerHTML = '<p class="text-center" style="color: #64748b;">Error al cargar la lista de salida. Por favor, intenta de nuevo.</p>';
         salidaContainer.style.display = 'block';
         salidaLoading.style.display = 'none';
     });
@@ -378,6 +420,22 @@ function updateSalidaList() {
 
 // Función para añadir un producto usando AJAX
 function addProduct(codigoBarra) {
+    console.log(`Iniciando addProduct para el código: ${codigoBarra}`);
+    // Obtener la descripción del producto desde la tabla de productos disponibles
+    const row = document.querySelector(`#product-table-body tr[data-codigo-barra="${codigoBarra}"]`);
+    if (!row) {
+        console.error(`No se encontró la fila para el código de barra: ${codigoBarra}`);
+        Swal.fire({
+            title: 'Error',
+            html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>No se encontró el producto con código ' + codigoBarra + ' en la tabla de productos disponibles.</div>',
+            confirmButtonColor: '#3b82f6',
+            confirmButtonText: 'Aceptar'
+        });
+        return;
+    }
+    const descripcion = row.querySelector('td:nth-child(2)').textContent.trim();
+    const descripcionCorta = descripcion.length > 30 ? descripcion.slice(0, 27) + '...' : descripcion;
+
     const formData = new FormData();
     formData.append('csrfmiddlewaretoken', getCsrfToken());
     formData.append('codigo_barra', codigoBarra);
@@ -390,20 +448,31 @@ function addProduct(codigoBarra) {
             'X-Requested-With': 'XMLHttpRequest',
         },
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Respuesta del servidor al agregar producto:', response);
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('Datos recibidos al agregar producto:', data);
         if (data.success) {
+            console.log(`Producto con código ${codigoBarra} agregado con éxito.`);
             updateSalidaList();
-            // Desplazar la vista hacia la tabla de productos a retirar
             const salidaContainer = document.getElementById('salida-container');
             if (salidaContainer) {
                 salidaContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         } else {
+            console.error('Error al agregar el producto:', data.error);
+            let errorMessage = data.error || 'Error desconocido al agregar el producto.';
+            if (errorMessage.includes(codigoBarra)) {
+                errorMessage = errorMessage.replace(codigoBarra, descripcionCorta);
+            }
             Swal.fire({
-                icon: 'error',
                 title: 'Error',
-                text: data.error || 'Error desconocido al agregar el producto.',
+                html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>' + errorMessage + '</div>',
                 confirmButtonColor: '#3b82f6',
                 confirmButtonText: 'Aceptar'
             });
@@ -412,9 +481,8 @@ function addProduct(codigoBarra) {
     .catch(error => {
         console.error('Error al agregar el producto:', error);
         Swal.fire({
-            icon: 'error',
             title: 'Error',
-            text: 'Error al agregar el producto. Por favor, intenta de nuevo.',
+            html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>Error al agregar el producto ' + descripcionCorta + ': ' + error.message + '. Por favor, intenta de nuevo.</div>',
             confirmButtonColor: '#3b82f6',
             confirmButtonText: 'Aceptar'
         });
@@ -423,6 +491,11 @@ function addProduct(codigoBarra) {
 
 // Función para eliminar un producto usando AJAX
 function deleteProduct(codigoBarra) {
+    console.log(`Eliminando producto con código: ${codigoBarra}`);
+    const row = document.querySelector(`#salida-table-body tr[data-codigo-barra="${codigoBarra}"]`);
+    const descripcion = row ? row.querySelector('td:nth-child(2)').textContent.trim() : 'Producto desconocido';
+    const descripcionCorta = descripcion.length > 30 ? descripcion.slice(0, 27) + '...' : descripcion;
+
     const formData = new FormData();
     formData.append('csrfmiddlewaretoken', getCsrfToken());
     formData.append('codigo_barra', codigoBarra);
@@ -435,15 +508,27 @@ function deleteProduct(codigoBarra) {
             'X-Requested-With': 'XMLHttpRequest',
         },
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Respuesta del servidor al eliminar producto:', response);
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('Datos recibidos al eliminar producto:', data);
         if (data.success) {
+            console.log(`Producto con código ${codigoBarra} eliminado con éxito.`);
             updateSalidaList();
         } else {
+            console.error('Error al eliminar el producto:', data.error);
+            let errorMessage = data.error || 'Error desconocido al eliminar el producto.';
+            if (errorMessage.includes(codigoBarra)) {
+                errorMessage = errorMessage.replace(codigoBarra, descripcionCorta);
+            }
             Swal.fire({
-                icon: 'error',
                 title: 'Error',
-                text: data.error || 'Error desconocido al eliminar el producto.',
+                html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>' + errorMessage + '</div>',
                 confirmButtonColor: '#3b82f6',
                 confirmButtonText: 'Aceptar'
             });
@@ -452,290 +537,285 @@ function deleteProduct(codigoBarra) {
     .catch(error => {
         console.error('Error al eliminar el producto:', error);
         Swal.fire({
-            icon: 'error',
             title: 'Error',
-            text: 'Error al eliminar el producto. Por favor, intenta de nuevo.',
+            html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>Error al eliminar el producto ' + descripcionCorta + ': ' + error.message + '. Por favor, intenta de nuevo.</div>',
             confirmButtonColor: '#3b82f6',
             confirmButtonText: 'Aceptar'
         });
     });
 }
 
-// Función para añadir event listeners a los formularios de agregar producto
-function addProductFormListeners() {
-    document.querySelectorAll('.add-product-btn').forEach(button => {
-        button.removeEventListener('click', handleAddProductClick); // Evitar duplicados
-        button.addEventListener('click', handleAddProductClick);
-    });
-}
-
-function handleAddProductClick(event) {
-    event.preventDefault();
-    const form = this.closest('.add-product-form');
-    const codigoBarra = form.querySelector('input[name="codigo_barra"]').value;
-    addProduct(codigoBarra);
-}
-
-// Variable global para rastrear solicitudes AJAX
+// Lista para rastrear solicitudes AJAX pendientes
 let pendingRequests = [];
 
-// Variable para evitar envíos duplicados del formulario
-let formSubmitted = false;
+// Función para actualizar los datos de un producto usando AJAX
+function updateProductData(codigoBarra, numeroSiscom, cantidad, observacion) {
+    console.log(`Actualizando datos del producto ${codigoBarra}: SISCOM=${numeroSiscom}, Cantidad=${cantidad}, Observación=${observacion}`);
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', getCsrfToken());
+    formData.append('codigo_barra', codigoBarra);
+    formData.append('numero_siscom', numeroSiscom);
+    formData.append('cantidad', cantidad);
+    formData.append('observacion', observacion);
+    formData.append('action', 'update_data');
 
-// Función para añadir event listeners a los campos y botones de la tabla de salida
-function addSalidaEventListeners() {
-    let isUpdating = false;
-    let debounceTimeout;
-
-    // Función de debounce
-    function debounce(func, wait) {
-        return function() {
-            const context = this;
-            const args = arguments;
-            clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(() => func.apply(context, args), wait);
-        };
-    }
-
-    // Función para guardar los datos automáticamente usando AJAX
-    const saveData = debounce(function(codigoBarra, numeroSiscom, cantidad, observacion) {
-        if (isUpdating) return;
-        isUpdating = true;
-
-        const formData = new FormData();
-        formData.append('csrfmiddlewaretoken', getCsrfToken());
-        formData.append('codigo_barra', codigoBarra);
-        formData.append('numero_siscom', numeroSiscom);
-        formData.append('cantidad', cantidad);
-        formData.append('observacion', observacion);
-        formData.append('action', 'update_data');
-
-        const request = fetch('/accounts/salida-productos/', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (!data.success) {
-                console.error('Error al guardar los datos:', data.error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: data.error || 'Error desconocido al guardar los datos.',
-                    confirmButtonColor: '#3b82f6',
-                    confirmButtonText: 'Aceptar'
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error al guardar los datos:', error);
+    const request = fetch('/accounts/salida-productos/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => {
+        console.log('Respuesta del servidor al actualizar datos:', response);
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Datos recibidos al actualizar producto:', data);
+        if (!data.success) {
+            console.error('Error al actualizar los datos del producto:', data.error);
+            const row = document.querySelector(`#salida-table-body tr[data-codigo-barra="${codigoBarra}"]`);
+            const descripcion = row ? row.querySelector('td:nth-child(2)').textContent.trim() : 'Producto desconocido';
+            const descripcionCorta = descripcion.length > 30 ? descripcion.slice(0, 27) + '...' : descripcion;
             Swal.fire({
-                icon: 'error',
                 title: 'Error',
-                text: 'Error al guardar los datos. Por favor, intenta de nuevo.',
+                html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>' + (data.error || 'Error al actualizar los datos del producto ' + descripcionCorta + '.') + '</div>',
                 confirmButtonColor: '#3b82f6',
                 confirmButtonText: 'Aceptar'
             });
-        })
-        .finally(() => {
-            isUpdating = false;
-            pendingRequests = pendingRequests.filter(r => r !== request);
+        } else {
+            console.log(`Datos del producto ${codigoBarra} actualizados con éxito.`);
+        }
+    })
+    .catch(error => {
+        console.error('Error al actualizar los datos del producto:', error);
+        const row = document.querySelector(`#salida-table-body tr[data-codigo-barra="${codigoBarra}"]`);
+        const descripcion = row ? row.querySelector('td:nth-child(2)').textContent.trim() : 'Producto desconocido';
+        const descripcionCorta = descripcion.length > 30 ? descripcion.slice(0, 27) + '...' : descripcion;
+        Swal.fire({
+            title: 'Error',
+
+            html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>Error al actualizar los datos del producto ' + descripcionCorta + ': ' + error.message + '. Por favor, intenta de nuevo.</div>',
+            confirmButtonColor: '#3b82f6',
+            confirmButtonText: 'Aceptar'
         });
+    })
+    .finally(() => {
+        pendingRequests = pendingRequests.filter(req => req !== request);
+    });
 
-        pendingRequests.push(request);
-    }, 200);
+    pendingRequests.push(request);
+}
 
-    // Ajustar todos los textareas
+// Función para añadir event listeners a los campos de la tabla de salida
+function addSalidaEventListeners() {
+    // Ajustar el tamaño de los textareas
     document.querySelectorAll('.observacion').forEach(textarea => {
         autoResizeTextarea(textarea);
+        textarea.removeEventListener('input', handleTextareaInput); // Evitar duplicados
+        textarea.addEventListener('input', handleTextareaInput);
     });
 
-    // Manejar cambios en los campos
+    // Event listeners para los campos que se actualizan con AJAX
     document.querySelectorAll('.update-field').forEach(field => {
-        field.removeEventListener('input', handleFieldInput); // Evitar duplicados
-        field.addEventListener('input', handleFieldInput);
+        field.removeEventListener('change', handleFieldChange); // Evitar duplicados
+        field.addEventListener('change', handleFieldChange);
     });
 
-    function handleFieldInput() {
-        const codigo = this.getAttribute('data-codigo');
-        const numeroSiscom = document.querySelector(`input[name="numero_siscom_${codigo}"]`).value.trim();
-        const cantidad = document.querySelector(`input[name="cantidad_${codigo}"]`).value.trim();
-        const observacion = document.querySelector(`textarea[name="observacion_${codigo}"]`).value;
-
-        // Validaciones locales solo para numero_siscom y observacion
-        if (this.classList.contains('numero-siscom')) {
-            if (!/^\d*$/.test(numeroSiscom) && numeroSiscom !== '') {
-                this.classList.add('is-invalid');
-                this.setCustomValidity(`El Número de SISCOM para el producto ${codigo} debe ser un número entero.`);
-                return;
-            } else {
-                this.classList.remove('is-invalid');
-                this.setCustomValidity('');
-            }
-        }
-
-        if (this.classList.contains('observacion')) {
-            autoResizeTextarea(this);
-        }
-
-        saveData(codigo, numeroSiscom, cantidad, observacion);
-    }
-
-    // Manejar eliminación de productos
+    // Event listeners para los botones de eliminar
     document.querySelectorAll('.delete-button').forEach(button => {
         button.removeEventListener('click', handleDeleteClick); // Evitar duplicados
         button.addEventListener('click', handleDeleteClick);
     });
+}
 
-    function handleDeleteClick() {
-        const codigoBarra = this.getAttribute('data-codigo');
-        deleteProduct(codigoBarra);
+function handleTextareaInput() {
+    autoResizeTextarea(this);
+}
+
+function handleDeleteClick() {
+    const codigoBarra = this.getAttribute('data-codigo');
+    deleteProduct(codigoBarra);
+}
+
+function handleFieldChange() {
+    const codigoBarra = this.getAttribute('data-codigo');
+    const numeroSiscom = this.closest('tr').querySelector('.numero-siscom').value;
+    const cantidad = this.closest('tr').querySelector('.cantidad').value;
+    const observacion = this.closest('tr').querySelector('.observacion').value;
+    const descripcion = this.closest('tr').querySelector('td:nth-child(2)').textContent.trim();
+    const descripcionCorta = descripcion.length > 30 ? descripcion.slice(0, 27) + '...' : descripcion;
+
+    // Validaciones locales
+    if (this.classList.contains('numero-siscom') && numeroSiscom && !/^\d+$/.test(numeroSiscom)) {
+        this.classList.add('is-invalid');
+        Swal.fire({
+            title: 'Error',
+            html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>El Número SISCOM para el producto ' + descripcionCorta + ' debe ser un número entero.</div>',
+            confirmButtonColor: '#3b82f6',
+            confirmButtonText: 'Aceptar'
+        });
+        return;
+    } else {
+        this.classList.remove('is-invalid');
     }
 
-    // Manejar el envío del formulario
+    if (this.classList.contains('cantidad')) {
+        const stock = parseInt(this.getAttribute('data-stock'));
+        if (!cantidad || parseInt(cantidad) <= 0) {
+            this.classList.add('is-invalid');
+            Swal.fire({
+                title: 'Error',
+                html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>La cantidad para el producto ' + descripcionCorta + ' debe ser mayor que 0.</div>',
+                confirmButtonColor: '#3b82f6',
+                confirmButtonText: 'Aceptar'
+            });
+            return;
+        } else if (parseInt(cantidad) > stock) {
+            this.classList.add('is-invalid');
+            Swal.fire({
+                title: 'Error',
+                html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18775M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>La cantidad para el producto ' + descripcionCorta + ' no puede superar el stock (' + stock + ').</div>',
+                confirmButtonColor: '#3b82f6',
+                confirmButtonText: 'Aceptar'
+            });
+            return;
+        } else {
+            this.classList.remove('is-invalid');
+        }
+    }
+
+    updateProductData(codigoBarra, numeroSiscom, cantidad, observacion);
+}
+
+// Usar delegación de eventos para manejar clics en botones dinámicos
+document.addEventListener('click', function(event) {
+    if (event.target.matches('.add-product-btn')) {
+        event.preventDefault();
+        const form = event.target.closest('.add-product-form');
+        const codigoBarra = form.querySelector('input[name="codigo_barra"]').value;
+        console.log(`Botón "Agregar a salida" clickeado para el producto con código: ${codigoBarra}`);
+        addProduct(codigoBarra);
+    }
+});
+
+// Variable para evitar envíos duplicados del formulario
+let formSubmitted = localStorage.getItem('formSubmitted') === 'true';
+
+// Añadir event listener al formulario para evitar envíos duplicados
+document.addEventListener('DOMContentLoaded', function() {
     const salidaForm = document.getElementById('salida-form');
-    const siguienteBtn = document.getElementById('siguiente-btn');
-    if (salidaForm && siguienteBtn) {
-        salidaForm.removeEventListener('submit', handleFormSubmit); // Evitar duplicados
-        salidaForm.addEventListener('submit', handleFormSubmit);
+    if (salidaForm) {
+        salidaForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
 
-        async function handleFormSubmit(e) {
-            e.preventDefault();
-
-            // Evitar envíos duplicados
             if (formSubmitted) {
                 Swal.fire({
                     icon: 'info',
                     title: 'Formulario ya enviado',
-                    text: 'El formulario ya ha sido enviado. Serás redirigido a la siguiente página.',
+                    text: 'Ya has enviado este formulario. Serás redirigido a la selección.',
+                    confirmButtonColor: '#3b82f6',
+                    confirmButtonText: 'Aceptar'
+                }).then(() => {
+                    window.location.href = '/accounts/salida-productos/seleccion/';
+                });
+                return;
+            }
+
+            // Validar todos los campos antes de proceder
+            let hasError = false;
+            document.querySelectorAll('.update-field').forEach(field => {
+                const descripcion = field.closest('tr').querySelector('td:nth-child(2)').textContent.trim();
+                const descripcionCorta = descripcion.length > 30 ? descripcion.slice(0, 27) + '...' : descripcion;
+
+                if (field.classList.contains('numero-siscom')) {
+                    const numeroSiscom = field.value;
+                    if (numeroSiscom && !/^\d+$/.test(numeroSiscom)) {
+                        field.classList.add('is-invalid');
+                        Swal.fire({
+                            title: 'Error',
+                            html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>El Número SISCOM para el producto ' + descripcionCorta + ' debe ser un número entero.</div>',
+                            confirmButtonColor: '#3b82f6',
+                            confirmButtonText: 'Aceptar'
+                        });
+                        hasError = true;
+                    }
+                }
+
+                if (field.classList.contains('cantidad')) {
+                    const cantidad = field.value;
+                    const stock = parseInt(field.getAttribute('data-stock'));
+                    if (!cantidad || parseInt(cantidad) <= 0) {
+                        field.classList.add('is-invalid');
+                        Swal.fire({
+                            title: 'Error',
+                            html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>La cantidad para el producto ' + descripcionCorta + ' debe ser mayor que 0.</div>',
+                            confirmButtonColor: '#3b82f6',
+                            confirmButtonText: 'Aceptar'
+                        });
+                        hasError = true;
+                    } else if (parseInt(cantidad) > stock) {
+                        field.classList.add('is-invalid');
+                        Swal.fire({
+                            title: 'Error',
+                            html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>La cantidad para el producto ' + descripcionCorta + ' no puede superar el stock (' + stock + ').</div>',
+                            confirmButtonColor: '#3b82f6',
+                            confirmButtonText: 'Aceptar'
+                        });
+                        hasError = true;
+                    }
+                }
+            });
+
+            if (hasError) return;
+
+            if (pendingRequests.length > 0) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Procesando datos',
+                    text: 'Por favor, espera mientras se guardan los datos...',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    willOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+            }
+
+            try {
+                await Promise.all(pendingRequests);
+                pendingRequests = [];
+                Swal.close();
+            } catch (error) {
+                console.error('Error al esperar las solicitudes AJAX:', error);
+                Swal.fire({
+                    title: 'Error',
+                    html: '<div class="swal-custom-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div>Error al procesar los datos. Por favor, intenta de nuevo.</div>',
                     confirmButtonColor: '#3b82f6',
                     confirmButtonText: 'Aceptar'
                 });
                 return;
             }
 
-            // Validar cantidades antes de proceder
-            const cantidades = document.querySelectorAll('.cantidad');
-            let hasError = false;
-            cantidades.forEach(campo => {
-                const codigo = campo.getAttribute('data-codigo');
-                const cantidad = campo.value.trim();
-                const stock = parseInt(campo.getAttribute('data-stock'));
-
-                if (cantidad === '' || parseInt(cantidad) <= 0) {
-                    campo.classList.add('is-invalid');
-                    campo.setCustomValidity(`La cantidad para el producto ${codigo} debe ser mayor que 0.`);
-                    hasError = true;
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: `La cantidad para el producto ${codigo} debe ser mayor que 0.`,
-                        confirmButtonColor: '#3b82f6',
-                        confirmButtonText: 'Aceptar'
-                    });
-                } else if (parseInt(cantidad) > stock) {
-                    campo.classList.add('is-invalid');
-                    campo.setCustomValidity(`La cantidad para el producto ${codigo} no puede superar el stock (${stock}).`);
-                    hasError = true;
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: `La cantidad para el producto ${codigo} no puede superar el stock (${stock}).`,
-                        confirmButtonColor: '#3b82f6',
-                        confirmButtonText: 'Aceptar'
-                    });
-                } else {
-                    campo.classList.remove('is-invalid');
-                    campo.setCustomValidity('');
-                }
-            });
-
-            if (hasError) {
-                siguienteBtn.disabled = false;
-                siguienteBtn.innerText = 'Siguiente';
-                return;
-            }
-
-            // Esperar a que todas las solicitudes AJAX se completen
-            if (pendingRequests.length > 0) {
-                siguienteBtn.disabled = true;
-                siguienteBtn.innerText = 'Guardando datos...';
-
-                // Mostrar una alerta con temporizador
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Guardando datos',
-                    text: 'Hay cambios pendientes de guardar. Por favor, espere un momento...',
-                    showConfirmButton: false,
-                    timer: 5000, // 5 segundos de espera máxima
-                    willClose: () => {
-                        // Reintentar el envío del formulario después de que se cierre la alerta
-                        if (pendingRequests.length === 0) {
-                            submitForm();
-                        } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: 'No se pudieron guardar todos los datos a tiempo. Por favor, intenta de nuevo.',
-                                confirmButtonColor: '#3b82f6',
-                                confirmButtonText: 'Aceptar'
-                            });
-                            siguienteBtn.disabled = false;
-                            siguienteBtn.innerText = 'Siguiente';
-                        }
-                    }
-                });
-
-                try {
-                    await Promise.all(pendingRequests);
-                } catch (error) {
-                    console.error('Error al esperar las solicitudes pendientes:', error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'Error al guardar los datos. Por favor, intenta de nuevo.',
-                        confirmButtonColor: '#3b82f6',
-                        confirmButtonText: 'Aceptar'
-                    });
-                    siguienteBtn.disabled = false;
-                    siguienteBtn.innerText = 'Siguiente';
-                    return;
-                }
-            }
-
-            submitForm();
-        }
-
-        function submitForm() {
-            // Proceder con el envío del formulario
-            siguienteBtn.disabled = true;
-            siguienteBtn.innerText = 'Procesando...';
-            formSubmitted = true; // Marcar el formulario como enviado
-            salidaForm.submit();
-        }
+            formSubmitted = true;
+            localStorage.setItem('formSubmitted', 'true');
+            this.submit();
+        });
     }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Cargar la lista de salida al iniciar
-    updateSalidaList();
-
-    // Añadir event listeners iniciales
-    addProductFormListeners();
-    addPaginationListeners();
-
-    // Escuchar cambios en los campos de búsqueda
-    document.getElementById('codigo_barra').addEventListener('input', function() {
-        updateProductList(1);
-    });
-
-    document.getElementById('descripcion').addEventListener('input', function() {
-        updateProductList(1);
-    });
 });
+
+// Función para debounce (evitar múltiples solicitudes rápidas)
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
 </script>
 
 <style>
@@ -825,7 +905,6 @@ document.addEventListener('DOMContentLoaded', function() {
         background-color: #e0f7fa !important;
         transition: background-color 1s ease;
     }
-    /* Estilos personalizados para SweetAlert2 */
     .swal2-popup {
         width: 300px !important;
         padding: 1rem !important;
@@ -840,14 +919,33 @@ document.addEventListener('DOMContentLoaded', function() {
         line-height: 1.3 !important;
     }
     .swal2-icon {
-        width: 50px !important;
-        height: 50px !important;
-        margin: 0.5rem auto !important;
+        display: none !important;
+    }
+    .swal-custom-icon {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    .swal-custom-icon svg {
+        width: 50px;
+        height: 50px;
+        animation: scaleIn 0.3s ease-in-out;
     }
     .swal2-confirm {
         font-size: 0.9rem !important;
         padding: 0.4rem 1rem !important;
         border-radius: 5px !important;
+    }
+    @keyframes scaleIn {
+        0% {
+            transform: scale(0.5);
+            opacity: 0;
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
     }
     @media (max-width: 768px) {
         .form-row {
@@ -886,9 +984,9 @@ document.addEventListener('DOMContentLoaded', function() {
         .swal2-content {
             font-size: 0.85rem !important;
         }
-        .swal2-icon {
-            width: 40px !important;
-            height: 40px !important;
+        .swal-custom-icon svg {
+            width: 40px;
+            height: 40px;
         }
         .swal2-confirm {
             font-size: 0.85rem !important;
