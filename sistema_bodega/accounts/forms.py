@@ -164,10 +164,18 @@ class CustomUserEditForm(UserChangeForm):
             groups = self.instance.groups.all()
             if groups.exists():
                 self.fields['grupo'].initial = groups.first()
+            else:
+                self.fields['grupo'].initial = None  # Asegurarse de que no haya un valor inicial si no hay grupos
 
     def save(self, commit=True):
-        """Guarda los cambios del usuario y actualiza su grupo."""
+        """Guarda los cambios del usuario, actualiza su grupo y la contraseña si se proporcionó."""
         user = super().save(commit=False)
+        password = self.cleaned_data.get('password')
+
+        # Si se proporcionó una nueva contraseña, actualizarla
+        if password:
+            user.set_password(password)
+
         if commit:
             user.save()
             # Actualizar el grupo del usuario
@@ -176,6 +184,7 @@ class CustomUserEditForm(UserChangeForm):
                 # Limpiar los grupos existentes y asignar el nuevo
                 user.groups.clear()
                 user.groups.add(grupo)
+
         return user
 
 # Formularios existentes

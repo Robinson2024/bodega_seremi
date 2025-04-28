@@ -1208,6 +1208,28 @@ def editar_usuario(request, rut):
     if request.method == 'POST':
         form = CustomUserEditForm(request.POST, instance=usuario)
         if form.is_valid():
+            # Verificar si el usuario autenticado está intentando editarse a sí mismo
+            if request.user.rut == usuario.rut:
+                # Verificar si el usuario autenticado es un administrador
+                if request.user.has_perm('accounts.can_manage_users'):
+                    # Obtener el grupo actual del usuario (puede ser None si no tiene grupo asignado)
+                    current_group = usuario.groups.first()
+                    current_group_id = current_group.id if current_group else None
+                    # Obtener el grupo seleccionado en el formulario
+                    new_group = form.cleaned_data['grupo']
+                    # Asegurarse de que se haya seleccionado un grupo
+                    if not new_group:
+                        messages.error(request, 'Debe seleccionar un rol válido.')
+                        return render(request, 'accounts/editar_usuario.html', {'form': form, 'usuario': usuario})
+                    new_group_id = new_group.id
+                    # Comparar si el grupo ha cambiado
+                    if current_group_id != new_group_id:
+                        error_message = f'El usuario {request.user.rut} intentó cambiar su propio rol de {current_group.name if current_group else "Ninguno"} a {new_group.name}.'
+                        logger.info(error_message)
+                        messages.error(request, 'No puedes cambiar tu propio rol. Pide a otro administrador que realice este cambio.')
+                        return render(request, 'accounts/editar_usuario.html', {'form': form, 'usuario': usuario})
+            
+            # Si no hay restricción, proceder con la actualización
             usuario = form.save()
             password = form.cleaned_data.get('password')
             if password:
