@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Producto, Transaccion, ActaEntrega, Funcionario
+from .models import Producto, Transaccion, ActaEntrega, Funcionario, Categoria
 
 # Personalizar la vista de Producto en el panel de administración
 class ProductoAdmin(admin.ModelAdmin):
@@ -45,8 +45,38 @@ class FuncionarioAdmin(admin.ModelAdmin):
     # Ordena los funcionarios alfabéticamente por nombre
     ordering = ('nombre',)
 
+# Personalizar la vista de Categoria
+class CategoriaAdmin(admin.ModelAdmin):
+    # Define los campos que se mostrarán en la lista de categorías
+    list_display = ('nombre', 'activo')
+    # Permite filtrar categorías por su estado (activo o inactivo)
+    list_filter = ('activo',)
+    # Habilita la búsqueda por nombre de la categoría
+    search_fields = ('nombre',)
+    # Ordena las categorías alfabéticamente por nombre
+    ordering = ('nombre',)
+
+    # Restringe el acceso a usuarios con el permiso 'can_manage_categories'
+    def has_module_permission(self, request):
+        # Si el usuario tiene el permiso 'can_manage_categories', permite el acceso
+        if request.user.has_perm('accounts.can_manage_categories'):
+            return True
+        # Si no, verifica si el usuario es superusuario
+        return super().has_module_permission(request)
+
+    # Restringe las acciones de añadir, cambiar y eliminar solo a usuarios con el permiso
+    def has_add_permission(self, request):
+        return request.user.has_perm('accounts.can_manage_categories') or super().has_add_permission(request)
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.has_perm('accounts.can_manage_categories') or super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.has_perm('accounts.can_manage_categories') or super().has_delete_permission(request, obj)
+
 # Registrar los modelos con sus configuraciones personalizadas en el panel de administración de Django
 admin.site.register(Producto, ProductoAdmin)
 admin.site.register(Transaccion, TransaccionAdmin)
 admin.site.register(ActaEntrega, ActaEntregaAdmin)
 admin.site.register(Funcionario, FuncionarioAdmin)
+admin.site.register(Categoria, CategoriaAdmin)

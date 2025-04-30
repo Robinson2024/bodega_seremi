@@ -1,0 +1,141 @@
+{% extends 'accounts/home.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <!-- Mensajes -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Título y Filtro -->
+    <div class="form-card mb-4">
+        <h2 class="title-custom">Listado de Productos</h2>
+        <p class="subtitle-custom">Filtre y explore los productos registrados en el sistema.</p>
+
+        <!-- Formulario de Filtro -->
+        <form method="get" class="mb-4">
+            <div class="row">
+                <div class="col-md-4 form-group">
+                    <label for="id_categoria" class="font-weight-bold">Categoría</label>
+                    <select name="categoria" id="id_categoria" class="form-control select2">
+                        <option value="">Todas las categorías</option>
+                        {% for categoria in categorias %}
+                            <option value="{{ categoria.id }}" {% if categoria.id|stringformat:"s" == request.GET.categoria %}selected{% endif %}>{{ categoria.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="id_codigo_barra" class="font-weight-bold">Código de Barra</label>
+                    <input type="text" name="codigo_barra" id="id_codigo_barra" class="form-control" value="{{ request.GET.codigo_barra|default_if_none:'' }}" placeholder="Buscar por código de barra...">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="id_descripcion" class="font-weight-bold">Descripción</label>
+                    <input type="text" name="descripcion" id="id_descripcion" class="form-control" value="{{ request.GET.descripcion|default_if_none:'' }}" placeholder="Buscar por descripción...">
+                </div>
+            </div>
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-submit">Filtrar</button>
+            </div>
+        </form>
+
+        <!-- Tabla de Productos -->
+        {% if productos %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th scope="col">Código de Barra</th>
+                            <th scope="col">Descripción</th>
+                            <th scope="col">Categoría</th>
+                            <th scope="col">Stock</th>
+                            <th scope="col">RUT Proveedor</th>
+                            <th scope="col">Guía Despacho</th>
+                            <th scope="col">Número Factura</th>
+                            <th scope="col">Orden Compra</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for producto in productos %}
+                            <tr>
+                                <td>{{ producto.codigo_barra }}</td>
+                                <td>{{ producto.descripcion }}</td>
+                                <td>{{ producto.categoria.nombre }}</td>
+                                <td>
+                                    <span class="stock-label {% if producto.stock <= 10 %}stock-bajo{% elif producto.stock <= 50 %}stock-medio{% else %}stock-alto{% endif %}">
+                                        {{ producto.stock }}
+                                    </span>
+                                </td>
+                                <td>{{ producto.rut_proveedor|default:"N/A" }}</td>
+                                <td>{{ producto.guia_despacho|default:"N/A" }}</td>
+                                <td>{{ producto.numero_factura|default:"N/A" }}</td>
+                                <td>{{ producto.orden_compra|default:"N/A" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginación -->
+            {% if productos.has_other_pages %}
+                <nav aria-label="Navegación de páginas">
+                    <ul class="pagination justify-content-center">
+                        {% if productos.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ productos.previous_page_number }}{% if request.GET.categoria %}&categoria={{ request.GET.categoria }}{% endif %}{% if request.GET.codigo_barra %}&codigo_barra={{ request.GET.codigo_barra }}{% endif %}{% if request.GET.descripcion %}&descripcion={{ request.GET.descripcion }}{% endif %}" aria-label="Anterior">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&laquo;</span>
+                            </li>
+                        {% endif %}
+
+                        {% for num in productos.paginator.page_range %}
+                            {% if productos.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% else %}
+                                <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.categoria %}&categoria={{ request.GET.categoria }}{% endif %}{% if request.GET.codigo_barra %}&codigo_barra={{ request.GET.codigo_barra }}{% endif %}{% if request.GET.descripcion %}&descripcion={{ request.GET.descripcion }}{% endif %}">{{ num }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if productos.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ productos.next_page_number }}{% if request.GET.categoria %}&categoria={{ request.GET.categoria }}{% endif %}{% if request.GET.codigo_barra %}&codigo_barra={{ request.GET.codigo_barra }}{% endif %}{% if request.GET.descripcion %}&descripcion={{ request.GET.descripcion }}{% endif %}" aria-label="Siguiente">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&raquo;</span>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <p class="no-data-message">No se encontraron productos con los criterios seleccionados.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#id_categoria').select2({
+        width: '100%',
+        placeholder: "Seleccione una categoría",
+        allowClear: true
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

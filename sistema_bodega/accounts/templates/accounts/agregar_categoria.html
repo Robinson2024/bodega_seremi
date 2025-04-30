@@ -1,0 +1,48 @@
+{% extends 'accounts/home.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <!-- Mensajes -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Formulario para agregar categoría -->
+    <div class="form-card">
+        <h2 class="title-custom">Agregar Nueva Categoría</h2>
+        <p class="subtitle-custom">Complete el formulario para añadir una nueva categoría al sistema.</p>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="{{ form.nombre.id_for_label }}" class="font-weight-bold">{{ form.nombre.label }}</label>
+                {{ form.nombre }}
+                {% if form.nombre.errors %}
+                    <div class="text-danger small mt-1">
+                        {% for error in form.nombre.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <div class="form-check">
+                    {{ form.activo }}
+                    <label class="form-check-label ml-2" for="{{ form.activo.id_for_label }}">{{ form.activo.label }}</label>
+                </div>
+            </div>
+            <div class="d-flex justify-content-end mt-4">
+                <a href="{% url 'home' %}" class="btn btn-cancel mr-2" role="button">Cancelar</a>
+                <button type="submit" class="btn btn-submit">Agregar Categoría</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

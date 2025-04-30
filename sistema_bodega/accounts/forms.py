@@ -1,7 +1,7 @@
 from django import forms
 from django.core.validators import RegexValidator, MinValueValidator
 from django.core.exceptions import ValidationError
-from .models import Producto, Transaccion, ActaEntrega, Funcionario, Departamento, Responsable, CustomUser, clean_rut, validate_rut
+from .models import Producto, Transaccion, ActaEntrega, Funcionario, Departamento, Responsable, CustomUser, clean_rut, validate_rut, Categoria
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth.models import Group
 
@@ -284,24 +284,19 @@ class ProductoForm(forms.ModelForm):
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
-    # Campo para la categoría del producto
-    categoria = forms.ChoiceField(
-        choices=[('', 'Seleccione una categoría')] + Producto.CATEGORIAS,
-        label='Categoría',
-        required=True,
-        widget=forms.Select(attrs={'class': 'form-control form-control-sm'})
-    )
-
     class Meta:
         model = Producto
         fields = ['codigo_barra', 'descripcion', 'stock', 'categoria', 'rut_proveedor', 'guia_despacho', 'numero_factura', 'orden_compra']
+        widgets = {
+            'categoria': forms.Select(attrs={'class': 'form-control form-control-sm'}),
+        }
 
-    def clean_categoria(self):
-        """Valida que se haya seleccionado una categoría."""
-        categoria = self.cleaned_data.get('categoria')
-        if not categoria:
-            raise ValidationError('Debe seleccionar una categoría.')
-        return categoria
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['categoria'].queryset = Categoria.objects.filter(activo=True).order_by('nombre')
+        self.fields['categoria'].empty_label = "Seleccione una categoría"
+        self.fields['categoria'].required = True
+        self.fields['categoria'].label = "Categoría"
 
 class TransaccionForm(forms.ModelForm):
     # Campo para la cantidad de productos en la transacción
@@ -618,5 +613,99 @@ class EliminarDepartamentoForm(forms.Form):
 
         if not departamento:
             raise ValidationError('Debe seleccionar un departamento.')
+
+        return cleaned_data
+
+# Formularios para la gestión de categorías
+class CategoriaForm(forms.ModelForm):
+    class Meta:
+        model = Categoria
+        fields = ['nombre', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        labels = {
+            'nombre': 'Nombre de la Categoría',
+            'activo': 'Activa',
+        }
+
+    def clean_nombre(self):
+        """Valida que el nombre de la categoría sea único entre las categorías activas."""
+        nombre = self.cleaned_data.get('nombre')
+        # Verificar si ya existe una categoría con este nombre (excluyendo la instancia actual en caso de edición)
+        if self.instance and self.instance.pk:
+            if Categoria.objects.exclude(pk=self.instance.pk).filter(nombre=nombre, activo=True).exists():
+                raise ValidationError("Ya existe una categoría activa con este nombre.")
+        else:
+            if Categoria.objects.filter(nombre=nombre, activo=True).exists():
+                raise ValidationError("Ya existe una categoría activa con este nombre.")
+        return nombre
+
+class ModificarCategoriaForm(forms.Form):
+    # Campo para seleccionar la categoría a modificar
+    categoria = forms.ChoiceField(
+        choices=[],
+        label='Categoría a Modificar',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    # Campo para el nuevo nombre de la categoría
+    nuevo_nombre = forms.CharField(
+        max_length=100,
+        label='Nuevo Nombre de la Categoría',
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Cargar solo categorías activas
+        categorias = Categoria.objects.filter(activo=True)
+        print("Categorías cargadas en ModificarCategoriaForm:", list(categorias))
+        choices = [('', 'Seleccione una categoría')] + [(c.nombre, c.nombre) for c in categorias]
+        print("Choices generados en ModificarCategoriaForm:", choices)
+        self.fields['categoria'].choices = choices
+
+    def clean(self):
+        """Valida que la categoría seleccionada y el nuevo nombre sean válidos."""
+        cleaned_data = super().clean()
+        categoria = cleaned_data.get('categoria')
+        nuevo_nombre = cleaned_data.get('nuevo_nombre')
+
+        if not categoria:
+            raise ValidationError('Debe seleccionar una categoría.')
+
+        if not nuevo_nombre:
+            raise ValidationError('Debe ingresar un nuevo nombre para la categoría.')
+
+        if Categoria.objects.exclude(nombre=categoria).filter(nombre=nuevo_nombre, activo=True).exists():
+            raise ValidationError('Ya existe una categoría activa con ese nombre.')
+
+        return cleaned_data
+
+class EliminarCategoriaForm(forms.Form):
+    # Campo para seleccionar la categoría a deshabilitar
+    categoria = forms.ChoiceField(
+        choices=[],
+        label='Categoría a Deshabilitar',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Cargar solo categorías activas
+        categorias = Categoria.objects.filter(activo=True)
+        print("Categorías cargadas en EliminarCategoriaForm:", list(categorias))
+        choices = [('', 'Seleccione una categoría')] + [(c.nombre, c.nombre) for c in categorias]
+        print("Choices generados en EliminarCategoriaForm:", choices)
+        self.fields['categoria'].choices = choices
+
+    def clean(self):
+        """Valida que se haya seleccionado una categoría."""
+        cleaned_data = super().clean()
+        categoria = cleaned_data.get('categoria')
+
+        if not categoria:
+            raise ValidationError('Debe seleccionar una categoría.')
 
         return cleaned_data

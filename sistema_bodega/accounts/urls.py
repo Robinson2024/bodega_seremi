@@ -5,7 +5,6 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
 
-
 urlpatterns = [
     # Rutas de Autenticación
     path('', views.home, name='home'),  # Página principal (redirecciona según autenticación)
@@ -37,6 +36,11 @@ urlpatterns = [
     path('agregar-departamento/', views.agregar_departamento, name='agregar-departamento'),  # Agregar un nuevo departamento
     path('modificar-departamento/', views.modificar_departamento, name='modificar-departamento'),  # Modificar un departamento existente
     path('eliminar-departamento/', views.eliminar_departamento, name='eliminar-departamento'),  # Eliminar un departamento
+
+    # Rutas de Gestión de Categorías
+    path('agregar-categoria/', views.agregar_categoria, name='agregar-categoria'),  # Agregar una nueva categoría
+    path('modificar-categoria/', views.modificar_categoria, name='modificar-categoria'),  # Modificar una categoría existente
+    path('eliminar-categoria/', views.eliminar_categoria, name='eliminar-categoria'),  # Eliminar una categoría
 
     # Rutas de Gestión de Usuarios
     path('listar-usuarios/', views.listar_usuarios, name='listar-usuarios'),  # Listar todos los usuarios

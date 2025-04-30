@@ -64,19 +64,10 @@ class CustomUser(AbstractUser):
 
 # Modelos de inventario
 class Producto(models.Model):
-    CATEGORIAS = [
-        ('Insumos de Aseo', 'Insumos de Aseo'),
-        ('Insumos de Escritorio', 'Insumos de Escritorio'),
-        ('EPP', 'EPP'),
-        ('Emergencias y Desastres', 'Emergencias y Desastres'),
-        ('Folletería', 'Folletería'),
-        ('Otros', 'Otros'),
-    ]
-
     codigo_barra = models.CharField(max_length=50, unique=True)
     descripcion = models.CharField(max_length=200)
     stock = models.IntegerField(default=0, db_index=True)
-    categoria = models.CharField(max_length=100, choices=CATEGORIAS, blank=True)
+    categoria = models.ForeignKey('Categoria', on_delete=models.SET_NULL, null=True, blank=True)
     rut_proveedor = models.CharField(max_length=12, blank=True)
     guia_despacho = models.CharField(max_length=50, blank=True)
     numero_factura = models.CharField(max_length=50, blank=True)
@@ -188,3 +179,17 @@ class Responsable(models.Model):
 
     def __str__(self):
         return f"{self.nombre} ({self.departamento.nombre})"
+
+class Categoria(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    activo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.nombre
+
+    class Meta:
+        verbose_name = "Categoría"
+        verbose_name_plural = "Categorías"
+        permissions = [
+            ("can_manage_categories", "Can manage categories"),
+        ]

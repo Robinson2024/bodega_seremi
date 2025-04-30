@@ -37,6 +37,9 @@ from .forms import (
     ProductoForm,
     SearchUserForm,
     TransaccionForm,
+    CategoriaForm,  # Añadido para manejar categorías
+    ModificarCategoriaForm,  # Añadido para modificar categorías
+    EliminarCategoriaForm,  # Añadido para deshabilitar categorías
 )
 from .models import (
     ActaEntrega,
@@ -46,6 +49,7 @@ from .models import (
     Producto,
     Responsable,
     Transaccion,
+    Categoria,  # Añadido para manejar categorías dinámicas
 )
 
 # Configurar logging
@@ -248,6 +252,9 @@ def exportar_excel(request, datos, nombre_base, columnas, campos):
         fila = []
         for campo in campos:
             valor = getattr(item, campo) if hasattr(item, campo) else item.get(campo, '-')
+            # Si el campo es 'categoria', mostramos el nombre de la categoría
+            if campo == 'categoria' and valor:
+                valor = valor.nombre if hasattr(valor, 'nombre') else str(valor)
             if campo == 'fecha' and isinstance(valor, datetime):
                 valor = valor.strftime('%d-%m-%Y %H:%M')
             fila.append(valor)
@@ -382,12 +389,18 @@ def listar_productos(request):
     if query_descripcion:
         productos = productos.filter(descripcion__icontains=query_descripcion)
     if query_categoria and query_categoria != 'Todas':
-        productos = productos.filter(categoria=query_categoria)
+        # Filtramos por el nombre de la categoría en el modelo Categoria
+        productos = productos.filter(categoria__nombre=query_categoria)
 
     if request.method == 'POST' and 'exportar_excel' in request.POST:
         columnas = ['Código de Barra', 'Nombre del Producto', 'Categoría', 'Stock Actual']
         campos = ['codigo_barra', 'descripcion', 'categoria', 'stock']
         return exportar_excel(request, productos, "Productos", columnas, campos)
+
+    # Obtener todas las categorías activas para el filtro
+    categorias = Categoria.objects.filter(activo=True).order_by('nombre')
+    # Crear la lista de categorías para el dropdown, incluyendo la opción "Todas"
+    lista_categorias = [('', 'Todas')] + [(cat.nombre, cat.nombre) for cat in categorias]
 
     page_obj = paginar_resultados(request, productos)
     context = {
@@ -395,7 +408,7 @@ def listar_productos(request):
         'query_codigo': query_codigo,
         'query_descripcion': query_descripcion,
         'query_categoria': query_categoria,
-        'categorias': [('', 'Todas')] + Producto.CATEGORIAS,
+        'categorias': lista_categorias,  # Usamos las categorías dinámicas
     }
     return render(request, 'accounts/listar_productos.html', context)
 
@@ -1292,3 +1305,89 @@ def verify_password(request):
             return render(request, 'accounts/verify_password.html')
 
     return render(request, 'accounts/verify_password.html')
+
+# Vistas para la gestión de categorías
+@login_required
+@permission_required('accounts.can_edit', raise_exception=True)
+def agregar_categoria(request):
+    """Vista para agregar una nueva categoría"""
+    limpiar_sesion_productos_salida(request)
+    if not request.user.has_perm('accounts.can_edit'):
+        messages.error(request, 'No tienes permiso para agregar categorías.')
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = CategoriaForm(request.POST)
+        if form.is_valid():
+            categoria = form.save(commit=False)
+            categoria.activo = True  # Asegurar que la nueva categoría esté activa
+            categoria.save()
+            messages.success(request, f'La categoría "{categoria.nombre}" ha sido agregada con éxito.')
+            return redirect('listar-productos')  # Redirigir a la lista de productos
+        else:
+            messages.error(request, 'Error al agregar la categoría. Verifica los datos.')
+    else:
+        form = CategoriaForm(initial={'activo': True})
+
+    return render(request, 'accounts/agregar_categoria.html', {'form': form})
+
+@login_required
+@permission_required('accounts.can_edit', raise_exception=True)
+def modificar_categoria(request):
+    """Vista para modificar una categoría existente"""
+    limpiar_sesion_productos_salida(request)
+    if not request.user.has_perm('accounts.can_edit'):
+        messages.error(request, 'No tienes permiso para modificar categorías.')
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = ModificarCategoriaForm(request.POST)
+        if form.is_valid():
+            categoria_nombre = form.cleaned_data['categoria']
+            nuevo_nombre = form.cleaned_data['nuevo_nombre']
+            try:
+                categoria = Categoria.objects.get(nombre=categoria_nombre, activo=True)
+                categoria.nombre = nuevo_nombre
+                categoria.save()
+                messages.success(request, f'La categoría ha sido renombrada a "{nuevo_nombre}" con éxito.')
+                return redirect('listar-productos')  # Redirigir a la lista de productos
+            except Categoria.DoesNotExist:
+                messages.error(request, 'La categoría seleccionada no existe.')
+        else:
+            messages.error(request, 'Error al modificar la categoría. Verifica los datos.')
+    else:
+        form = ModificarCategoriaForm()
+
+    return render(request, 'accounts/modificar_categoria.html', {'form': form})
+
+@login_required
+@permission_required('accounts.can_edit', raise_exception=True)
+def eliminar_categoria(request):
+    """Vista para deshabilitar una categoría existente"""
+    limpiar_sesion_productos_salida(request)
+    if not request.user.has_perm('accounts.can_edit'):
+        messages.error(request, 'No tienes permiso para deshabilitar categorías.')
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = EliminarCategoriaForm(request.POST)
+        if form.is_valid():
+            categoria_nombre = form.cleaned_data['categoria']
+            try:
+                categoria = Categoria.objects.get(nombre=categoria_nombre, activo=True)
+                # Verificar si hay productos asociados a esta categoría
+                if Producto.objects.filter(categoria=categoria).exists():
+                    messages.error(request, 'No se puede deshabilitar esta categoría porque tiene productos asociados.')
+                    return redirect('eliminar-categoria')
+                categoria.activo = False
+                categoria.save()
+                messages.success(request, f'La categoría "{categoria.nombre}" ha sido deshabilitada con éxito.')
+                return redirect('listar-productos')  # Redirigir a la lista de productos
+            except Categoria.DoesNotExist:
+                messages.error(request, 'La categoría seleccionada no existe.')
+        else:
+            messages.error(request, 'Error al deshabilitar la categoría. Verifica los datos.')
+    else:
+        form = EliminarCategoriaForm()
+
+    return render(request, 'accounts/eliminar_categoria.html', {'form': form})
