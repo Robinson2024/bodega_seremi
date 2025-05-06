@@ -13,7 +13,6 @@
     <!-- Incluir Select2 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
-        /* Estilos existentes, eliminando los relacionados con .message */
         * {
             margin: 0;
             padding: 0;
@@ -83,7 +82,6 @@
             background-color: #e6f0fa;
             transform: translateY(-1px);
         }
-        /* Estilo para el botón de Panel de Administración */
         .admin-access-btn {
             background-color: #dc3545 !important;
             color: white !important;
@@ -351,7 +349,6 @@
                 font-size: 0.85rem;
             }
         }
-        /* Estilo para los mensajes */
         .alert {
             margin-bottom: 20px;
             font-size: 14px;
@@ -489,7 +486,7 @@
     <main>
         {% block content %}
             <div class="container">
-                <!-- Mensajes (movido aquí para que aparezca antes del saludo) -->
+                <!-- Mensajes -->
                 {% if messages %}
                     {% for message in messages %}
                         <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center" role="alert">
@@ -534,20 +531,16 @@
                     {% endif %}
                 </div>
             </div>
-            <!-- Cargar chart-init.js solo en la página de inicio -->
             <script src="{% static 'js/chart-init.js' %}"></script>
         {% endblock %}
     </main>
     <footer>
         <p>Copyright © 2025 Sistema de Bodega - SEREMI Salud Araucanía</p>
     </footer>
-    <!-- Usamos la versión completa de jQuery -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Incluir Select2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
-        // Inicializar Select2
         $(document).ready(function() {
             $('.select2').select2({
                 width: '100%',
@@ -556,7 +549,6 @@
             });
         });
 
-        // Manejo del formulario de verificación de contraseña con AJAX
         $(document).ready(function() {
             $('#passwordForm').on('submit', function(e) {
                 e.preventDefault();
@@ -585,7 +577,6 @@
                 });
             });
 
-            // Limpiar el formulario y los mensajes al cerrar el modal
             $('#passwordModal').on('hidden.bs.modal', function() {
                 $('#adminPassword').val('');
                 $('#errorMessage').hide();

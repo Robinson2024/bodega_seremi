@@ -4,6 +4,8 @@ import json
 import os
 import urllib.parse
 import logging
+import base64
+from io import BytesIO
 
 # Módulos de bibliotecas de terceros
 import openpyxl
@@ -95,14 +97,11 @@ def generar_pdf_acta(actas, disposition='attachment'):
         ]
         logger.info(f"Productos para el PDF (con límite de 100 caracteres): {productos_salida}")
 
-        response = HttpResponse(content_type='application/pdf')
-        filename = f"Acta_Entrega_Nro_{acta.numero_acta}.pdf"
-        encoded_filename = urllib.parse.quote(filename)
-        response['Content-Disposition'] = f'{disposition}; filename="{encoded_filename}"'
-        response['Content-Type'] = 'application/pdf; charset=utf-8'
-
-        doc = SimpleDocTemplate(response, pagesize=letter, leftMargin=0.75*inch, rightMargin=0.75*inch,
-                                topMargin=0.5*inch, bottomMargin=0.5*inch)
+        # Usar un buffer para generar el PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=0.75*inch, rightMargin=0.75*inch,
+                                topMargin=0.5*inch, bottomMargin=0.5*inch,
+                                title=f"Acta N°{acta.numero_acta}")  # Establecer el título del PDF
         styles = getSampleStyleSheet()
 
         # Definir estilos personalizados
@@ -228,12 +227,22 @@ def generar_pdf_acta(actas, disposition='attachment'):
         logger.info("Construyendo el PDF...")
         doc.build(elements)
         logger.info("PDF generado correctamente.")
-        return response
+
+        # Obtener el contenido del buffer y codificarlo en base64
+        pdf_content = buffer.getvalue()
+        pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
+        buffer.close()
+
+        # Devolver el PDF como base64 junto con el número del acta
+        return {
+            'pdf_base64': pdf_base64,
+            'numero_acta': str(acta.numero_acta),
+            'filename': f"Acta_N°{acta.numero_acta}.pdf"  # Mantener el nombre del archivo consistente
+        }
+
     except Exception as e:
         logger.error(f"Error al generar el PDF: {str(e)}")
-        response = HttpResponse(f"Error al generar el PDF: {str(e)}", content_type='text/plain')
-        response.status_code = 500
-        return response
+        return {'error': f"Error al generar el PDF: {str(e)}"}
 
 def exportar_excel(request, datos, nombre_base, columnas, campos):
     """Genera y devuelve un archivo Excel"""
@@ -840,25 +849,42 @@ def salida_productos_seleccion(request):
                 request.session['acta_generada'] = True
                 request.session.modified = True
 
-                response = generar_pdf_acta(actas)
+                # Generar el PDF y obtener el resultado
+                pdf_result = generar_pdf_acta(actas)
+
+                # Verificar si hubo un error al generar el PDF
+                if 'error' in pdf_result:
+                    logger.error(f"Error al generar el PDF: {pdf_result['error']}")
+                    messages.error(request, pdf_result['error'])
+                    return redirect('salida-productos-seleccion')
+
+                # Preparar la respuesta JSON
+                response_data = {
+                    'success': True,
+                    'pdf_base64': pdf_result['pdf_base64'],
+                    'numero_acta': pdf_result['numero_acta'],
+                    'filename': pdf_result['filename'],
+                    'message': f'Acta de entrega N°{numero_acta} generada correctamente.'
+                }
+
                 # Limpiar la sesión después de generar el PDF
                 limpiar_sesion_productos_salida(request)
                 if 'acta_generada' in request.session:
                     del request.session['acta_generada']
                     request.session.modified = True
-                messages.success(request, f'Acta de entrega N°{numero_acta} generada correctamente.')
-                return response
+
+                return JsonResponse(response_data)
 
             except Exception as e:
                 logger.error(f"Error al procesar el acta: {str(e)}")
                 messages.error(request, f'Error al procesar el acta: {str(e)}')
-                return redirect('salida-productos-seleccion')
+                return JsonResponse({'success': False, 'error': f'Error al procesar el acta: {str(e)}'})
         else:
             logger.warning("Formulario no válido en salida_productos_seleccion.")
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"Error en el campo '{form.fields[field].label}': {error}")
-            messages.error(request, 'Error al generar el acta. Por favor, verifica los datos e intenta de nuevo.')
+            errors = {}
+            for field, error_list in form.errors.items():
+                errors[field] = [str(error) for error in error_list]
+            return JsonResponse({'success': False, 'errors': errors})
     else:
         form = ActaEntregaForm()
         # Asegurar que la bandera de acta generada esté inicializada
@@ -900,7 +926,22 @@ def ver_acta_pdf(request, numero_acta, disposition):
     actas = ActaEntrega.objects.filter(numero_acta=numero_acta)
     if not actas.exists():
         return HttpResponse("Acta no encontrada.", status=404)
-    return generar_pdf_acta(actas, disposition)
+
+    pdf_result = generar_pdf_acta(actas, disposition)
+    if 'error' in pdf_result:
+        return HttpResponse(pdf_result['error'], status=500)
+
+    # Crear una respuesta HTTP para el PDF
+    response = HttpResponse(content_type='application/pdf')
+    filename = f"Acta_N°{numero_acta}.pdf"  # Cambiado para incluir "Acta_N°" en el nombre
+    encoded_filename = urllib.parse.quote(filename)
+    response['Content-Disposition'] = f'{disposition}; filename="{encoded_filename}"'
+    response['Content-Type'] = 'application/pdf; charset=utf-8'
+
+    # Decodificar el PDF desde base64 y escribirlo en la respuesta
+    pdf_content = base64.b64decode(pdf_result['pdf_base64'])
+    response.write(pdf_content)
+    return response
 
 @login_required
 def bincard_buscar(request):

@@ -86,6 +86,174 @@
             </form>
         </div>
     </div>
+
+    <!-- Contenedor para el mensaje de éxito personalizado -->
+    <div id="custom-success-message" class="custom-success-message" style="display: none;">
+        <div class="success-content">
+            <i class="fas fa-check-circle success-icon"></i>
+            <div class="success-text">
+                <h4 id="success-title"></h4>
+                <button type="button" class="btn btn-primary-custom btn-sm mt-2" id="accept-button">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const departamentoSelect = document.getElementById('id_departamento');
+        const responsableSelect = document.getElementById('id_responsable');
+        const loadingSpinner = document.getElementById('responsable-loading');
+        const form = document.getElementById('acta-form');
+        const generateButton = document.getElementById('generateButton');
+        const cancelButton = document.getElementById('cancelButton');
+        const successMessage = document.getElementById('custom-success-message');
+        const successTitle = document.getElementById('success-title');
+        const acceptButton = document.getElementById('accept-button');
+
+        // Función para mostrar el indicador de carga
+        function showLoading() {
+            loadingSpinner.style.display = 'inline';
+            responsableSelect.disabled = true;
+        }
+
+        // Función para ocultar el indicador de carga
+        function hideLoading() {
+            loadingSpinner.style.display = 'none';
+            responsableSelect.disabled = false;
+        }
+
+        // Función para mostrar el mensaje de éxito personalizado
+        function showSuccessMessage(message, numeroActa) {
+            successTitle.textContent = `Acta de entrega N°${numeroActa} generada correctamente`;
+            successMessage.style.display = 'block';
+            successMessage.classList.remove('fade-out');
+            successMessage.classList.add('fade-in');
+        }
+
+        // Cargar responsables dinámicamente
+        departamentoSelect.addEventListener('change', function() {
+            const departamento = this.value;
+            if (!departamento) {
+                responsableSelect.innerHTML = '<option value="">Seleccione un departamento primero</option>';
+                return;
+            }
+
+            showLoading();
+
+            fetch(`/accounts/funcionarios-por-departamento/?departamento=${encodeURIComponent(departamento)}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la solicitud al servidor');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.funcionarios && data.funcionarios.length > 0) {
+                    responsableSelect.innerHTML = '<option value="">Seleccione un responsable</option>';
+                    data.funcionarios.forEach(funcionario => {
+                        const option = document.createElement('option');
+                        option.value = funcionario.id;
+                        option.textContent = funcionario.nombre;
+                        responsableSelect.appendChild(option);
+                    });
+                } else {
+                    responsableSelect.innerHTML = '<option value="">No hay responsables disponibles</option>';
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error al cargar los responsables:', error);
+                responsableSelect.innerHTML = '<option value="">Error al cargar responsables</option>';
+                hideLoading();
+                alert('Hubo un problema al cargar los responsables. Por favor, intenta de nuevo.');
+            });
+        });
+
+        // Manejar el envío del formulario
+        form.addEventListener('submit', function(event) {
+            const isCancel = event.submitter && event.submitter.name === 'cancelar';
+
+            if (isCancel) {
+                console.log('Botón "Cancelar" presionado. Enviando formulario sin validación.');
+                return; // Permitir el envío del formulario
+            }
+
+            // Validación para "Generar Acta"
+            event.preventDefault();
+
+            if (!form.checkValidity()) {
+                event.stopPropagation();
+                form.classList.add('was-validated');
+                alert('Por favor, completa todos los campos requeridos.');
+                return;
+            }
+
+            const responsableValue = responsableSelect.value;
+            if (!responsableValue || responsableValue === 'undefined') {
+                event.stopPropagation();
+                alert('Por favor, selecciona un responsable válido.');
+                return;
+            }
+
+            const formData = new FormData(form);
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.error || 'Error al generar el acta');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Redirigir a la vista existente para previsualizar el PDF
+                    const numeroActa = data.numero_acta;
+                    const url = `/accounts/ver-acta-pdf/${numeroActa}/inline/`;
+                    window.open(url, '_blank');
+
+                    // Mostrar mensaje personalizado
+                    showSuccessMessage(data.message, numeroActa);
+                } else {
+                    throw new Error(data.error || 'Error desconocido al generar el acta');
+                }
+            })
+            .catch(error => {
+                console.error('Error al generar el acta:', error);
+                alert('Error al generar el acta: ' + error.message);
+            });
+        });
+
+        // Manejar el botón "Aceptar" para cerrar el mensaje y redirigir
+        acceptButton.addEventListener('click', function() {
+            successMessage.classList.remove('fade-in');
+            successMessage.classList.add('fade-out');
+            setTimeout(() => {
+                successMessage.style.display = 'none';
+                window.location.href = "{% url 'home' %}";
+            }, 500); // Esperar a que termine la animación de desvanecimiento
+        });
+
+        // Forzar la carga inicial de responsables si hay un departamento seleccionado
+        if (departamentoSelect.value) {
+            departamentoSelect.dispatchEvent(new Event('change'));
+        }
+    });
+    </script>
+
 </div>
 
 <style>
@@ -98,7 +266,6 @@
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
 
-    /* Estilos para los menús desplegables */
     .select-wrapper {
         position: relative;
     }
@@ -130,7 +297,6 @@
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
 
-    /* Flecha personalizada para el menú desplegable */
     .select-wrapper::after {
         content: '\25BC';
         position: absolute;
@@ -142,7 +308,6 @@
         pointer-events: none;
     }
 
-    /* Estilo para el indicador de carga */
     .loading-spinner {
         position: absolute;
         top: 50%;
@@ -152,19 +317,17 @@
         color: #64748b;
     }
 
-    /* Estilos para las etiquetas */
     .form-label {
         margin-bottom: 0.5rem;
         font-size: 0.9rem;
     }
 
-    /* Estilos para los botones */
     .btn-primary-custom {
         background-color: #1d4ed8;
         border-color: #1d4ed8;
-        padding: 8px 20px;
-        font-size: 0.9rem;
-        border-radius: 8px;
+        padding: 5px 12px;
+        font-size: 0.8rem;
+        border-radius: 5px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         transition: all 0.3s ease;
     }
@@ -179,9 +342,9 @@
     .btn-cancel-custom {
         background-color: #f87171;
         border-color: #f87171;
-        padding: 8px 20px;
-        font-size: 0.9rem;
-        border-radius: 8px;
+        padding: 5px 12px;
+        font-size: 0.8rem;
+        border-radius: 5px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         transition: all 0.3s ease;
         color: white;
@@ -196,7 +359,6 @@
         color: white;
     }
 
-    /* Estilos para la tabla */
     .table th {
         background-color: #1a3c5e;
         color: white;
@@ -212,13 +374,11 @@
         background-color: #f1f5f9;
     }
 
-    /* Estilos para los mensajes de error */
     .text-danger {
         font-size: 0.8rem;
         margin-top: 5px;
     }
 
-    /* Estilos para los mensajes de alerta */
     .alert-success {
         background-color: #d4edda;
         border-color: #c3e6cb;
@@ -231,7 +391,6 @@
         color: #721c24;
     }
 
-    /* Responsividad */
     @media (max-width: 768px) {
         .form-row {
             flex-direction: column;
@@ -250,145 +409,62 @@
             margin-bottom: 10px;
         }
     }
+
+    /* Estilos para el mensaje de éxito personalizado */
+    .custom-success-message {
+        position: absolute;
+        top: 120px; /* Ajustado para estar entre "Cerrar Sesión" y "Salida de Productos" */
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100%;
+        max-width: 350px;
+        z-index: 1050;
+        opacity: 0;
+        transition: opacity 0.5s ease-in-out;
+    }
+
+    .success-content {
+        background-color: #e6ffe6;
+        border: 1px solid #c3e6cb;
+        border-radius: 5px;
+        padding: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #155724;
+        text-align: center;
+    }
+
+    .success-icon {
+        font-size: 1.5rem;
+        color: #28a745;
+    }
+
+    .success-text {
+        flex: 1;
+    }
+
+    .success-text h4 {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #1a3c5e;
+    }
+
+    .success-text p {
+        margin: 5px 0 0;
+        font-size: 0.85rem;
+        color: #155724;
+        display: none; /* Quitamos el temporizador */
+    }
+
+    .fade-in {
+        opacity: 1;
+    }
+
+    .fade-out {
+        opacity: 0;
+    }
 </style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const departamentoSelect = document.getElementById('id_departamento');
-    const responsableSelect = document.getElementById('id_responsable');
-    const loadingSpinner = document.getElementById('responsable-loading');
-    const form = document.getElementById('acta-form');
-    const generateButton = document.getElementById('generateButton');
-    const cancelButton = document.getElementById('cancelButton');
-
-    // Función para mostrar el indicador de carga
-    function showLoading() {
-        loadingSpinner.style.display = 'inline';
-        responsableSelect.disabled = true;
-    }
-
-    // Función para ocultar el indicador de carga
-    function hideLoading() {
-        loadingSpinner.style.display = 'none';
-        responsableSelect.disabled = false;
-    }
-
-    // Cargar responsables dinámicamente
-    departamentoSelect.addEventListener('change', function() {
-        const departamento = this.value;
-        if (!departamento) {
-            responsableSelect.innerHTML = '<option value="">Seleccione un departamento primero</option>';
-            return;
-        }
-
-        showLoading();
-
-        fetch(`/accounts/funcionarios-por-departamento/?departamento=${encodeURIComponent(departamento)}`, {
-            method: 'GET',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Error en la solicitud al servidor');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.funcionarios && data.funcionarios.length > 0) {
-                responsableSelect.innerHTML = '<option value="">Seleccione un responsable</option>';
-                data.funcionarios.forEach(funcionario => {
-                    const option = document.createElement('option');
-                    option.value = funcionario.id; // Usamos el ID del Responsable
-                    option.textContent = funcionario.nombre;
-                    responsableSelect.appendChild(option);
-                });
-            } else {
-                responsableSelect.innerHTML = '<option value="">No hay responsables disponibles</option>';
-            }
-            hideLoading();
-        })
-        .catch(error => {
-            console.error('Error al cargar los responsables:', error);
-            responsableSelect.innerHTML = '<option value="">Error al cargar responsables</option>';
-            hideLoading();
-            alert('Hubo un problema al cargar los responsables. Por favor, intenta de nuevo.');
-        });
-    });
-
-    // Manejar el envío del formulario
-    form.addEventListener('submit', function(event) {
-        const isCancel = event.submitter && event.submitter.id === 'cancelButton';
-
-        if (isCancel) {
-            // No se necesita validación para "Cancelar"
-            console.log('Botón "Cancelar" presionado. Enviando formulario sin validación.');
-            return; // Permitir el envío del formulario
-        }
-
-        // Validación para "Generar Acta"
-        event.preventDefault(); // Prevenir el envío predeterminado para manejar con fetch
-
-        // Validar el formulario con la validación nativa del navegador
-        if (!form.checkValidity()) {
-            event.stopPropagation();
-            form.classList.add('was-validated');
-            alert('Por favor, completa todos los campos requeridos.');
-            return;
-        }
-
-        // Validación adicional para el campo responsable
-        const responsableValue = responsableSelect.value;
-        if (!responsableValue || responsableValue === 'undefined') {
-            event.stopPropagation();
-            alert('Por favor, selecciona un responsable válido.');
-            return;
-        }
-
-        const formData = new FormData(form);
-
-        fetch(form.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(errorData => {
-                    throw new Error(errorData.error || 'Error al generar el acta');
-                });
-            }
-            return response.blob();
-        })
-        .then(blob => {
-            // Crear un enlace temporal para descargar el PDF
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'acta_entrega.pdf'; // Nombre genérico, el nombre real viene del servidor
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-
-            // Mostrar mensaje
-            setTimeout(() => {
-                window.location.href = "{% url 'home' %}";
-            }, 1000); // Redirigir después de 1 segundo
-        })
-        .catch(error => {
-            console.error('Error al generar el acta:', error);
-            alert('Error al generar el acta: ' + error.message);
-        });
-    });
-
-    // Forzar la carga inicial de responsables si hay un departamento seleccionado
-    if (departamentoSelect.value) {
-        departamentoSelect.dispatchEvent(new Event('change'));
-    }
-});
-</script>
 {% endblock %}
