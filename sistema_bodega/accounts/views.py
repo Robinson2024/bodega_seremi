@@ -1368,7 +1368,7 @@ def agregar_categoria(request):
         else:
             messages.error(request, 'Error al agregar la categoría. Verifica los datos.')
     else:
-        form = CategoriaForm(initial={'activo': True})
+        form = CategoriaForm()  
 
     return render(request, 'accounts/agregar_categoria.html', {'form': form})
 

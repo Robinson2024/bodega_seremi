@@ -620,14 +620,12 @@ class EliminarDepartamentoForm(forms.Form):
 class CategoriaForm(forms.ModelForm):
     class Meta:
         model = Categoria
-        fields = ['nombre', 'activo']
+        fields = ['nombre']  # Excluir 'activo'
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
-            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         labels = {
             'nombre': 'Nombre de la Categoría',
-            'activo': 'Activa',
         }
 
     def clean_nombre(self):
