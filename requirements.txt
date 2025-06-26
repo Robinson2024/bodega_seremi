@@ -1,0 +1,31 @@
+# Para instalar estas dependencias, activa tu entorno virtual y ejecuta:
+# pip install -r requirements.txt
+#
+# Este proyecto usa un entorno virtual (venv). Para activarlo:
+# 1. Asegúrate de estar en el directorio raíz del proyecto.
+# 2. Ejecuta: venv\Scripts\activate (en Windows) o source venv/bin/activate (en macOS/Linux).
+# 3. Verás (venv) en tu terminal, indicando que el entorno virtual está activo.
+
+# Framework principal
+Django==5.0.3
+
+# Utilidades para Django
+django-widget-tweaks==1.5.0
+
+# Manejo de archivos Excel
+openpyxl==3.1.2
+
+# Manejo de imágenes
+Pillow==11.1.0
+
+# Manejo de zonas horarias
+pytz==2024.1
+
+# Generación de PDFs
+reportlab==4.2.2
+
+# Para debug en desarrollo (opcional)
+# django-debug-toolbar==4.2.0
+
+# Para formularios mejorados (opcional)
+# django-crispy-forms==2.1
