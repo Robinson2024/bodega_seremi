@@ -310,11 +310,11 @@ def home(request):
         suma_porcentajes = porcentaje_bajo + porcentaje_medio + porcentaje_alto
         if suma_porcentajes != 100.0:
             if porcentaje_bajo >= porcentaje_medio and porcentaje_bajo >= porcentaje_alto:
-                porcentaje_bajo = porcentaje_bajo + (100.0 - suma_porcentajes)
+                porcentaje_bajo = round(porcentaje_bajo + (100.0 - suma_porcentajes), 2)
             elif porcentaje_medio >= porcentaje_bajo and porcentaje_medio >= porcentaje_alto:
-                porcentaje_medio = porcentaje_medio + (100.0 - suma_porcentajes)
+                porcentaje_medio = round(porcentaje_medio + (100.0 - suma_porcentajes), 2)
             else:
-                porcentaje_alto = porcentaje_alto + (100.0 - suma_porcentajes)
+                porcentaje_alto = round(porcentaje_alto + (100.0 - suma_porcentajes), 2)
     else:
         stock_bajo = stock_medio = stock_alto = 0
         porcentaje_bajo = porcentaje_medio = porcentaje_alto = 0

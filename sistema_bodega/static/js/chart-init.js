@@ -22,16 +22,38 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    console.log("Datos del gráfico cargados:", chartData);
+    console.log("Datos del gráfico cargados:", chartData);        // Inicializar el gráfico si hay datos válidos
+        if (chartData && chartData.totalProductos > 0) {
+            console.log("Inicializando gráfico con datos:", chartData.porcentajes);
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error("No se pudo obtener el contexto 2D del canvas");
+                return;
+            }
 
-    // Inicializar el gráfico si hay datos válidos
-    if (chartData && chartData.totalProductos > 0) {
-        console.log("Inicializando gráfico con datos:", chartData.porcentajes);
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-            console.error("No se pudo obtener el contexto 2D del canvas");
-            return;
-        }
+            // Optimizar el canvas para alta resolución y nitidez
+            const devicePixelRatio = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            
+            // Configurar el tamaño del canvas para alta resolución
+            canvas.width = rect.width * devicePixelRatio;
+            canvas.height = rect.height * devicePixelRatio;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            
+            // Escalar el contexto para alta resolución
+            ctx.scale(devicePixelRatio, devicePixelRatio);
+            
+            // Configuraciones avanzadas para renderizado súper nítido
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.textRenderingOptimization = 'optimizeQuality';
+            
+            // Configuraciones adicionales para nitidez
+            canvas.style.imageRendering = '-webkit-optimize-contrast';
+            canvas.style.imageRendering = '-moz-crisp-edges';  
+            canvas.style.imageRendering = 'crisp-edges';
+            canvas.style.imageRendering = 'pixelated';
 
         // Función para crear gradientes radiales 3D
         function createGradient(context, color1, color2, color3) {
@@ -42,22 +64,19 @@ document.addEventListener('DOMContentLoaded', function() {
             return gradient;
         }
 
-        // Colores modernos con gradientes 3D realistas
+        // Colores modernos con gradientes 3D realistas - SIN HOVER EFFECTS
         const colors = {
             bajo: {
                 background: createGradient(ctx, '#FF4757', '#FF3742', '#FF6B7D'),
-                border: '#FF3742',
-                hover: createGradient(ctx, '#FF5A67', '#FF4757', '#FF7B8D') // Más sutil
+                border: '#FF3742'
             },
             medio: {
                 background: createGradient(ctx, '#FFA502', '#FF9500', '#FFBA3A'),
-                border: '#FF9500',
-                hover: createGradient(ctx, '#FFB020', '#FFA502', '#FFC450') // Más sutil
+                border: '#FF9500'
             },
             alto: {
                 background: createGradient(ctx, '#2ED573', '#26D063', '#45E682'),
-                border: '#26D063',
-                hover: createGradient(ctx, '#40DD83', '#2ED573', '#55EE92') // Más sutil
+                border: '#26D063'
             }
         };
 
@@ -79,16 +98,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         colors.alto.border
                     ],
                     borderWidth: 3,
+                    // Mantener los mismos colores para hover para evitar cambios visuales
                     hoverBackgroundColor: [
-                        colors.bajo.hover,
-                        colors.medio.hover,
-                        colors.alto.hover
+                        colors.bajo.background,
+                        colors.medio.background,
+                        colors.alto.background
                     ],
-                    hoverBorderWidth: 3, // Reducido de 4 a 3
+                    hoverBorderColor: [
+                        colors.bajo.border,
+                        colors.medio.border,
+                        colors.alto.border
+                    ],
+                    hoverBorderWidth: 3,
                     cutout: '70%',
                     spacing: 2,
-                    // Configuración de transiciones suaves
-                    hoverOffset: 4, // Separación sutil al hacer hover
+                    // Desactivar completamente efectos de hover visuales
+                    hoverOffset: 0,
                     borderAlign: 'inner'
                 }]
             },
@@ -96,28 +121,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: {
-                    animateRotate: true,
-                    animateScale: true,
-                    duration: 3000,
-                    easing: 'easeInOutElastic',
+                    animateRotate: true, // Reactivar para la entrada espectacular
+                    animateScale: false, // Mantener desactivado para nitidez
+                    duration: 2000, // Duración más larga para efecto dramático
+                    easing: 'easeOutBack', // Easing dramático para entrada espectacular
                     delay: (context) => {
-                        return context.dataIndex * 300; // Animación escalonada
+                        return context.dataIndex * 300; // Delay más largo para efecto escalonado
                     }
                 },
-                // Configuración de transiciones suaves para hover
+                // Transiciones completamente deshabilitadas para máxima nitidez
                 transitions: {
                     hover: {
-                        duration: 300,
-                        easing: 'easeInOutCubic'
+                        duration: 0,
+                        animation: {
+                            duration: 0
+                        }
                     },
                     active: {
-                        duration: 200,
-                        easing: 'easeOutQuart'
+                        duration: 0,
+                        animation: {
+                            duration: 0
+                        }
                     }
                 },
                 interaction: {
-                    intersect: false,
-                    mode: 'nearest'
+                    intersect: true,
+                    mode: 'point'
                 },
                 elements: {
                     arc: {
@@ -144,25 +173,34 @@ document.addEventListener('DOMContentLoaded', function() {
                         borderWidth: 2,
                         cornerRadius: 12,
                         displayColors: true,
-                        padding: 12,
+                        padding: 16,
+                        usePointStyle: true,
                         titleFont: {
-                            size: 14,
-                            weight: 'bold'
+                            size: 15,
+                            weight: 'bold',
+                            family: "'Roboto', Arial, sans-serif"
                         },
                         bodyFont: {
-                            size: 13,
-                            weight: '500'
+                            size: 14,
+                            weight: '500',
+                            family: "'Roboto', Arial, sans-serif"
                         },
-                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+                        // Tooltip súper nítido y sin animaciones
+                        position: 'nearest',
+                        caretSize: 8,
+                        caretPadding: 12,
+                        animation: false, // Completamente sin animación para tooltip
+                        // Configuraciones para tooltip estable y nítido
+                        filter: function(tooltipItem) {
+                            return true;
+                        },
                         callbacks: {
                             title: function(tooltipItems) {
                                 return tooltipItems[0].label;
                             },
                             label: function(context) {
                                 const value = context.parsed || 0;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = ((value / total) * 100).toFixed(1);
-                                return `${value}% del inventario (${percentage}% del gráfico)`;
+                                return `${value.toFixed(1)}% del inventario`;
                             },
                             afterLabel: function(context) {
                                 const labels = ['🔴 Requiere atención', '🟡 Nivel moderado', '🟢 Stock saludable'];
@@ -172,9 +210,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 },
                 onHover: (event, activeElements) => {
+                    // Solo cambio de cursor, sin efectos visuales adicionales
                     event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
-                    // Transición suave del cursor
-                    event.native.target.style.transition = 'all 0.2s ease';
                 }
             },
             plugins: [{
@@ -227,21 +264,28 @@ document.addEventListener('DOMContentLoaded', function() {
             }, {
                 id: 'animatedCounter',
                 afterRender: function(chart) {
-                    // Animación de contador mejorada
+                    // Animación de contador espectacular mejorada
                     if (!chart.animatedCounter) {
                         chart.animatedCounter = true;
                         let currentNumber = 0;
                         const targetNumber = chartData.totalProductos;
-                        const duration = 2000; // 2 segundos
+                        const duration = 3000; // 3 segundos para más drama
                         const startTime = Date.now();
                         
                         const animateCounter = () => {
                             const elapsed = Date.now() - startTime;
                             const progress = Math.min(elapsed / duration, 1);
                             
-                            // Función de easing para suavizar la animación
-                            const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-                            currentNumber = Math.floor(targetNumber * easeOutQuart);
+                            // Función de easing más dramática para la entrada
+                            const easeOutElastic = (t) => {
+                                if (t === 0) return 0;
+                                if (t === 1) return 1;
+                                const c4 = (2 * Math.PI) / 3;
+                                return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+                            };
+                            
+                            const easedProgress = easeOutElastic(progress);
+                            currentNumber = Math.floor(targetNumber * easedProgress);
                             
                             chart.animatedNumber = currentNumber;
                             chart.draw();
@@ -254,41 +298,35 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         };
                         
-                        // Iniciar la animación después de un delay
+                        // Iniciar la animación con el gráfico
                         setTimeout(() => {
                             if (targetNumber > 0) {
                                 animateCounter();
                             }
-                        }, 800);
+                        }, 1500); // Delay para sincronizar con la entrada del contenedor
                     }
                 }
-            }, {
-                id: 'hoverEffects',
-                beforeDatasetsDraw: function(chart, args, options) {
-                    const ctx = chart.ctx;
-                    const meta = chart.getDatasetMeta(0);
-                    
-                    // Efectos de hover 3D más sutiles
-                    meta.data.forEach((arc, index) => {
-                        if (arc.active) {
-                            ctx.save();
-                            // Sombras más suaves para hover
-                            ctx.shadowColor = 'rgba(0, 0, 0, 0.2)'; // Reducido de 0.4 a 0.2
-                            ctx.shadowOffsetX = 2; // Reducido de 4 a 2
-                            ctx.shadowOffsetY = 2; // Reducido de 4 a 2
-                            ctx.shadowBlur = 8; // Reducido de 15 a 8
-                            ctx.restore();
-                        }
-                    });
-                }
-            }]
+            }
+            ]
         });
 
-        // Añadir animación de entrada suave
+        // Entrada espectacular del canvas sincronizada con CSS
+        canvas.style.opacity = '0';
+        canvas.style.transform = 'scale(0.5) rotate(-10deg)';
+        canvas.style.filter = 'blur(5px)';
+        
+        // Animación de entrada del canvas
         setTimeout(() => {
+            canvas.style.transition = 'all 1.5s cubic-bezier(0.23, 1, 0.32, 1)';
             canvas.style.opacity = '1';
-            canvas.style.transform = 'scale(1)';
-        }, 100);
+            canvas.style.transform = 'scale(1) rotate(0deg)';
+            canvas.style.filter = 'blur(0px)';
+            
+            // Limpiar la transición después de la animación para mantener nitidez
+            setTimeout(() => {
+                canvas.style.transition = 'none';
+            }, 1500);
+        }, 1200); // Sincronizado con la animación del contenedor
 
     } else {
         console.log("No hay datos para mostrar el gráfico (chartData no definido o totalProductos <= 0)");
