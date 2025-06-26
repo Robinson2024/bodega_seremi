@@ -1,0 +1,240 @@
+/* Animaciones y efectos 3D mejorados para el gráfico de donas */
+
+/* Animación de entrada 3D para el contenedor del gráfico */
+@keyframes chartFadeIn3D {
+    from {
+        opacity: 0;
+        transform: translateY(40px) scale(0.9) rotateX(15deg);
+        filter: blur(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1) rotateX(0deg);
+        filter: blur(0px);
+    }
+}
+
+/* Animación de pulso 3D más sutil y realista */
+@keyframes pulse3D {
+    0% {
+        transform: scale(1) rotateZ(0deg);
+        filter: drop-shadow(0 0 8px rgba(102, 126, 234, 0.2)); /* Sombra más sutil */
+    }
+    50% {
+        transform: scale(1.02) rotateZ(1deg); /* Escala y rotación más sutiles */
+        filter: drop-shadow(0 3px 12px rgba(102, 126, 234, 0.3)); /* Sombra más suave */
+    }
+    100% {
+        transform: scale(1) rotateZ(0deg);
+        filter: drop-shadow(0 0 8px rgba(102, 126, 234, 0.2));
+    }
+}
+
+/* Animación de deslizamiento 3D para los elementos de la leyenda */
+@keyframes slideInLeft3D {
+    from {
+        opacity: 0;
+        transform: translateX(-40px) rotateY(-10deg) scale(0.9);
+        filter: blur(3px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) rotateY(0deg) scale(1);
+        filter: blur(0px);
+    }
+}
+
+/* Animación de respiración para elementos interactivos */
+@keyframes breathe {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+    50% {
+        transform: scale(1.02);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+    }
+}
+
+/* Animación de ondas concéntricas */
+@keyframes ripple {
+    0% {
+        transform: scale(0);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+/* Aplicar animaciones 3D mejoradas */
+.chart-container {
+    animation: chartFadeIn3D 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    perspective: 1000px;
+}
+
+.legend-item {
+    animation: slideInLeft3D 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+}
+
+.legend-item:nth-child(1) {
+    animation-delay: 0.2s;
+}
+
+.legend-item:nth-child(2) {
+    animation-delay: 0.4s;
+}
+
+.legend-item:nth-child(3) {
+    animation-delay: 0.6s;
+}
+
+.total-products {
+    animation: chartFadeIn3D 1s cubic-bezier(0.4, 0, 0.2, 1) 0.8s both;
+}
+
+/* Efectos de brillo 3D mejorados y más sutiles para los elementos de la leyenda */
+.legend-item:hover .legend-color {
+    box-shadow: 
+        0 4px 15px rgba(0, 0, 0, 0.15), /* Sombras más suaves */
+        0 0 20px rgba(255, 255, 255, 0.4) inset, /* Brillo más sutil */
+        0 0 25px rgba(102, 126, 234, 0.2); /* Halo más suave */
+    transform: translateZ(5px) scale(1.05); /* Escala más sutil */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Transición más suave */
+}
+
+.legend-item:hover {
+    transform: translateY(-4px) translateZ(2px); /* Cambio a translateY para layout horizontal */
+    box-shadow: 
+        0 8px 20px rgba(0, 0, 0, 0.08), /* Sombras más suaves */
+        0 0 15px rgba(255, 255, 255, 0.6) inset;
+}
+
+/* Animaciones para el ícono del total */
+.total-icon {
+    transition: all 0.3s ease;
+}
+
+.total-icon:hover {
+    transform: scale(1.1) rotate(5deg);
+    color: #667eea;
+}
+
+.total-products:hover .total-icon {
+    animation: iconPulse 2s infinite ease-in-out;
+}
+
+@keyframes iconPulse {
+    0%, 100% {
+        transform: scale(1) rotate(0deg);
+    }
+    50% {
+        transform: scale(1.1) rotate(5deg);
+    }
+}
+
+/* Efecto de respiración 3D más sutil para el gráfico */
+.chart-container:hover #stockChart {
+    animation: pulse3D 4s infinite ease-in-out; /* Duración más larga para efecto más sutil */
+}
+
+/* Efecto de ondas al hacer clic */
+.legend-item::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(102, 126, 234, 0.4) 0%, transparent 70%);
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.6s ease;
+}
+
+.legend-item:active::before {
+    width: 100px;
+    height: 100px;
+    opacity: 1;
+    animation: ripple 0.6s ease-out;
+}
+
+/* Gradiente animado para el fondo del título */
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.chart-title h3 {
+    background: linear-gradient(-45deg, #4C63D2, #667eea, #764ba2, #4C63D2);
+    background-size: 400% 400%;
+    animation: gradientShift 4s ease infinite;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Efecto de ondas para el contenedor */
+.chart-container::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #4C63D2, #667eea, #764ba2, #4C63D2);
+    background-size: 400% 400%;
+    border-radius: 22px;
+    z-index: -1;
+    animation: gradientShift 6s ease infinite;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.chart-container:hover::after {
+    opacity: 0.3;
+}
+
+/* Mejoras para dispositivos móviles */
+@media (max-width: 768px) {
+    .chart-container {
+        animation-duration: 0.6s;
+    }
+    
+    .legend-item {
+        animation-duration: 0.4s;
+    }
+    
+    .chart-container:hover #stockChart {
+        animation: none; /* Desactivar animación de pulso en móvil */
+    }
+}
+
+/* Modo oscuro (opcional para futuras mejoras) */
+@media (prefers-color-scheme: dark) {
+    .chart-container {
+        background: linear-gradient(135deg, rgba(45, 55, 72, 0.9) 0%, rgba(26, 32, 44, 0.9) 100%);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .legend-item {
+        background: rgba(45, 55, 72, 0.8);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .total-products {
+        background: linear-gradient(135deg, rgba(76, 99, 210, 0.2) 0%, rgba(102, 126, 234, 0.2) 100%);
+        border-color: rgba(76, 99, 210, 0.3);
+    }
+}
