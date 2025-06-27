@@ -158,12 +158,12 @@
                                                 {{ form.numero_lote|add_class:"form-control" }}
                                                 <div class="input-group-append">
                                                     <span class="input-group-text">
-                                                        <i class="fas fa-hashtag"></i> Número de Lote (Opcional)
+                                                        <i class="fas fa-magic"></i> Lote Automático
                                                     </span>
                                                 </div>
                                             </div>
-                                            <small class="form-text text-muted">
-                                                Si no especifica, se asignará automáticamente
+                                            <small class="form-text text-success">
+                                                <i class="fas fa-check"></i> Número de lote generado automáticamente
                                             </small>
                                             {% if form.numero_lote.errors %}
                                                 <div class="text-danger small">{{ form.numero_lote.errors }}</div>
@@ -204,12 +204,12 @@
                                                     {{ form.numero_lote|add_class:"form-control" }}
                                                     <div class="input-group-append">
                                                         <span class="input-group-text">
-                                                            <i class="fas fa-hashtag"></i> Número de Lote (Opcional)
+                                                            <i class="fas fa-magic"></i> Lote Automático
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <small class="form-text text-muted">
-                                                    Si no especifica, se asignará automáticamente
+                                                <small class="form-text text-success">
+                                                    <i class="fas fa-check"></i> Número de lote generado automáticamente
                                                 </small>
                                                 {% if form.numero_lote.errors %}
                                                     <div class="text-danger small">{{ form.numero_lote.errors }}</div>
@@ -447,7 +447,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Verificar si el producto ya tiene vencimiento (viene del contexto del template)
     const productoTieneVencimiento = {% if tiene_vencimiento_actual %}true{% else %}false{% endif %};
 
-    // Función para mostrar/ocultar el campo de fecha
+    // Función para mostrar/ocultar el campo de fecha y actualizar número de lote
     function toggleFechaVencimientoNuevo() {
         // Si el producto ya tiene vencimiento, no hacemos nada aquí
         if (productoTieneVencimiento) {
@@ -457,6 +457,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (tieneVencimientoNuevoCheckbox && tieneVencimientoNuevoCheckbox.checked) {
             fechaVencimientoNuevoContainer.style.display = 'block';
             fechaVencimientoNuevoInput.required = true;
+            
+            // Actualizar el campo de lote automático
+            const numeroLoteInput = document.getElementById('id_numero_lote');
+            if (numeroLoteInput) {
+                numeroLoteInput.value = 'Lote #1';
+                numeroLoteInput.style.display = 'block';
+            }
+            
             // Añadir animación suave
             fechaVencimientoNuevoContainer.style.opacity = '0';
             fechaVencimientoNuevoContainer.style.transform = 'translateY(-10px)';
@@ -469,6 +477,13 @@ document.addEventListener('DOMContentLoaded', function() {
             fechaVencimientoNuevoContainer.style.display = 'none';
             fechaVencimientoNuevoInput.required = false;
             fechaVencimientoNuevoInput.value = '';
+            
+            // Ocultar el campo de lote cuando no tiene vencimiento
+            const numeroLoteInput = document.getElementById('id_numero_lote');
+            if (numeroLoteInput) {
+                numeroLoteInput.value = '';
+                numeroLoteInput.style.display = 'none';
+            }
         }
     }
 

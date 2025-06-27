@@ -526,16 +526,16 @@ def agregar_stock_detalle(request, codigo_barra):
                 
                 if lote:
                     messages.success(request, 
-                        f'Stock agregado exitosamente en Lote #{lote.numero_lote}. '
-                        f'Cantidad: {form.cleaned_data["cantidad"]} unidades. '
+                        f'Stock agregado exitosamente al producto "{producto.descripcion}". '
+                        f'Lote #{lote.numero_lote} - Cantidad: {form.cleaned_data["cantidad"]} unidades. '
                         f'Vence: {lote.fecha_vencimiento.strftime("%d/%m/%Y")}. '
-                        f'Stock total: {producto.stock}'
+                        f'Stock total: {producto.stock} unidades'
                     )
                 else:
                     messages.success(request, 
-                        f'Stock agregado exitosamente. '
+                        f'Stock agregado exitosamente al producto "{producto.descripcion}". '
                         f'Cantidad: {form.cleaned_data["cantidad"]} unidades. '
-                        f'Stock total: {producto.stock}'
+                        f'Stock total: {producto.stock} unidades'
                     )
                 
                 return redirect('agregar-stock')
@@ -549,15 +549,19 @@ def agregar_stock_detalle(request, codigo_barra):
     
     # Obtener información de lotes existentes para mostrar en la vista
     lotes_existentes = []
+    info_proximo_lote = None
+    
     if producto.tiene_vencimiento:
         lotes_existentes = producto.get_lotes_detalle()
+        info_proximo_lote = producto.get_info_proximo_lote()
     
     context = {
         'form': form, 
         'producto': producto,
         'tiene_vencimiento_actual': producto.tiene_vencimiento,
         'lotes_existentes': lotes_existentes,
-        'total_lotes': len(lotes_existentes)
+        'total_lotes': len(lotes_existentes),
+        'info_proximo_lote': info_proximo_lote
     }
     return render(request, 'accounts/agregar_stock_detalle.html', context)
 

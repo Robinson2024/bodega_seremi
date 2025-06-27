@@ -851,8 +851,13 @@ class AgregarStockConVencimientoForm(forms.Form):
         max_length=20,
         label='Número de Lote',
         required=False,
-        help_text='Si no especifica, se asignará automáticamente',
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional - Se genera automáticamente'})
+        help_text='Se asigna automáticamente',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control', 
+            'readonly': True,
+            'placeholder': 'Se genera automáticamente',
+            'style': 'background-color: #f8f9fa; cursor: not-allowed;'
+        })
     )
 
     def __init__(self, *args, **kwargs):
@@ -865,6 +870,12 @@ class AgregarStockConVencimientoForm(forms.Form):
             self.fields['tiene_vencimiento_nuevo'].initial = True
             self.fields['fecha_vencimiento'].required = True
             self.fields['fecha_vencimiento'].help_text = "Este producto requiere fecha de vencimiento"
+            
+            # Establecer el próximo número de lote automáticamente
+            info_lote = self.producto.get_info_proximo_lote()
+            if info_lote:
+                self.fields['numero_lote'].initial = f"Lote #{info_lote['numero']}"
+                self.fields['numero_lote'].help_text = info_lote['mensaje']
 
     def clean(self):
         cleaned_data = super().clean()
@@ -889,11 +900,10 @@ class AgregarStockConVencimientoForm(forms.Form):
         return cleaned_data
 
     def agregar_stock_a_producto(self, producto):
-        """Agrega stock al producto usando el sistema de lotes automático."""
+        """Agrega stock al producto usando el sistema de lotes completamente automático."""
         cantidad = self.cleaned_data['cantidad']
         tiene_vencimiento_nuevo = self.cleaned_data.get('tiene_vencimiento_nuevo', False)
         fecha_vencimiento = self.cleaned_data.get('fecha_vencimiento')
-        numero_lote_personalizado = self.cleaned_data.get('numero_lote', '').strip()
         
         if tiene_vencimiento_nuevo and fecha_vencimiento:
             # Producto con vencimiento: crear lote automáticamente
@@ -903,18 +913,9 @@ class AgregarStockConVencimientoForm(forms.Form):
                 producto.fecha_vencimiento = fecha_vencimiento
                 producto.save()
             
-            # Crear lote automáticamente o con número personalizado
+            # Crear lote automáticamente (SIEMPRE AUTOMÁTICO)
             try:
-                if numero_lote_personalizado:
-                    # Convertir a entero si es posible
-                    try:
-                        numero_lote_int = int(numero_lote_personalizado)
-                        lote = producto.crear_lote_automatico(cantidad, fecha_vencimiento, numero_lote_int)
-                    except ValueError:
-                        # Si no se puede convertir a entero, usar el texto tal como está
-                        lote = producto.crear_lote_automatico(cantidad, fecha_vencimiento, numero_lote_personalizado)
-                else:
-                    lote = producto.crear_lote_automatico(cantidad, fecha_vencimiento)
+                lote = producto.crear_lote_automatico(cantidad, fecha_vencimiento)
             except ValueError as e:
                 raise forms.ValidationError(f"Error al crear el lote: {str(e)}")
             

@@ -126,12 +126,20 @@ class Producto(models.Model):
         return colores.get(estado, '#6c757d')
 
     def get_proximo_numero_lote(self):
-        """Obtiene el siguiente número de lote automáticamente."""
+        """Obtiene el siguiente número de lote automáticamente con reset cuando no hay stock."""
         if not self.tiene_vencimiento:
             return None
         
-        ultimo_lote = self.lotes.aggregate(max_lote=models.Max('numero_lote'))['max_lote']
-        return (ultimo_lote or 0) + 1
+        # Obtener lotes con stock activo
+        lotes_con_stock = self.lotes.filter(stock__gt=0)
+        
+        if not lotes_con_stock.exists():
+            # Si no hay lotes con stock, reiniciar desde 1
+            return 1
+        else:
+            # Si hay lotes con stock, obtener el siguiente número
+            ultimo_lote = self.lotes.aggregate(max_lote=models.Max('numero_lote'))['max_lote']
+            return (ultimo_lote or 0) + 1
 
     def crear_lote_automatico(self, cantidad, fecha_vencimiento, numero_lote_personalizado=None):
         """Crea un lote automáticamente con numeración secuencial o personalizada."""
@@ -245,6 +253,22 @@ class Producto(models.Model):
             lote_proximo = self.lotes.filter(stock__gt=0).order_by('fecha_vencimiento').first()
             return lote_proximo.fecha_vencimiento if lote_proximo else None
         return self.fecha_vencimiento
+
+    def get_info_proximo_lote(self):
+        """Obtiene información sobre el próximo lote que se creará."""
+        if not self.tiene_vencimiento:
+            return None
+        
+        proximo_numero = self.get_proximo_numero_lote()
+        lotes_activos = self.lotes.filter(stock__gt=0).count()
+        
+        return {
+            'numero': proximo_numero,
+            'es_primer_lote': proximo_numero == 1,
+            'lotes_activos': lotes_activos,
+            'mensaje': f"Se creará el Lote #{proximo_numero}" + 
+                      (" (primer lote del producto)" if proximo_numero == 1 else f" ({lotes_activos} lotes activos)")
+        }
 
     def __str__(self):
         return f"{self.descripcion} ({self.codigo_barra})"
