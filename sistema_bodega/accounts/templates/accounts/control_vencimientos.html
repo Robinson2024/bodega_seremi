@@ -138,20 +138,56 @@
                                         <span class="badge badge-secondary">Sin categoría</span>
                                     {% endif %}
                                 </td>
-                                <td>
-                                    <span class="badge badge-primary">{{ item.producto.stock }}</span>
-                                    {% if item.total_lotes > 1 %}
-                                        <small class="text-muted">({{ item.total_lotes }} lotes)</small>
-                                    {% endif %}
+                                <td class="text-center stock-column">
+                                    <div class="stock-container-clean">
+                                        <!-- Stock total principal -->
+                                        <div class="stock-main-number">
+                                            <span class="badge badge-primary badge-stock">{{ item.producto.stock }}</span>
+                                        </div>
+                                        
+                                        <!-- Detalle de lotes verticalmente -->
+                                        {% if item.total_lotes > 1 %}
+                                            <div class="lotes-clean-list">
+                                                <div class="lotes-header-minimal">
+                                                    <small class="text-muted"><i class="fas fa-layer-group"></i> {{ item.total_lotes }} lotes</small>
+                                                </div>
+                                                <div class="lotes-vertical">
+                                                    {% for lote in item.lotes_info|slice:":3" %}
+                                                        <div class="lote-item-clean">
+                                                            <span class="lote-label">L{{ lote.numero }}:</span>
+                                                            <span class="lote-stock">{{ lote.stock }}</span>
+                                                        </div>
+                                                    {% endfor %}
+                                                    {% if item.lotes_info|length > 3 %}
+                                                        <div class="lote-item-clean more-lotes">
+                                                            <span class="text-muted small">+{{ item.lotes_info|length|add:"-3" }} más</span>
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="details-button-container">
+                                                    <a href="{% url 'detalle-lotes-producto' item.producto.codigo_barra %}" 
+                                                       class="btn-details-clean">
+                                                        <i class="fas fa-eye"></i> Detalles
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        {% elif item.total_lotes == 1 %}
+                                            <div class="single-lote-clean">
+                                                <small class="text-success">
+                                                    <i class="fas fa-check-circle"></i> Lote único
+                                                </small>
+                                                <div class="details-button-container">
+                                                    <a href="{% url 'detalle-lotes-producto' item.producto.codigo_barra %}" 
+                                                       class="btn-details-clean">
+                                                        <i class="fas fa-eye"></i> Detalles
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    </div>
                                 </td>
                                 <td>
                                     {{ item.proximo_vencimiento|date:"d/m/Y" }}
-                                    {% if item.total_lotes > 1 %}
-                                        <a href="{% url 'detalle-lotes-producto' item.producto.codigo_barra %}" 
-                                           class="btn btn-sm btn-outline-info ml-1" title="Ver todos los lotes">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                    {% endif %}
                                 </td>
                                 <td>
                                     {% if item.dias_restantes < 0 %}
@@ -316,31 +352,141 @@
     }
     
     .table td {
+        vertical-align: top;
+        padding: 12px 8px;
+    }
+    
+    .table .text-center {
         vertical-align: middle;
     }
     
-    .estado-vencido {
-        background-color: rgba(220, 53, 69, 0.1);
+    /* Estilos para la columna de stock organizada verticalmente */
+    .stock-column {
+        min-width: 180px;
+        padding: 12px 8px !important;
+        vertical-align: top;
     }
-    
-    .estado-crítico {
-        background-color: rgba(255, 193, 7, 0.1);
+
+    .stock-container-clean {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
     }
-    
-    .estado-precaución {
-        background-color: rgba(253, 126, 20, 0.1);
+
+    .stock-main-number {
+        margin-bottom: 8px;
     }
-    
-    .card-header {
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #dee2e6;
-    }
-    
-    .card-header h5 {
-        color: #1a3c5e;
+
+    .badge-stock {
+        font-size: 1.1rem;
+        padding: 10px 16px;
         font-weight: 600;
+        border-radius: 8px;
     }
-    
+
+    /* Diseño limpio y minimalista para lotes */
+    .lotes-clean-list {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+    }
+
+    .lotes-header-minimal {
+        margin-bottom: 8px;
+    }
+
+    .lotes-header-minimal i {
+        margin-right: 4px;
+        color: #007bff;
+    }
+
+    .lotes-vertical {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: center;
+        width: 100%;
+        margin-bottom: 8px;
+    }
+
+    .lote-item-clean {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        max-width: 120px;
+        padding: 2px 0;
+    }
+
+    .lote-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .lote-stock {
+        font-size: 0.8rem;
+        color: #007bff;
+        font-weight: 500;
+    }
+
+    .lote-item-clean.more-lotes {
+        justify-content: center;
+        font-style: italic;
+        margin-top: 4px;
+    }
+
+    /* Lote único limpio */
+    .single-lote-clean {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Botón de detalles con cuadro pequeño y elegante */
+    .details-button-container {
+        margin-top: 8px;
+    }
+
+    .btn-details-clean {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        background: #f8f9fa;
+        border: 1px solid #007bff;
+        border-radius: 6px;
+        color: #007bff;
+        text-decoration: none;
+        font-size: 0.75rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .btn-details-clean:hover {
+        background: #007bff;
+        color: white;
+        text-decoration: none;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,123,255,0.3);
+    }
+
+    .btn-details-clean i {
+        font-size: 0.7rem;
+    }
+
+    /* Efecto hover suave para las filas */
+    .table tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+        transition: background-color 0.2s ease;
+    }
+
+    /* Responsive para pantallas pequeñas */
     @media (max-width: 768px) {
         .stat-number {
             font-size: 2rem;
@@ -353,6 +499,25 @@
         
         .btn-sm {
             width: 100%;
+        }
+        
+        .stock-column {
+            min-width: 120px;
+        }
+        
+        .lotes-breakdown {
+            max-width: 100px;
+            padding: 6px;
+        }
+        
+        .lote-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+        }
+        
+        .btn-xs {
+            padding: 3px 6px;
+            font-size: 0.65rem;
         }
     }
 </style>
