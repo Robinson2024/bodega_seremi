@@ -45,6 +45,7 @@ urlpatterns = [
     # Rutas de Control de Vencimientos
     path('control-vencimientos/', views.control_vencimientos, name='control-vencimientos'),  # Vista principal de control de vencimientos
     path('control-vencimientos/exportar/', views.exportar_vencimientos_excel, name='exportar-vencimientos-excel'),  # Exportar control de vencimientos a Excel
+    path('detalle-lotes/<str:codigo_barra>/', views.detalle_lotes_producto, name='detalle-lotes-producto'),  # Ver detalle de lotes de un producto
     path('agregar-vencimiento/', views.agregar_vencimiento_producto, name='agregar-vencimiento'),  # Agregar vencimiento a productos existentes
 
     # Rutas de Gestión de Usuarios

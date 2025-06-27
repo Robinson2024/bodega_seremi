@@ -116,17 +116,6 @@
                             <div class="text-danger small">{{ form.orden_compra.errors }}</div>
                         {% endif %}
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="input-group input-group-sm">
-                            {{ form.numero_lote|add_class:"form-control" }}
-                            <div class="input-group-append">
-                                <span class="input-group-text">Número de Lote</span>
-                            </div>
-                        </div>
-                        {% if form.numero_lote.errors %}
-                            <div class="text-danger small">{{ form.numero_lote.errors }}</div>
-                        {% endif %}
-                    </div>
                 </div>
 
                 <!-- Sección de Control de Vencimiento -->
@@ -135,21 +124,21 @@
                         <div class="card" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
                             <div class="card-header" style="background-color: #e9ecef;">
                                 <h6 class="mb-0 text-primary" style="color: #1a3c5e;">
-                                    <i class="fas fa-calendar-alt"></i> Control de Vencimiento para Nuevo Stock
+                                    <i class="fas fa-calendar-alt"></i> 
+                                    {% if tiene_vencimiento_actual %}
+                                        Fecha de Vencimiento (Obligatorio)
+                                    {% else %}
+                                        Control de Vencimiento para Nuevo Stock
+                                    {% endif %}
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <div class="form-check mb-3">
-                                    {{ form.tiene_vencimiento_nuevo|add_class:"form-check-input" }}
-                                    <label class="form-check-label" for="id_tiene_vencimiento_nuevo">
-                                        <strong>{{ form.tiene_vencimiento_nuevo.label }}</strong>
-                                    </label>
-                                    <small class="form-text text-muted d-block">
-                                        Marque esta opción si el nuevo stock tiene una fecha de vencimiento diferente o si es el primer lote con vencimiento.
-                                    </small>
-                                </div>
-                                
-                                <div id="fecha-vencimiento-nuevo-container" style="display: none;">
+                                {% if tiene_vencimiento_actual %}
+                                    <!-- Producto ya tiene vencimiento: mostrar directamente el campo de fecha -->
+                                    <div class="alert alert-info mb-3">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Este producto requiere fecha de vencimiento. Todos los nuevos lotes deben especificar su fecha de vencimiento.
+                                    </div>
                                     <div class="row">
                                         <div class="col-md-6">
                                             <div class="input-group input-group-sm">
@@ -164,8 +153,71 @@
                                                 <div class="text-danger small">{{ form.fecha_vencimiento.errors }}</div>
                                             {% endif %}
                                         </div>
+                                        <div class="col-md-6">
+                                            <div class="input-group input-group-sm">
+                                                {{ form.numero_lote|add_class:"form-control" }}
+                                                <div class="input-group-append">
+                                                    <span class="input-group-text">
+                                                        <i class="fas fa-hashtag"></i> Número de Lote (Opcional)
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <small class="form-text text-muted">
+                                                Si no especifica, se asignará automáticamente
+                                            </small>
+                                            {% if form.numero_lote.errors %}
+                                                <div class="text-danger small">{{ form.numero_lote.errors }}</div>
+                                            {% endif %}
+                                        </div>
                                     </div>
-                                </div>
+                                    <!-- Campo oculto para productos que ya tienen vencimiento -->
+                                    {{ form.tiene_vencimiento_nuevo|add_class:"form-check-input" }}
+                                {% else %}
+                                    <!-- Producto sin vencimiento: mostrar checkbox para activar -->
+                                    <div class="form-check mb-3">
+                                        {{ form.tiene_vencimiento_nuevo|add_class:"form-check-input" }}
+                                        <label class="form-check-label" for="id_tiene_vencimiento_nuevo">
+                                            <strong>{{ form.tiene_vencimiento_nuevo.label }}</strong>
+                                        </label>
+                                        <small class="form-text text-muted d-block">
+                                            Marque esta opción si el nuevo stock tiene una fecha de vencimiento diferente o si es el primer lote con vencimiento.
+                                        </small>
+                                    </div>
+                                    
+                                    <div id="fecha-vencimiento-nuevo-container" style="display: none;">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="input-group input-group-sm">
+                                                    {{ form.fecha_vencimiento|add_class:"form-control" }}
+                                                    <div class="input-group-append">
+                                                        <span class="input-group-text">
+                                                            <i class="fas fa-calendar"></i> Fecha de Vencimiento
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                {% if form.fecha_vencimiento.errors %}
+                                                    <div class="text-danger small">{{ form.fecha_vencimiento.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="input-group input-group-sm">
+                                                    {{ form.numero_lote|add_class:"form-control" }}
+                                                    <div class="input-group-append">
+                                                        <span class="input-group-text">
+                                                            <i class="fas fa-hashtag"></i> Número de Lote (Opcional)
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <small class="form-text text-muted">
+                                                    Si no especifica, se asignará automáticamente
+                                                </small>
+                                                {% if form.numero_lote.errors %}
+                                                    <div class="text-danger small">{{ form.numero_lote.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
                                 
                                 {% if form.non_field_errors %}
                                     <div class="text-danger small mt-2">{{ form.non_field_errors }}</div>
@@ -391,10 +443,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const tieneVencimientoNuevoCheckbox = document.getElementById('id_tiene_vencimiento_nuevo');
     const fechaVencimientoNuevoContainer = document.getElementById('fecha-vencimiento-nuevo-container');
     const fechaVencimientoNuevoInput = document.getElementById('id_fecha_vencimiento');
+    
+    // Verificar si el producto ya tiene vencimiento (viene del contexto del template)
+    const productoTieneVencimiento = {% if tiene_vencimiento_actual %}true{% else %}false{% endif %};
 
     // Función para mostrar/ocultar el campo de fecha
     function toggleFechaVencimientoNuevo() {
-        if (tieneVencimientoNuevoCheckbox.checked) {
+        // Si el producto ya tiene vencimiento, no hacemos nada aquí
+        if (productoTieneVencimiento) {
+            return;
+        }
+        
+        if (tieneVencimientoNuevoCheckbox && tieneVencimientoNuevoCheckbox.checked) {
             fechaVencimientoNuevoContainer.style.display = 'block';
             fechaVencimientoNuevoInput.required = true;
             // Añadir animación suave
@@ -413,11 +473,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Inicializar estado al cargar la página
-    if (tieneVencimientoNuevoCheckbox) {
-        toggleFechaVencimientoNuevo();
-
-        // Escuchar cambios en el checkbox
-        tieneVencimientoNuevoCheckbox.addEventListener('change', toggleFechaVencimientoNuevo);
+    if (tieneVencimientoNuevoCheckbox && fechaVencimientoNuevoContainer) {
+        // Si el producto ya tiene vencimiento, hacer requerido el campo de fecha
+        if (productoTieneVencimiento) {
+            fechaVencimientoNuevoInput.required = true;
+        } else {
+            toggleFechaVencimientoNuevo();
+            // Escuchar cambios en el checkbox solo si el producto no tiene vencimiento
+            tieneVencimientoNuevoCheckbox.addEventListener('change', toggleFechaVencimientoNuevo);
+        }
 
         // Establecer fecha mínima como mañana
         if (fechaVencimientoNuevoInput) {

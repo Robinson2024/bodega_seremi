@@ -125,6 +125,127 @@ class Producto(models.Model):
         }
         return colores.get(estado, '#6c757d')
 
+    def get_proximo_numero_lote(self):
+        """Obtiene el siguiente número de lote automáticamente."""
+        if not self.tiene_vencimiento:
+            return None
+        
+        ultimo_lote = self.lotes.aggregate(max_lote=models.Max('numero_lote'))['max_lote']
+        return (ultimo_lote or 0) + 1
+
+    def crear_lote_automatico(self, cantidad, fecha_vencimiento, numero_lote_personalizado=None):
+        """Crea un lote automáticamente con numeración secuencial o personalizada."""
+        if not self.tiene_vencimiento:
+            raise ValueError("No se pueden crear lotes para productos sin fecha de vencimiento")
+        
+        if numero_lote_personalizado:
+            # Validar que el número de lote personalizado no exista
+            if self.lotes.filter(numero_lote=numero_lote_personalizado).exists():
+                raise ValueError(f"Ya existe un lote con el número {numero_lote_personalizado} para este producto")
+            numero_lote = numero_lote_personalizado
+        else:
+            numero_lote = self.get_proximo_numero_lote()
+            
+        lote = LoteProducto.objects.create(
+            producto=self,
+            numero_lote=numero_lote,
+            fecha_vencimiento=fecha_vencimiento,
+            stock=cantidad
+        )
+        
+        # CRÍTICO: Actualizar el stock del producto
+        self.stock += cantidad
+        self.save()
+        
+        return lote
+
+    def get_lotes_con_stock(self):
+        """Obtiene todos los lotes que tienen stock, ordenados por fecha de vencimiento (FIFO)."""
+        return self.lotes.filter(stock__gt=0).order_by('fecha_vencimiento')
+
+    def reducir_stock_fifo(self, cantidad_reducir):
+        """Reduce stock siguiendo el método FIFO (First In, First Out)."""
+        if not self.tiene_vencimiento:
+            # Si no tiene vencimiento, reducir del stock principal
+            if self.stock >= cantidad_reducir:
+                self.stock -= cantidad_reducir
+                self.save()
+                return True
+            return False
+        
+        cantidad_restante = cantidad_reducir
+        lotes_con_stock = self.get_lotes_con_stock()
+        
+        for lote in lotes_con_stock:
+            if cantidad_restante <= 0:
+                break
+                
+            if lote.stock >= cantidad_restante:
+                # Este lote tiene suficiente stock
+                lote.stock -= cantidad_restante
+                lote.save()
+                cantidad_restante = 0
+            else:
+                # Usar todo el stock de este lote y continuar con el siguiente
+                cantidad_restante -= lote.stock
+                lote.stock = 0
+                lote.save()
+        
+        # Actualizar stock total del producto
+        self.actualizar_stock_total()
+        return cantidad_restante == 0
+
+    def actualizar_stock_total(self):
+        """Actualiza el stock total del producto sumando todos los lotes."""
+        if self.tiene_vencimiento and self.lotes.exists():
+            total_stock = self.lotes.aggregate(total=models.Sum('stock'))['total'] or 0
+            self.stock = total_stock
+            self.save()
+
+    def get_estado_vencimiento_completo(self):
+        """Obtiene el estado de vencimiento considerando TODOS los lotes."""
+        if not self.tiene_vencimiento:
+            return "Sin Vencimiento"
+        
+        if not self.lotes.filter(stock__gt=0).exists():
+            # Si no hay lotes con stock, usar fecha del producto principal
+            return self.get_estado_vencimiento()
+        
+        # Si hay lotes, obtener el estado del lote más crítico
+        estados_peso = {'Vencido': 4, 'Vence Hoy': 3, 'Crítico': 2, 'Precaución': 1, 'Normal': 0}
+        estado_mas_critico = 'Normal'
+        peso_max = 0
+        
+        for lote in self.lotes.filter(stock__gt=0):
+            estado_lote = lote.get_estado_vencimiento()
+            peso_lote = estados_peso.get(estado_lote, 0)
+            if peso_lote > peso_max:
+                peso_max = peso_lote
+                estado_mas_critico = estado_lote
+        
+        return estado_mas_critico
+
+    def get_lotes_detalle(self):
+        """Obtiene detalle de todos los lotes con stock."""
+        lotes_detalle = []
+        for lote in self.lotes.filter(stock__gt=0).order_by('fecha_vencimiento'):
+            lotes_detalle.append({
+                'numero_lote': lote.numero_lote,
+                'fecha_vencimiento': lote.fecha_vencimiento,
+                'stock': lote.stock,
+                'dias_restantes': lote.get_dias_para_vencer(),
+                'estado': lote.get_estado_vencimiento(),
+                'color': lote.get_color_estado_vencimiento()
+            })
+        return lotes_detalle
+
+    def get_proximo_vencimiento(self):
+        """Obtiene la fecha de vencimiento más próxima considerando todos los lotes."""
+        if self.tiene_vencimiento and self.lotes.filter(stock__gt=0).exists():
+            lote_proximo = self.lotes.filter(stock__gt=0).order_by('fecha_vencimiento').first()
+            return lote_proximo.fecha_vencimiento if lote_proximo else None
+        return self.fecha_vencimiento
+
     def __str__(self):
         return f"{self.descripcion} ({self.codigo_barra})"
 
@@ -137,7 +258,7 @@ class LoteProducto(models.Model):
     fecha_vencimiento = models.DateField(verbose_name="Fecha de vencimiento")
     stock = models.IntegerField(default=0, verbose_name="Stock del lote")
     fecha_ingreso = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de ingreso")
-    numero_lote = models.CharField(max_length=50, blank=True, verbose_name="Número de lote")
+    numero_lote = models.IntegerField(verbose_name="Número de lote")  # Cambiado a IntegerField para numeración automática
     
     def get_dias_para_vencer(self):
         """Calcula los días restantes hasta el vencimiento."""
@@ -173,12 +294,13 @@ class LoteProducto(models.Model):
         return colores.get(estado, '#6c757d')
 
     def __str__(self):
-        return f"{self.producto.descripcion} - Lote: {self.numero_lote or 'S/N'} - Vence: {self.fecha_vencimiento}"
+        return f"{self.producto.descripcion} - Lote: {self.numero_lote} - Vence: {self.fecha_vencimiento}"
 
     class Meta:
         verbose_name = "Lote de Producto"
         verbose_name_plural = "Lotes de Productos"
         ordering = ['fecha_vencimiento']
+        unique_together = ('producto', 'numero_lote')  # Un producto no puede tener dos lotes con el mismo número
 
 class Transaccion(models.Model):
     TIPO_CHOICES = [('entrada', 'Entrada'), ('salida', 'Salida')]

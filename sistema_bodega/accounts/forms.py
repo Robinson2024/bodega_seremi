@@ -319,6 +319,19 @@ class ProductoForm(forms.ModelForm):
 
         return cleaned_data
 
+    def save(self, commit=True):
+        """Guarda el producto y crea automáticamente un lote si tiene vencimiento y stock."""
+        producto = super().save(commit=commit)
+        
+        if commit and producto.tiene_vencimiento and producto.stock > 0 and producto.fecha_vencimiento:
+            # Crear automáticamente el primer lote con el stock inicial
+            producto.crear_lote_automatico(
+                cantidad=producto.stock,
+                fecha_vencimiento=producto.fecha_vencimiento
+            )
+        
+        return producto
+
 class TransaccionForm(forms.ModelForm):
     # Campo para la cantidad de productos en la transacción
     cantidad = forms.IntegerField(
@@ -731,14 +744,7 @@ class EliminarCategoriaForm(forms.Form):
 
 # Formularios para manejo de lotes y fechas de vencimiento
 class LoteProductoForm(forms.ModelForm):
-    """Formulario para crear lotes de productos con fechas de vencimiento específicas."""
-    
-    numero_lote = forms.CharField(
-        max_length=50,
-        label='Número de Lote',
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: LOTE001, A123, etc.'})
-    )
+    """Formulario para agregar lotes a productos con fecha de vencimiento."""
     
     stock = forms.IntegerField(
         validators=[MinValueValidator(1, message='El stock debe ser un número positivo.')],
@@ -753,7 +759,15 @@ class LoteProductoForm(forms.ModelForm):
 
     class Meta:
         model = LoteProducto
-        fields = ['numero_lote', 'stock', 'fecha_vencimiento']
+        fields = ['stock', 'fecha_vencimiento']  # Removemos numero_lote porque será automático
+
+    def __init__(self, *args, **kwargs):
+        self.producto = kwargs.pop('producto', None)
+        super().__init__(*args, **kwargs)
+        
+        # Agregar información del producto en el formulario
+        if self.producto:
+            self.fields['stock'].help_text = f"Agregar stock para: {self.producto.descripcion}"
 
     def clean_fecha_vencimiento(self):
         fecha = self.cleaned_data.get('fecha_vencimiento')
@@ -763,34 +777,24 @@ class LoteProductoForm(forms.ModelForm):
                 raise forms.ValidationError("La fecha de vencimiento debe ser posterior a la fecha actual.")
         return fecha
 
-class AgregarVencimientoForm(forms.Form):
-    """Formulario para agregar fecha de vencimiento a productos existentes."""
-    
-    producto = forms.ModelChoiceField(
-        queryset=Producto.objects.filter(tiene_vencimiento=False).order_by('descripcion'),
-        label='Producto',
-        widget=forms.Select(attrs={'class': 'form-control'})
-    )
-    
-    fecha_vencimiento = forms.DateField(
-        label='Fecha de Vencimiento',
-        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
-    )
-    
-    numero_lote = forms.CharField(
-        max_length=50,
-        label='Número de Lote',
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional'})
-    )
-
-    def clean_fecha_vencimiento(self):
-        fecha = self.cleaned_data.get('fecha_vencimiento')
-        if fecha:
-            from datetime import date
-            if fecha <= date.today():
-                raise forms.ValidationError("La fecha de vencimiento debe ser posterior a la fecha actual.")
-        return fecha
+    def save(self, commit=True):
+        """Guarda el lote usando el sistema automático."""
+        if not self.producto:
+            raise forms.ValidationError("Se requiere un producto para crear el lote.")
+        
+        if not self.producto.tiene_vencimiento:
+            raise forms.ValidationError("Solo se pueden crear lotes para productos con fecha de vencimiento.")
+        
+        cantidad = self.cleaned_data['stock']
+        fecha_vencimiento = self.cleaned_data['fecha_vencimiento']
+        
+        # Usar el método automático del modelo para crear el lote
+        lote = self.producto.crear_lote_automatico(cantidad, fecha_vencimiento)
+        
+        # Actualizar el stock total del producto
+        self.producto.actualizar_stock_total()
+        
+        return lote
 
 class AgregarStockConVencimientoForm(forms.Form):
     """Formulario para agregar stock a productos con manejo de lotes y vencimientos."""
@@ -840,20 +844,37 @@ class AgregarStockConVencimientoForm(forms.Form):
     fecha_vencimiento = forms.DateField(
         label='Fecha de Vencimiento',
         required=False,
-        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'id': 'id_fecha_vencimiento_nuevo'})
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'id': 'id_fecha_vencimiento'})
     )
     
     numero_lote = forms.CharField(
-        max_length=50,
+        max_length=20,
         label='Número de Lote',
         required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional'})
+        help_text='Si no especifica, se asignará automáticamente',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional - Se genera automáticamente'})
     )
+
+    def __init__(self, *args, **kwargs):
+        self.producto = kwargs.pop('producto', None)
+        super().__init__(*args, **kwargs)
+        
+        # Si el producto ya tiene vencimiento, ocultar el checkbox y hacer obligatoria la fecha
+        if self.producto and self.producto.tiene_vencimiento:
+            self.fields['tiene_vencimiento_nuevo'].widget = forms.HiddenInput()
+            self.fields['tiene_vencimiento_nuevo'].initial = True
+            self.fields['fecha_vencimiento'].required = True
+            self.fields['fecha_vencimiento'].help_text = "Este producto requiere fecha de vencimiento"
 
     def clean(self):
         cleaned_data = super().clean()
         tiene_vencimiento_nuevo = cleaned_data.get('tiene_vencimiento_nuevo')
         fecha_vencimiento = cleaned_data.get('fecha_vencimiento')
+
+        # Si el producto ya tiene vencimiento, forzar el vencimiento del nuevo stock
+        if self.producto and self.producto.tiene_vencimiento:
+            cleaned_data['tiene_vencimiento_nuevo'] = True
+            tiene_vencimiento_nuevo = True
 
         # Si tiene vencimiento marcado, la fecha es obligatoria
         if tiene_vencimiento_nuevo and not fecha_vencimiento:
@@ -866,3 +887,65 @@ class AgregarStockConVencimientoForm(forms.Form):
                 raise forms.ValidationError("La fecha de vencimiento debe ser posterior a la fecha actual.")
 
         return cleaned_data
+
+    def agregar_stock_a_producto(self, producto):
+        """Agrega stock al producto usando el sistema de lotes automático."""
+        cantidad = self.cleaned_data['cantidad']
+        tiene_vencimiento_nuevo = self.cleaned_data.get('tiene_vencimiento_nuevo', False)
+        fecha_vencimiento = self.cleaned_data.get('fecha_vencimiento')
+        numero_lote_personalizado = self.cleaned_data.get('numero_lote', '').strip()
+        
+        if tiene_vencimiento_nuevo and fecha_vencimiento:
+            # Producto con vencimiento: crear lote automáticamente
+            if not producto.tiene_vencimiento:
+                # Convertir producto a uno con vencimiento
+                producto.tiene_vencimiento = True
+                producto.fecha_vencimiento = fecha_vencimiento
+                producto.save()
+            
+            # Crear lote automáticamente o con número personalizado
+            try:
+                if numero_lote_personalizado:
+                    # Convertir a entero si es posible
+                    try:
+                        numero_lote_int = int(numero_lote_personalizado)
+                        lote = producto.crear_lote_automatico(cantidad, fecha_vencimiento, numero_lote_int)
+                    except ValueError:
+                        # Si no se puede convertir a entero, usar el texto tal como está
+                        lote = producto.crear_lote_automatico(cantidad, fecha_vencimiento, numero_lote_personalizado)
+                else:
+                    lote = producto.crear_lote_automatico(cantidad, fecha_vencimiento)
+            except ValueError as e:
+                raise forms.ValidationError(f"Error al crear el lote: {str(e)}")
+            
+            # Crear transacción de entrada
+            transaccion = Transaccion.objects.create(
+                producto=producto,
+                tipo='entrada',
+                cantidad=cantidad,
+                rut_proveedor=self.cleaned_data.get('rut_proveedor', ''),
+                guia_despacho=self.cleaned_data.get('guia_despacho', ''),
+                numero_factura=self.cleaned_data.get('numero_factura', ''),
+                orden_compra=self.cleaned_data.get('orden_compra', ''),
+                observacion=f"Lote #{lote.numero_lote} - Vence: {fecha_vencimiento}"
+            )
+            
+            return lote, transaccion
+        else:
+            # Producto sin vencimiento: agregar stock directamente
+            producto.stock += cantidad
+            producto.save()
+            
+            # Crear transacción de entrada
+            transaccion = Transaccion.objects.create(
+                producto=producto,
+                tipo='entrada',
+                cantidad=cantidad,
+                rut_proveedor=self.cleaned_data.get('rut_proveedor', ''),
+                guia_despacho=self.cleaned_data.get('guia_despacho', ''),
+                numero_factura=self.cleaned_data.get('numero_factura', ''),
+                orden_compra=self.cleaned_data.get('orden_compra', ''),
+                observacion="Stock agregado sin fecha de vencimiento"
+            )
+            
+            return None, transaccion
