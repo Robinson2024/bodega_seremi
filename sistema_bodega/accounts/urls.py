@@ -42,6 +42,11 @@ urlpatterns = [
     path('modificar-categoria/', views.modificar_categoria, name='modificar-categoria'),  # Modificar una categoría existente
     path('eliminar-categoria/', views.eliminar_categoria, name='eliminar-categoria'),  # Eliminar una categoría
 
+    # Rutas de Control de Vencimientos
+    path('control-vencimientos/', views.control_vencimientos, name='control-vencimientos'),  # Vista principal de control de vencimientos
+    path('control-vencimientos/exportar/', views.exportar_vencimientos_excel, name='exportar-vencimientos-excel'),  # Exportar control de vencimientos a Excel
+    path('agregar-vencimiento/', views.agregar_vencimiento_producto, name='agregar-vencimiento'),  # Agregar vencimiento a productos existentes
+
     # Rutas de Gestión de Usuarios
     path('listar-usuarios/', views.listar_usuarios, name='listar-usuarios'),  # Listar todos los usuarios
     path('agregar-usuario/', views.agregar_usuario, name='agregar-usuario'),  # Agregar un nuevo usuario

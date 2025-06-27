@@ -15,25 +15,53 @@
             </div>
         {% endfor %}
     {% endif %}
+    
     <div class="card form-card shadow-sm">
         <div class="card-body">
             <!-- Información del producto -->
-            <div class="mb-3">
-                <h5 style="color: #1a3c5e;">Producto: {{ producto.descripcion }} (Código: {{ producto.codigo_barra }})</h5>
-                <p style="color: #64748b;">Stock actual: {{ producto.stock }}</p>
+            <div class="mb-4 p-3" style="background-color: #f8f9fa; border-radius: 8px;">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5 style="color: #1a3c5e; margin-bottom: 10px;">
+                            <i class="fas fa-box"></i> {{ producto.descripcion }}
+                        </h5>
+                        <p style="color: #64748b; margin: 0;">
+                            <strong>Código:</strong> {{ producto.codigo_barra }} | 
+                            <strong>Stock actual:</strong> {{ producto.stock }} | 
+                            <strong>Categoría:</strong> {{ producto.categoria.nombre|default:"Sin categoría" }}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-right">
+                        {% if tiene_vencimiento_actual %}
+                            <span class="badge badge-warning">
+                                <i class="fas fa-clock"></i> Con Vencimiento
+                            </span>
+                            <br>
+                            <small class="text-muted">
+                                Vence: {{ producto.fecha_vencimiento|date:"d/m/Y" }}
+                            </small>
+                        {% else %}
+                            <span class="badge badge-secondary">
+                                <i class="fas fa-infinite"></i> Sin Vencimiento
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
+
             <!-- Formulario para agregar stock -->
             <form method="post" class="needs-validation" novalidate id="stock-form">
                 {% csrf_token %}
+                
+                <!-- Campos básicos -->
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <div class="input-group input-group-sm">
                             {{ form.cantidad|add_class:"form-control cantidad-input" }}
                             <div class="input-group-append">
-                                <span class="input-group-text">Cantidad</span>
+                                <span class="input-group-text">Cantidad a Agregar</span>
                             </div>
                         </div>
-                        <div class="invalid-feedback" id="cantidad-error"></div>
                         {% if form.cantidad.errors %}
                             <div class="text-danger small">{{ form.cantidad.errors }}</div>
                         {% endif %}
@@ -45,12 +73,12 @@
                                 <span class="input-group-text">RUT Proveedor</span>
                             </div>
                         </div>
-                        <div class="invalid-feedback" id="rut-error"></div>
                         {% if form.rut_proveedor.errors %}
                             <div class="text-danger small">{{ form.rut_proveedor.errors }}</div>
                         {% endif %}
                     </div>
                 </div>
+
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <div class="input-group input-group-sm">
@@ -75,6 +103,7 @@
                         {% endif %}
                     </div>
                 </div>
+
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <div class="input-group input-group-sm">
@@ -87,10 +116,72 @@
                             <div class="text-danger small">{{ form.orden_compra.errors }}</div>
                         {% endif %}
                     </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="input-group input-group-sm">
+                            {{ form.numero_lote|add_class:"form-control" }}
+                            <div class="input-group-append">
+                                <span class="input-group-text">Número de Lote</span>
+                            </div>
+                        </div>
+                        {% if form.numero_lote.errors %}
+                            <div class="text-danger small">{{ form.numero_lote.errors }}</div>
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="text-center">
-                    <button type="submit" id="submit-btn" class="btn btn-primary btn-sm mr-2">Agregar Stock</button>
-                    <a href="{% url 'agregar-stock' %}" class="btn btn-secondary btn-sm">Cancelar</a>
+
+                <!-- Sección de Control de Vencimiento -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
+                            <div class="card-header" style="background-color: #e9ecef;">
+                                <h6 class="mb-0 text-primary" style="color: #1a3c5e;">
+                                    <i class="fas fa-calendar-alt"></i> Control de Vencimiento para Nuevo Stock
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check mb-3">
+                                    {{ form.tiene_vencimiento_nuevo|add_class:"form-check-input" }}
+                                    <label class="form-check-label" for="id_tiene_vencimiento_nuevo">
+                                        <strong>{{ form.tiene_vencimiento_nuevo.label }}</strong>
+                                    </label>
+                                    <small class="form-text text-muted d-block">
+                                        Marque esta opción si el nuevo stock tiene una fecha de vencimiento diferente o si es el primer lote con vencimiento.
+                                    </small>
+                                </div>
+                                
+                                <div id="fecha-vencimiento-nuevo-container" style="display: none;">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="input-group input-group-sm">
+                                                {{ form.fecha_vencimiento|add_class:"form-control" }}
+                                                <div class="input-group-append">
+                                                    <span class="input-group-text">
+                                                        <i class="fas fa-calendar"></i> Fecha de Vencimiento
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {% if form.fecha_vencimiento.errors %}
+                                                <div class="text-danger small">{{ form.fecha_vencimiento.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {% if form.non_field_errors %}
+                                    <div class="text-danger small mt-2">{{ form.non_field_errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button type="submit" id="submit-btn" class="btn btn-primary btn-sm mr-2">
+                        <i class="fas fa-plus"></i> Agregar Stock
+                    </button>
+                    <a href="{% url 'agregar-stock' %}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-times"></i> Cancelar
+                    </a>
                 </div>
             </form>
         </div>
@@ -281,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Validación al perder el foco
         rutInput.addEventListener('blur', function() {
-            let value = this.value;
+            let value = this.value.trim();
             if (!value) return;
 
             let cleanedValue = cleanRut(value);
@@ -289,18 +380,62 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.value = formatearRut(cleanedValue);
                 this.classList.remove('is-invalid');
                 rutError.textContent = '';
-            } else {
+            } else if (value) {
                 this.classList.add('is-invalid');
                 rutError.textContent = 'El RUT ingresado no es válido.';
-                this.value = '';
             }
         });
+    }
 
-        // Limpiar el RUT antes de enviar al backend
+    // Control de vencimiento - Mostrar/Ocultar fecha de vencimiento
+    const tieneVencimientoNuevoCheckbox = document.getElementById('id_tiene_vencimiento_nuevo');
+    const fechaVencimientoNuevoContainer = document.getElementById('fecha-vencimiento-nuevo-container');
+    const fechaVencimientoNuevoInput = document.getElementById('id_fecha_vencimiento');
+
+    // Función para mostrar/ocultar el campo de fecha
+    function toggleFechaVencimientoNuevo() {
+        if (tieneVencimientoNuevoCheckbox.checked) {
+            fechaVencimientoNuevoContainer.style.display = 'block';
+            fechaVencimientoNuevoInput.required = true;
+            // Añadir animación suave
+            fechaVencimientoNuevoContainer.style.opacity = '0';
+            fechaVencimientoNuevoContainer.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+                fechaVencimientoNuevoContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                fechaVencimientoNuevoContainer.style.opacity = '1';
+                fechaVencimientoNuevoContainer.style.transform = 'translateY(0)';
+            }, 10);
+        } else {
+            fechaVencimientoNuevoContainer.style.display = 'none';
+            fechaVencimientoNuevoInput.required = false;
+            fechaVencimientoNuevoInput.value = '';
+        }
+    }
+
+    // Inicializar estado al cargar la página
+    if (tieneVencimientoNuevoCheckbox) {
+        toggleFechaVencimientoNuevo();
+
+        // Escuchar cambios en el checkbox
+        tieneVencimientoNuevoCheckbox.addEventListener('change', toggleFechaVencimientoNuevo);
+
+        // Establecer fecha mínima como mañana
+        if (fechaVencimientoNuevoInput) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const minDate = tomorrow.toISOString().split('T')[0];
+            fechaVencimientoNuevoInput.min = minDate;
+        }
+    }
+
+    // Limpiar el RUT antes de enviar al backend
+    if (form) {
         form.addEventListener('submit', function(e) {
-            let rawValue = rutInput.value;
-            let cleanValue = cleanRut(rawValue);
-            rutInput.value = cleanValue;
+            if (rutInput && rutInput.value) {
+                let rawValue = rutInput.value;
+                let cleanValue = cleanRut(rawValue);
+                rutInput.value = cleanValue;
+            }
         });
     }
 

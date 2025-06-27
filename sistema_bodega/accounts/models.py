@@ -72,6 +72,9 @@ class Producto(models.Model):
     guia_despacho = models.CharField(max_length=50, blank=True)
     numero_factura = models.CharField(max_length=50, blank=True)
     orden_compra = models.CharField(max_length=50, blank=True)
+    # Campos para control de vencimiento
+    tiene_vencimiento = models.BooleanField(default=False, verbose_name="¿Tiene fecha de vencimiento?")
+    fecha_vencimiento = models.DateField(null=True, blank=True, verbose_name="Fecha de vencimiento")
 
     def get_stock_category(self):
         """Clasifica stock: Sin Stock, Bajo, Medio, Alto."""
@@ -83,11 +86,99 @@ class Producto(models.Model):
             return "Medio"
         return "Alto"
 
+    def get_dias_para_vencer(self):
+        """Calcula los días restantes hasta el vencimiento."""
+        if not self.tiene_vencimiento or not self.fecha_vencimiento:
+            return None
+        from datetime import date
+        hoy = date.today()
+        return (self.fecha_vencimiento - hoy).days
+
+    def get_estado_vencimiento(self):
+        """Determina el estado de vencimiento del producto."""
+        if not self.tiene_vencimiento or not self.fecha_vencimiento:
+            return "Sin Vencimiento"
+        
+        dias_restantes = self.get_dias_para_vencer()
+        
+        if dias_restantes < 0:
+            return "Vencido"
+        elif dias_restantes == 0:
+            return "Vence Hoy"
+        elif dias_restantes <= 7:
+            return "Crítico"
+        elif dias_restantes <= 30:
+            return "Precaución"
+        else:
+            return "Normal"
+
+    def get_color_estado_vencimiento(self):
+        """Retorna el color CSS para el estado de vencimiento."""
+        estado = self.get_estado_vencimiento()
+        colores = {
+            'Vencido': '#dc3545',      # Rojo
+            'Vence Hoy': '#fd7e14',    # Naranja oscuro
+            'Crítico': '#ffc107',      # Amarillo
+            'Precaución': '#28a745',   # Verde
+            'Normal': '#6c757d',       # Gris
+            'Sin Vencimiento': '#17a2b8'  # Azul info
+        }
+        return colores.get(estado, '#6c757d')
+
     def __str__(self):
         return f"{self.descripcion} ({self.codigo_barra})"
 
     class Meta:
         indexes = [models.Index(fields=['stock'], name='idx_producto_stock')]
+
+class LoteProducto(models.Model):
+    """Modelo para manejar diferentes lotes de un mismo producto con fechas de vencimiento distintas."""
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='lotes')
+    fecha_vencimiento = models.DateField(verbose_name="Fecha de vencimiento")
+    stock = models.IntegerField(default=0, verbose_name="Stock del lote")
+    fecha_ingreso = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de ingreso")
+    numero_lote = models.CharField(max_length=50, blank=True, verbose_name="Número de lote")
+    
+    def get_dias_para_vencer(self):
+        """Calcula los días restantes hasta el vencimiento."""
+        from datetime import date
+        hoy = date.today()
+        return (self.fecha_vencimiento - hoy).days
+
+    def get_estado_vencimiento(self):
+        """Determina el estado de vencimiento del lote."""
+        dias_restantes = self.get_dias_para_vencer()
+        
+        if dias_restantes < 0:
+            return "Vencido"
+        elif dias_restantes == 0:
+            return "Vence Hoy"
+        elif dias_restantes <= 7:
+            return "Crítico"
+        elif dias_restantes <= 30:
+            return "Precaución"
+        else:
+            return "Normal"
+
+    def get_color_estado_vencimiento(self):
+        """Retorna el color CSS para el estado de vencimiento."""
+        estado = self.get_estado_vencimiento()
+        colores = {
+            'Vencido': '#dc3545',      # Rojo
+            'Vence Hoy': '#fd7e14',    # Naranja oscuro
+            'Crítico': '#ffc107',      # Amarillo
+            'Precaución': '#28a745',   # Verde
+            'Normal': '#6c757d',       # Gris
+        }
+        return colores.get(estado, '#6c757d')
+
+    def __str__(self):
+        return f"{self.producto.descripcion} - Lote: {self.numero_lote or 'S/N'} - Vence: {self.fecha_vencimiento}"
+
+    class Meta:
+        verbose_name = "Lote de Producto"
+        verbose_name_plural = "Lotes de Productos"
+        ordering = ['fecha_vencimiento']
 
 class Transaccion(models.Model):
     TIPO_CHOICES = [('entrada', 'Entrada'), ('salida', 'Salida')]

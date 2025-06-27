@@ -23,6 +23,7 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db.models import Q
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.safestring import mark_safe
@@ -31,10 +32,13 @@ from django.utils.text import slugify
 # Módulos locales del proyecto
 from .forms import (
     ActaEntregaForm,
+    AgregarStockConVencimientoForm,
+    AgregarVencimientoForm,
     CustomUserCreationForm,
     CustomUserEditForm,
     DepartamentoForm,
     EliminarDepartamentoForm,
+    LoteProductoForm,
     ModificarDepartamentoForm,
     ProductoForm,
     SearchUserForm,
@@ -48,6 +52,7 @@ from .models import (
     CustomUser,
     Departamento,
     Funcionario,
+    LoteProducto,
     Producto,
     Responsable,
     Transaccion,
@@ -319,6 +324,29 @@ def home(request):
         stock_bajo = stock_medio = stock_alto = 0
         porcentaje_bajo = porcentaje_medio = porcentaje_alto = 0
 
+    # Calcular métricas de vencimiento
+    from datetime import date, timedelta
+    hoy = date.today()
+    
+    # Productos con vencimiento
+    productos_con_vencimiento = Producto.objects.filter(
+        tiene_vencimiento=True, 
+        fecha_vencimiento__isnull=False,
+        stock__gt=0
+    )
+    
+    # Contar productos por estado de vencimiento
+    productos_vencidos = productos_con_vencimiento.filter(fecha_vencimiento__lt=hoy).count()
+    productos_criticos = productos_con_vencimiento.filter(
+        fecha_vencimiento__gte=hoy,
+        fecha_vencimiento__lte=hoy + timedelta(days=7)
+    ).count()
+    productos_precaucion = productos_con_vencimiento.filter(
+        fecha_vencimiento__gt=hoy + timedelta(days=7),
+        fecha_vencimiento__lte=hoy + timedelta(days=30)
+    ).count()
+    total_con_vencimiento = productos_con_vencimiento.count()
+
     chart_data = {
         'totalProductos': total_productos,
         'porcentajes': [porcentaje_bajo, porcentaje_medio, porcentaje_alto]
@@ -332,7 +360,13 @@ def home(request):
         'porcentaje_bajo': porcentaje_bajo,
         'porcentaje_medio': porcentaje_medio,
         'porcentaje_alto': porcentaje_alto,
-        'chart_data_json': mark_safe(json.dumps(chart_data))
+        'chart_data_json': mark_safe(json.dumps(chart_data)),
+        # Control de vencimientos
+        'productos_con_vencimiento': total_con_vencimiento > 0,
+        'productos_vencidos': productos_vencidos,
+        'productos_criticos': productos_criticos,
+        'productos_precaucion': productos_precaucion,
+        'total_con_vencimiento': total_con_vencimiento,
     }
     return render(request, 'accounts/home.html', context)
 
@@ -446,7 +480,7 @@ def agregar_stock(request):
 
 @login_required
 def agregar_stock_detalle(request, codigo_barra):
-    """Vista para agregar stock a un producto específico"""
+    """Vista para agregar stock a un producto específico con manejo de vencimientos"""
     limpiar_sesion_productos_salida(request)
     if not request.user.has_perm('accounts.can_edit'):
         messages.error(request, 'No tienes permiso para agregar stock.')
@@ -458,30 +492,72 @@ def agregar_stock_detalle(request, codigo_barra):
         return redirect('agregar-stock')
 
     if request.method == 'POST':
-        form = TransaccionForm(request.POST)
+        form = AgregarStockConVencimientoForm(request.POST)
         if form.is_valid():
-            transaccion = form.save(commit=False)
-            transaccion.producto = producto
-            transaccion.tipo = 'entrada'
-            transaccion.rut_proveedor = form.cleaned_data['rut_proveedor'] or ''
-            transaccion.guia_despacho = form.cleaned_data['guia_despacho'] or ''
-            transaccion.numero_factura = form.cleaned_data['numero_factura'] or ''
-            transaccion.orden_compra = form.cleaned_data['orden_compra'] or ''
-            transaccion.save()
+            cantidad = form.cleaned_data['cantidad']
+            rut_proveedor = form.cleaned_data['rut_proveedor'] or ''
+            guia_despacho = form.cleaned_data['guia_despacho'] or ''
+            numero_factura = form.cleaned_data['numero_factura'] or ''
+            orden_compra = form.cleaned_data['orden_compra'] or ''
+            tiene_vencimiento_nuevo = form.cleaned_data['tiene_vencimiento_nuevo']
+            fecha_vencimiento = form.cleaned_data['fecha_vencimiento']
+            numero_lote = form.cleaned_data['numero_lote']
 
-            producto.stock += form.cleaned_data['cantidad']
-            producto.rut_proveedor = form.cleaned_data['rut_proveedor'] or ''
-            producto.guia_despacho = form.cleaned_data['guia_despacho'] or ''
-            producto.numero_factura = form.cleaned_data['numero_factura'] or ''
-            producto.orden_compra = form.cleaned_data['orden_compra'] or ''
+            # Crear transacción
+            transaccion = Transaccion.objects.create(
+                producto=producto,
+                tipo='entrada',
+                cantidad=cantidad,
+                rut_proveedor=rut_proveedor,
+                guia_despacho=guia_despacho,
+                numero_factura=numero_factura,
+                orden_compra=orden_compra,
+                observacion=f'Lote: {numero_lote}' if numero_lote else ''
+            )
+
+            # Actualizar stock del producto principal
+            producto.stock += cantidad
+            
+            # Actualizar datos del proveedor
+            producto.rut_proveedor = rut_proveedor
+            producto.guia_despacho = guia_despacho
+            producto.numero_factura = numero_factura
+            producto.orden_compra = orden_compra
+            
+            # Manejar vencimiento
+            if tiene_vencimiento_nuevo and fecha_vencimiento:
+                # Si el producto no tenía vencimiento, habilitarlo
+                if not producto.tiene_vencimiento:
+                    producto.tiene_vencimiento = True
+                    producto.fecha_vencimiento = fecha_vencimiento
+                
+                # Crear o actualizar lote
+                lote, created = LoteProducto.objects.get_or_create(
+                    producto=producto,
+                    fecha_vencimiento=fecha_vencimiento,
+                    numero_lote=numero_lote or '',
+                    defaults={'stock': cantidad}
+                )
+                if not created:
+                    lote.stock += cantidad
+                    lote.save()
+                
+                messages.success(request, f'Stock agregado exitosamente con vencimiento {fecha_vencimiento.strftime("%d/%m/%Y")}. Nueva cantidad: {producto.stock}')
+            else:
+                messages.success(request, f'Stock agregado exitosamente. Nueva cantidad: {producto.stock}')
+            
             producto.save()
-
-            messages.success(request, f'Stock agregado exitosamente. Nueva cantidad: {producto.stock}')
             return redirect('agregar-stock')
         messages.error(request, 'Error al agregar stock. Verifica los datos.')
     else:
-        form = TransaccionForm()
-    return render(request, 'accounts/agregar_stock_detalle.html', {'form': form, 'producto': producto})
+        form = AgregarStockConVencimientoForm()
+    
+    context = {
+        'form': form, 
+        'producto': producto,
+        'tiene_vencimiento_actual': producto.tiene_vencimiento
+    }
+    return render(request, 'accounts/agregar_stock_detalle.html', context)
 
 @login_required
 def salida_productos(request):
@@ -1432,3 +1508,185 @@ def eliminar_categoria(request):
         form = EliminarCategoriaForm()
 
     return render(request, 'accounts/eliminar_categoria.html', {'form': form})
+
+@login_required
+def control_vencimientos(request):
+    """Vista para el control de vencimientos de productos."""
+    from datetime import date, timedelta
+    hoy = date.today()
+    
+    # Obtener productos con vencimiento
+    productos_base = Producto.objects.filter(
+        tiene_vencimiento=True,
+        fecha_vencimiento__isnull=False,
+        stock__gt=0
+    ).select_related('categoria')
+    
+    # Filtrado por estado
+    estado_filtro = request.GET.get('estado', 'todos')
+    busqueda = request.GET.get('busqueda', '')
+    
+    if estado_filtro == 'vencidos':
+        productos_filtrados = productos_base.filter(fecha_vencimiento__lt=hoy)
+    elif estado_filtro == 'criticos':
+        productos_filtrados = productos_base.filter(
+            fecha_vencimiento__gte=hoy,
+            fecha_vencimiento__lte=hoy + timedelta(days=7)
+        )
+    elif estado_filtro == 'precaucion':
+        productos_filtrados = productos_base.filter(
+            fecha_vencimiento__gt=hoy + timedelta(days=7),
+            fecha_vencimiento__lte=hoy + timedelta(days=30)
+        )
+    else:
+        productos_filtrados = productos_base
+    
+    # Búsqueda por código o descripción
+    if busqueda:
+        productos_filtrados = productos_filtrados.filter(
+            Q(codigo_barra__icontains=busqueda) | 
+            Q(descripcion__icontains=busqueda)
+        )
+    
+    # Ordenar por fecha de vencimiento (próximos a vencer primero)
+    productos_filtrados = productos_filtrados.order_by('fecha_vencimiento')
+    
+    # Paginación
+    productos_paginados = paginar_resultados(request, productos_filtrados, 20)
+    
+    # Calcular estadísticas
+    productos_vencidos = productos_base.filter(fecha_vencimiento__lt=hoy).count()
+    productos_criticos = productos_base.filter(
+        fecha_vencimiento__gte=hoy,
+        fecha_vencimiento__lte=hoy + timedelta(days=7)
+    ).count()
+    productos_precaucion = productos_base.filter(
+        fecha_vencimiento__gt=hoy + timedelta(days=7),
+        fecha_vencimiento__lte=hoy + timedelta(days=30)
+    ).count()
+    total_con_vencimiento = productos_base.count()
+    
+    context = {
+        'productos': productos_paginados,
+        'estado_filtro': estado_filtro,
+        'busqueda': busqueda,
+        'productos_vencidos': productos_vencidos,
+        'productos_criticos': productos_criticos,
+        'productos_precaucion': productos_precaucion,
+        'total_con_vencimiento': total_con_vencimiento,
+        'hoy': hoy,
+    }
+    
+    return render(request, 'accounts/control_vencimientos.html', context)
+
+@login_required
+def exportar_vencimientos_excel(request):
+    """Exporta el control de vencimientos a Excel."""
+    from datetime import date, timedelta
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from django.http import HttpResponse
+    
+    hoy = date.today()
+    
+    # Obtener productos con vencimiento
+    productos = Producto.objects.filter(
+        tiene_vencimiento=True,
+        fecha_vencimiento__isnull=False,
+        stock__gt=0
+    ).select_related('categoria').order_by('fecha_vencimiento')
+    
+    # Crear libro de Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Control de Vencimientos"
+    
+    # Encabezados
+    headers = [
+        'Código de Barra', 'Descripción', 'Categoría', 'Stock', 
+        'Fecha de Vencimiento', 'Días Restantes', 'Estado'
+    ]
+    
+    # Estilo para encabezados
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='1a3c5e', end_color='1a3c5e', fill_type='solid')
+    center_alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Escribir encabezados
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_alignment
+    
+    # Escribir datos
+    for row, producto in enumerate(productos, 2):
+        dias_restantes = producto.get_dias_para_vencer()
+        estado = producto.get_estado_vencimiento()
+        
+        ws.cell(row=row, column=1, value=producto.codigo_barra)
+        ws.cell(row=row, column=2, value=producto.descripcion)
+        ws.cell(row=row, column=3, value=producto.categoria.nombre if producto.categoria else 'Sin categoría')
+        ws.cell(row=row, column=4, value=producto.stock)
+        ws.cell(row=row, column=5, value=producto.fecha_vencimiento.strftime('%d/%m/%Y'))
+        ws.cell(row=row, column=6, value=dias_restantes if dias_restantes is not None else 'N/A')
+        ws.cell(row=row, column=7, value=estado)
+        
+        # Colorear según el estado
+        color_fill = None
+        if estado == 'Vencido':
+            color_fill = PatternFill(start_color='ffebee', end_color='ffebee', fill_type='solid')
+        elif estado == 'Crítico':
+            color_fill = PatternFill(start_color='fff3e0', end_color='fff3e0', fill_type='solid')
+        elif estado == 'Precaución':
+            color_fill = PatternFill(start_color='e8f5e8', end_color='e8f5e8', fill_type='solid')
+        
+        if color_fill:
+            for col in range(1, 8):
+                ws.cell(row=row, column=col).fill = color_fill
+    
+    # Ajustar ancho de columnas
+    column_widths = [15, 40, 20, 10, 18, 15, 15]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+    
+    # Respuesta HTTP
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="control_vencimientos_{hoy.strftime("%Y%m%d")}.xlsx"'
+    
+    wb.save(response)
+    return response
+
+@login_required 
+def agregar_vencimiento_producto(request):
+    """Vista para agregar fecha de vencimiento a productos existentes."""
+    if request.method == 'POST':
+        form = AgregarVencimientoForm(request.POST)
+        if form.is_valid():
+            producto = form.cleaned_data['producto']
+            fecha_vencimiento = form.cleaned_data['fecha_vencimiento']
+            numero_lote = form.cleaned_data['numero_lote']
+            
+            # Actualizar el producto principal
+            producto.tiene_vencimiento = True
+            producto.fecha_vencimiento = fecha_vencimiento
+            producto.save()
+            
+            # Crear lote si se especifica número de lote
+            if numero_lote:
+                LoteProducto.objects.create(
+                    producto=producto,
+                    fecha_vencimiento=fecha_vencimiento,
+                    stock=producto.stock,
+                    numero_lote=numero_lote
+                )
+            
+            messages.success(request, f'Se agregó fecha de vencimiento al producto: {producto.descripcion}')
+            return redirect('control-vencimientos')
+    else:
+        form = AgregarVencimientoForm()
+    
+    context = {'form': form}
+    return render(request, 'accounts/agregar_vencimiento.html', context)

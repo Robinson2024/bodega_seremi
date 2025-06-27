@@ -115,7 +115,51 @@
                         {% endif %}
                     </div>
                 </div>
-                <div class="text-center">
+                
+                <!-- Sección de Control de Vencimiento -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
+                            <div class="card-header" style="background-color: #e9ecef;">
+                                <h6 class="mb-0 text-primary" style="color: #1a3c5e;">
+                                    <i class="fas fa-calendar-alt"></i> Control de Vencimiento
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check mb-3">
+                                    {{ form.tiene_vencimiento|add_class:"form-check-input" }}
+                                    <label class="form-check-label" for="id_tiene_vencimiento">
+                                        <strong>{{ form.tiene_vencimiento.label }}</strong>
+                                    </label>
+                                </div>
+                                
+                                <div id="fecha-vencimiento-container" style="display: none;">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="input-group input-group-sm">
+                                                {{ form.fecha_vencimiento|add_class:"form-control" }}
+                                                <div class="input-group-append">
+                                                    <span class="input-group-text">
+                                                        <i class="fas fa-calendar"></i> Fecha de Vencimiento
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {% if form.fecha_vencimiento.errors %}
+                                                <div class="text-danger small">{{ form.fecha_vencimiento.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {% if form.non_field_errors %}
+                                    <div class="text-danger small mt-2">{{ form.non_field_errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
                     <button type="submit" class="btn btn-primary btn-sm mr-2">Guardar</button>
                     <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">Cancelar</a>
                 </div>
@@ -303,6 +347,43 @@
             console.log('Valor enviado al backend:', cleanValue);
             rutInput.value = cleanValue;
         });
+
+        // Control de vencimiento - Mostrar/Ocultar fecha de vencimiento
+        const tieneVencimientoCheckbox = document.getElementById('id_tiene_vencimiento');
+        const fechaVencimientoContainer = document.getElementById('fecha-vencimiento-container');
+        const fechaVencimientoInput = document.getElementById('id_fecha_vencimiento');
+
+        // Función para mostrar/ocultar el campo de fecha
+        function toggleFechaVencimiento() {
+            if (tieneVencimientoCheckbox.checked) {
+                fechaVencimientoContainer.style.display = 'block';
+                fechaVencimientoInput.required = true;
+                // Añadir animación suave
+                fechaVencimientoContainer.style.opacity = '0';
+                fechaVencimientoContainer.style.transform = 'translateY(-10px)';
+                setTimeout(() => {
+                    fechaVencimientoContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    fechaVencimientoContainer.style.opacity = '1';
+                    fechaVencimientoContainer.style.transform = 'translateY(0)';
+                }, 10);
+            } else {
+                fechaVencimientoContainer.style.display = 'none';
+                fechaVencimientoInput.required = false;
+                fechaVencimientoInput.value = '';
+            }
+        }
+
+        // Inicializar estado al cargar la página
+        toggleFechaVencimiento();
+
+        // Escuchar cambios en el checkbox
+        tieneVencimientoCheckbox.addEventListener('change', toggleFechaVencimiento);
+
+        // Establecer fecha mínima como mañana
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const minDate = tomorrow.toISOString().split('T')[0];
+        fechaVencimientoInput.min = minDate;
     });
 </script>
 {% endblock %}

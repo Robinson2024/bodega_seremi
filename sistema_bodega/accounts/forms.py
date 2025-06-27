@@ -1,7 +1,7 @@
 from django import forms
 from django.core.validators import RegexValidator, MinValueValidator
 from django.core.exceptions import ValidationError
-from .models import Producto, Transaccion, ActaEntrega, Funcionario, Departamento, Responsable, CustomUser, clean_rut, validate_rut, Categoria
+from .models import Producto, Transaccion, ActaEntrega, Funcionario, Departamento, Responsable, CustomUser, clean_rut, validate_rut, Categoria, LoteProducto
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth.models import Group
 
@@ -286,9 +286,11 @@ class ProductoForm(forms.ModelForm):
 
     class Meta:
         model = Producto
-        fields = ['codigo_barra', 'descripcion', 'stock', 'categoria', 'rut_proveedor', 'guia_despacho', 'numero_factura', 'orden_compra']
+        fields = ['codigo_barra', 'descripcion', 'stock', 'categoria', 'rut_proveedor', 'guia_despacho', 'numero_factura', 'orden_compra', 'tiene_vencimiento', 'fecha_vencimiento']
         widgets = {
             'categoria': forms.Select(attrs={'class': 'form-control form-control-sm'}),
+            'tiene_vencimiento': forms.CheckboxInput(attrs={'class': 'form-check-input', 'id': 'id_tiene_vencimiento'}),
+            'fecha_vencimiento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'id': 'id_fecha_vencimiento'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -297,6 +299,25 @@ class ProductoForm(forms.ModelForm):
         self.fields['categoria'].empty_label = "Seleccione una categoría"
         self.fields['categoria'].required = True
         self.fields['categoria'].label = "Categoría"
+        # Configurar campos de vencimiento
+        self.fields['tiene_vencimiento'].label = "¿Este producto tiene fecha de vencimiento?"
+        self.fields['fecha_vencimiento'].label = "Fecha de vencimiento"
+        self.fields['fecha_vencimiento'].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        tiene_vencimiento = cleaned_data.get('tiene_vencimiento')
+        fecha_vencimiento = cleaned_data.get('fecha_vencimiento')
+
+        # Si tiene vencimiento marcado, la fecha es obligatoria
+        if tiene_vencimiento and not fecha_vencimiento:
+            raise forms.ValidationError("Debe especificar la fecha de vencimiento si el producto tiene vencimiento.")
+        
+        # Si no tiene vencimiento marcado, limpiar la fecha
+        if not tiene_vencimiento:
+            cleaned_data['fecha_vencimiento'] = None
+
+        return cleaned_data
 
 class TransaccionForm(forms.ModelForm):
     # Campo para la cantidad de productos en la transacción
@@ -705,5 +726,143 @@ class EliminarCategoriaForm(forms.Form):
 
         if not categoria:
             raise ValidationError('Debe seleccionar una categoría.')
+
+        return cleaned_data
+
+# Formularios para manejo de lotes y fechas de vencimiento
+class LoteProductoForm(forms.ModelForm):
+    """Formulario para crear lotes de productos con fechas de vencimiento específicas."""
+    
+    numero_lote = forms.CharField(
+        max_length=50,
+        label='Número de Lote',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: LOTE001, A123, etc.'})
+    )
+    
+    stock = forms.IntegerField(
+        validators=[MinValueValidator(1, message='El stock debe ser un número positivo.')],
+        label='Cantidad del Lote',
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+    
+    fecha_vencimiento = forms.DateField(
+        label='Fecha de Vencimiento',
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+
+    class Meta:
+        model = LoteProducto
+        fields = ['numero_lote', 'stock', 'fecha_vencimiento']
+
+    def clean_fecha_vencimiento(self):
+        fecha = self.cleaned_data.get('fecha_vencimiento')
+        if fecha:
+            from datetime import date
+            if fecha <= date.today():
+                raise forms.ValidationError("La fecha de vencimiento debe ser posterior a la fecha actual.")
+        return fecha
+
+class AgregarVencimientoForm(forms.Form):
+    """Formulario para agregar fecha de vencimiento a productos existentes."""
+    
+    producto = forms.ModelChoiceField(
+        queryset=Producto.objects.filter(tiene_vencimiento=False).order_by('descripcion'),
+        label='Producto',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    
+    fecha_vencimiento = forms.DateField(
+        label='Fecha de Vencimiento',
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+    
+    numero_lote = forms.CharField(
+        max_length=50,
+        label='Número de Lote',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional'})
+    )
+
+    def clean_fecha_vencimiento(self):
+        fecha = self.cleaned_data.get('fecha_vencimiento')
+        if fecha:
+            from datetime import date
+            if fecha <= date.today():
+                raise forms.ValidationError("La fecha de vencimiento debe ser posterior a la fecha actual.")
+        return fecha
+
+class AgregarStockConVencimientoForm(forms.Form):
+    """Formulario para agregar stock a productos con manejo de lotes y vencimientos."""
+    
+    cantidad = forms.IntegerField(
+        validators=[MinValueValidator(1, message='La cantidad debe ser un número positivo.')],
+        label='Cantidad a Agregar',
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+    
+    # Campos opcionales para documentación
+    rut_proveedor = forms.CharField(
+        max_length=12,
+        label='RUT del Proveedor',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    
+    guia_despacho = forms.CharField(
+        max_length=50,
+        label='Guía de Despacho',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    
+    numero_factura = forms.CharField(
+        max_length=50,
+        label='Número de Factura',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    
+    orden_compra = forms.CharField(
+        max_length=50,
+        label='Orden de Compra',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    
+    # Campos para manejo de vencimiento
+    tiene_vencimiento_nuevo = forms.BooleanField(
+        label='¿Este nuevo stock tiene fecha de vencimiento?',
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input', 'id': 'id_tiene_vencimiento_nuevo'})
+    )
+    
+    fecha_vencimiento = forms.DateField(
+        label='Fecha de Vencimiento',
+        required=False,
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'id': 'id_fecha_vencimiento_nuevo'})
+    )
+    
+    numero_lote = forms.CharField(
+        max_length=50,
+        label='Número de Lote',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional'})
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        tiene_vencimiento_nuevo = cleaned_data.get('tiene_vencimiento_nuevo')
+        fecha_vencimiento = cleaned_data.get('fecha_vencimiento')
+
+        # Si tiene vencimiento marcado, la fecha es obligatoria
+        if tiene_vencimiento_nuevo and not fecha_vencimiento:
+            raise forms.ValidationError("Debe especificar la fecha de vencimiento si el nuevo stock tiene vencimiento.")
+        
+        # Validar que la fecha sea futura
+        if fecha_vencimiento:
+            from datetime import date
+            if fecha_vencimiento <= date.today():
+                raise forms.ValidationError("La fecha de vencimiento debe ser posterior a la fecha actual.")
 
         return cleaned_data
