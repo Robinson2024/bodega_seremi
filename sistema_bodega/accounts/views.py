@@ -96,7 +96,8 @@ def generar_pdf_acta(actas, disposition='attachment'):
                 'descripcion': item.producto.descripcion[:100],  # Límite de 100 caracteres
                 'numero_siscom': str(item.numero_siscom or '')[:100],  # Límite de 100 caracteres
                 'cantidad': item.cantidad,
-                'observacion': str(item.observacion or '')[:100],  # Límite de 100 caracteres
+                # Permitir observaciones largas, sin truncar, y respetar saltos de línea
+                'observacion': str(item.observacion or ''),
             } for item in actas
         ]
         logger.info(f"Productos para el PDF (con límite de 100 caracteres): {productos_salida}")
@@ -121,6 +122,7 @@ def generar_pdf_acta(actas, disposition='attachment'):
         }
 
         elements = []
+        # --- Encabezado profesional con logo y textos ---
         logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images', 'seremi_logo.png')
         logger.info(f"Ruta del logo: {logo_path}")
         if os.path.exists(logo_path):
@@ -130,6 +132,22 @@ def generar_pdf_acta(actas, disposition='attachment'):
             logger.warning("Logo no encontrado, usando texto alternativo.")
             logo = Paragraph("Logo no encontrado", custom_styles['NormalCustom'])
         logo.hAlign = 'LEFT'
+
+        encabezado_seremi = Paragraph("<b>SEREMI DE SALUD</b>", ParagraphStyle(name='EncabezadoSeremi', fontName='Helvetica-Bold', fontSize=16, alignment=0, textColor=colors.HexColor('#1a3c5e'), spaceAfter=0, leading=18))
+        encabezado_region = Paragraph("REGIÓN DE LA ARAUCANÍA", ParagraphStyle(name='EncabezadoRegion', fontName='Helvetica', fontSize=13, alignment=0, textColor=colors.HexColor('#1a3c5e'), spaceAfter=10, leading=15))
+
+        encabezado_tabla = Table(
+            [
+                [logo, Table([[encabezado_seremi], [encabezado_region]], colWidths=[10*cm])]
+            ],
+            colWidths=[3*cm, 13.5*cm], hAlign='LEFT'
+        )
+        encabezado_tabla.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+            ('LEFTPADDING', (1, 0), (1, 0), 10),
+        ]))
 
         acta_number = Paragraph(f"N° {acta.numero_acta}", custom_styles['ActaNumber'])
         acta_number_table = Table([[acta_number]], colWidths=[1.5*inch], rowHeights=[0.5*inch])
@@ -144,7 +162,7 @@ def generar_pdf_acta(actas, disposition='attachment'):
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
         ]))
 
-        header_table = Table([[logo, acta_number_table]], colWidths=[3*inch, 4.5*inch])
+        header_table = Table([[encabezado_tabla, acta_number_table]], colWidths=[13.5*cm, 4.5*cm])
         header_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
@@ -178,12 +196,13 @@ def generar_pdf_acta(actas, disposition='attachment'):
         for item in productos_salida:
             descripcion_text = item['descripcion'].encode('utf-8').decode('utf-8')
             numero_siscom_text = item['numero_siscom'].encode('utf-8').decode('utf-8')
+            # Permitir observaciones largas y saltos de línea reales
             observacion_text = (item['observacion'] or '-').replace('\n', '<br/>').encode('utf-8').decode('utf-8')
             data.append([
                 Paragraph(descripcion_text, custom_styles['TableCell']),
                 Paragraph(numero_siscom_text, custom_styles['TableCell']),
                 Paragraph(str(item['cantidad']), custom_styles['TableCell']),
-                Paragraph(observacion_text, custom_styles['TableCell'])
+                Paragraph(observacion_text, ParagraphStyle(name='ObsCell', fontName='Helvetica', fontSize=9, leading=11, wordWrap='CJK', alignment=0, allowWidows=1, allowOrphans=1))
             ])
             logger.info(f"Fila de la tabla: {descripcion_text}, {numero_siscom_text}, {item['cantidad']}, {observacion_text}")
 
@@ -213,21 +232,35 @@ def generar_pdf_acta(actas, disposition='attachment'):
                 else "JEFE DEL DEPARTAMENTO" if 'jefe' in responsable_lower or 'jefatura' in responsable_lower 
                 else "RESPONSABLE DEL DEPARTAMENTO")
 
+        # Pie de firmas profesional y alineado
         firma_table = Table([
-            [Paragraph(f"{generador_text}", custom_styles['Signature']), Paragraph(f"Sr./Sra. {responsable_text}", custom_styles['Signature'])],
-            [Paragraph("ENCARGADO BODEGA", custom_styles['SignatureTitle']), Paragraph("RECEPCIONA CONFORME", custom_styles['SignatureTitle'])],
-            ['', Paragraph(cargo, custom_styles['SignatureCargo'])],
-            [Paragraph("_____________________________", custom_styles['Signature']), Paragraph("_____________________________", custom_styles['Signature'])],
-        ], colWidths=[3*inch, 3*inch])
+            [
+                Paragraph('<b>' + generador_text + '</b>', ParagraphStyle(name='FirmaNombre', fontName='Helvetica-Bold', fontSize=11, alignment=1, textColor=colors.HexColor('#1a3c5e'))),
+                Paragraph('<b>' + responsable_text + '</b>', ParagraphStyle(name='FirmaNombre', fontName='Helvetica-Bold', fontSize=11, alignment=1, textColor=colors.HexColor('#1a3c5e')))
+            ],
+            [
+                Paragraph('<b>ENCARGADO DE BODEGA</b>', ParagraphStyle(name='FirmaTitulo', fontName='Helvetica-Bold', fontSize=10, alignment=1, textColor=colors.HexColor('#1a3c5e'))),
+                Paragraph('<b>RECEPCIONA CONFORME</b>', ParagraphStyle(name='FirmaTitulo', fontName='Helvetica-Bold', fontSize=10, alignment=1, textColor=colors.HexColor('#1a3c5e')))
+            ],
+            [
+                Paragraph('SEREMI DE SALUD ARAUCANÍA', ParagraphStyle(name='FirmaSub', fontName='Helvetica', fontSize=9, alignment=1, textColor=colors.HexColor('#64748b'))),
+                Paragraph(cargo, ParagraphStyle(name='FirmaSub', fontName='Helvetica', fontSize=9, alignment=1, textColor=colors.HexColor('#64748b')))
+            ],
+            [
+                Paragraph('<u>_____________________________</u>', ParagraphStyle(name='FirmaLinea', fontName='Helvetica', fontSize=12, alignment=1, textColor=colors.black)),
+                Paragraph('<u>_____________________________</u>', ParagraphStyle(name='FirmaLinea', fontName='Helvetica', fontSize=12, alignment=1, textColor=colors.black))
+            ]
+        ], colWidths=[8*cm, 8*cm], hAlign='CENTER')
         firma_table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('LEADING', (0, 0), (-1, -1), 12)
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ]))
 
-        elements.extend([table, Spacer(1, 4*inch), firma_table])
+        from reportlab.platypus import KeepTogether
+        firmas_keep = KeepTogether([Spacer(1, 1*cm), firma_table])
+        elements.extend([table, firmas_keep])
         logger.info("Construyendo el PDF...")
         doc.build(elements)
         logger.info("PDF generado correctamente.")
