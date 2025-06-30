@@ -65,6 +65,24 @@ class CustomUser(AbstractUser):
 # Modelos de inventario
 class Producto(models.Model):
     codigo_barra = models.CharField(max_length=50, unique=True)
+
+    @staticmethod
+    def get_next_codigo_barra():
+        """Obtiene el siguiente código de barra correlativo, partiendo desde 100000."""
+        ultimo = Producto.objects.order_by('-codigo_barra').first()
+        try:
+            ultimo_num = int(ultimo.codigo_barra)
+            if ultimo_num < 100000:
+                return '100000'
+            return str(ultimo_num + 1)
+        except (AttributeError, ValueError):
+            return '100000'
+
+    def save(self, *args, **kwargs):
+        # Asignar automáticamente el código de barra si no está definido
+        if not self.codigo_barra:
+            self.codigo_barra = Producto.get_next_codigo_barra()
+        super().save(*args, **kwargs)
     descripcion = models.CharField(max_length=200)
     stock = models.IntegerField(default=0, db_index=True)
     categoria = models.ForeignKey('Categoria', on_delete=models.SET_NULL, null=True, blank=True)

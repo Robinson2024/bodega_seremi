@@ -205,17 +205,13 @@ def calcularDigitoVerificador(rut):
     return str(dv)
 
 class ProductoForm(forms.ModelForm):
-    # Campo para el código de barra del producto
+    # El campo código de barra será solo lectura y se autocompleta
     codigo_barra = forms.CharField(
         max_length=50,
-        validators=[
-            RegexValidator(
-                regex=r'^\d+$',
-                message='El código de barra solo puede contener números enteros.'
-            )
-        ],
+        required=False,
         label='Código de Barra',
-        widget=forms.TextInput(attrs={'class': 'form-control'})
+        widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly', 'style': 'background-color:#e9ecef;'}),
+        help_text='Se asigna automáticamente y no es editable.'
     )
 
     # Campo para la descripción del producto
@@ -286,7 +282,8 @@ class ProductoForm(forms.ModelForm):
 
     class Meta:
         model = Producto
-        fields = ['codigo_barra', 'descripcion', 'stock', 'categoria', 'rut_proveedor', 'guia_despacho', 'numero_factura', 'orden_compra', 'tiene_vencimiento', 'fecha_vencimiento']
+        # Excluir el campo del form, pero lo manejamos manualmente
+        exclude = ['codigo_barra']
         widgets = {
             'categoria': forms.Select(attrs={'class': 'form-control form-control-sm'}),
             'tiene_vencimiento': forms.CheckboxInput(attrs={'class': 'form-check-input', 'id': 'id_tiene_vencimiento'}),
@@ -303,6 +300,11 @@ class ProductoForm(forms.ModelForm):
         self.fields['tiene_vencimiento'].label = "¿Este producto tiene fecha de vencimiento?"
         self.fields['fecha_vencimiento'].label = "Fecha de vencimiento"
         self.fields['fecha_vencimiento'].required = False
+        # Autocompletar el código de barra solo si es un producto nuevo
+        if not self.instance.pk:
+            self.fields['codigo_barra'].initial = Producto.get_next_codigo_barra()
+        else:
+            self.fields['codigo_barra'].initial = self.instance.codigo_barra
 
     def clean(self):
         cleaned_data = super().clean()
@@ -321,15 +323,14 @@ class ProductoForm(forms.ModelForm):
 
     def save(self, commit=True):
         """Guarda el producto y crea automáticamente un lote si tiene vencimiento y stock."""
+        # El código de barra se asigna automáticamente en el modelo, ignorar el del formulario
+        self.instance.codigo_barra = None
         producto = super().save(commit=commit)
-        
         if commit and producto.tiene_vencimiento and producto.stock > 0 and producto.fecha_vencimiento:
-            # Crear automáticamente el primer lote con el stock inicial
             producto.crear_lote_automatico(
                 cantidad=producto.stock,
                 fecha_vencimiento=producto.fecha_vencimiento
             )
-        
         return producto
 
 class TransaccionForm(forms.ModelForm):
