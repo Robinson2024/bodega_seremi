@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar Sesión - Sistema de Bodega SEREMI Salud Araucanía</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -93,11 +94,70 @@
             font-family: 'Roboto', Arial, sans-serif;
             transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
+        
+        /* Contenedor para el input del RUT con validación */
+        .rut-input-container {
+            position: relative;
+        }
+        
+        .rut-input-container input {
+            padding-right: 45px; /* Espacio para el ícono de validación */
+        }
+        
+        .rut-validation-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .rut-validation-icon.valid {
+            color: #28a745;
+            opacity: 1;
+        }
+        
+        .rut-validation-icon.invalid {
+            color: #dc3545;
+            opacity: 1;
+        }
+        
         input:focus {
             border-color: #2a4d73;
             box-shadow: 0 0 0 3px rgba(42, 77, 115, 0.1);
             outline: none;
         }
+        
+        input.rut-valid {
+            border-color: #28a745;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+        }
+        
+        input.rut-invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+        }
+        /* Estilo para el texto de ayuda */
+        .form-text {
+            display: block;
+            margin-top: 4px;
+            font-size: 12px;
+            color: #6c757d;
+            transition: all 0.3s ease;
+        }
+        
+        .form-text.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .form-text.hide {
+            opacity: 0;
+            transform: translateY(-5px);
+        }
+        
         /* Estilo para los placeholders */
         input::placeholder {
             color: #8a9ab0;
@@ -182,22 +242,243 @@
                     {% endfor %}
                 </ul>
             {% endif %}
-            <form method="post">
+            <form method="post" id="loginForm">
                 {% csrf_token %}
                 <div class="form-group">
-                    <label for="id_username">Usuario</label>
-                    <input type="text" name="username" id="id_username" placeholder="Ingrese su RUT sin puntos ni guion" required>
+                    <label for="id_username">RUT</label>
+                    <div class="rut-input-container">
+                        <input type="text" name="username" id="id_username" placeholder="Ej: 19553205-2" required autocomplete="username">
+                        <i class="fas fa-check-circle rut-validation-icon" id="rutValidIcon"></i>
+                    </div>
+                    <small id="rutHelp" class="form-text text-muted" style="display: none; color: #6c757d; font-size: 12px; margin-top: 4px;">
+                        Ingrese su RUT con o sin puntos y guión
+                    </small>
                 </div>
                 <div class="form-group">
                     <label for="id_password">Contraseña</label>
-                    <input type="password" name="password" id="id_password" placeholder="Ingrese su contraseña" required>
+                    <input type="password" name="password" id="id_password" placeholder="Ingrese su contraseña" required autocomplete="current-password">
                 </div>
-                <button type="submit">Iniciar Sesión</button>
+                <button type="submit" id="loginBtn">Iniciar Sesión</button>
             </form>
         </div>
     </main>
     <footer>
         <p>Copyright © 2025 Sistema de Bodega - SEREMI Salud Araucanía</p>
     </footer>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const rutInput = document.getElementById('id_username');
+        const rutValidIcon = document.getElementById('rutValidIcon');
+        const rutHelp = document.getElementById('rutHelp');
+        const loginForm = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
+
+        // Función para validar RUT chileno
+        function validarRut(rut) {
+            // Limpiar el RUT de puntos y guiones
+            rut = rut.replace(/\./g, '').replace(/\-/g, '').toUpperCase();
+            
+            // Verificar que tenga al menos 2 caracteres
+            if (rut.length < 2) return false;
+            
+            const rutLimpio = rut.slice(0, -1);
+            const dv = rut.slice(-1);
+            
+            // Verificar que el cuerpo sean solo números
+            if (!/^\d+$/.test(rutLimpio)) return false;
+            
+            // Calcular dígito verificador
+            let suma = 0;
+            let multiplo = 2;
+            
+            for (let i = rutLimpio.length - 1; i >= 0; i--) {
+                suma += rutLimpio.charAt(i) * multiplo;
+                multiplo = (multiplo === 7) ? 2 : multiplo + 1;
+            }
+            
+            const dvEsperado = 11 - (suma % 11);
+            let dvCalculado;
+            
+            if (dvEsperado === 11) dvCalculado = '0';
+            else if (dvEsperado === 10) dvCalculado = 'K';
+            else dvCalculado = dvEsperado.toString();
+            
+            return dv === dvCalculado;
+        }
+
+        // Función para formatear RUT (agregar puntos y guión)
+        function formatearRut(rut) {
+            // Limpiar el RUT
+            rut = rut.replace(/[^0-9K]/gi, '');
+            
+            if (rut.length < 2) return rut;
+            
+            const rutLimpio = rut.slice(0, -1);
+            const dv = rut.slice(-1);
+            
+            // Formatear con puntos
+            let rutFormateado = '';
+            for (let i = rutLimpio.length - 1; i >= 0; i--) {
+                rutFormateado = rutLimpio.charAt(i) + rutFormateado;
+                if (i > 0 && (rutLimpio.length - i) % 3 === 0) {
+                    rutFormateado = '.' + rutFormateado;
+                }
+            }
+            
+            return rutFormateado + '-' + dv;
+        }
+
+        // Función para limpiar RUT (quitar puntos y guiones)
+        function limpiarRut(rut) {
+            return rut.replace(/[^0-9K]/gi, '');
+        }
+
+        // Función para actualizar la validación visual
+        function actualizarValidacion(esValido) {
+            rutInput.classList.remove('rut-valid', 'rut-invalid');
+            rutValidIcon.classList.remove('valid', 'invalid');
+            
+            if (esValido) {
+                rutInput.classList.add('rut-valid');
+                rutValidIcon.classList.add('valid');
+                rutValidIcon.className = 'fas fa-check-circle rut-validation-icon valid';
+            } else {
+                rutInput.classList.add('rut-invalid');
+                rutValidIcon.classList.add('invalid');
+                rutValidIcon.className = 'fas fa-times-circle rut-validation-icon invalid';
+            }
+        }
+
+        // Evento de entrada en tiempo real
+        rutInput.addEventListener('input', function(e) {
+            let valor = this.value;
+            
+            // Si está vacío, limpiar validación
+            if (!valor.trim()) {
+                rutInput.classList.remove('rut-valid', 'rut-invalid');
+                rutValidIcon.classList.remove('valid', 'invalid');
+                rutValidIcon.style.opacity = '0';
+                rutHelp.style.display = 'none';
+                return;
+            }
+
+            // Mostrar ayuda con animación suave
+            if (valor.length > 0 && rutHelp.style.display === 'none') {
+                rutHelp.style.display = 'block';
+                rutHelp.classList.add('show');
+                rutHelp.classList.remove('hide');
+            }
+
+            // Permitir solo números, K y caracteres de formato
+            let valorLimpio = valor.replace(/[^0-9K\.\-]/gi, '');
+            
+            // Si el valor cambió, actualizar el input
+            if (valorLimpio !== valor) {
+                this.value = valorLimpio;
+                valor = valorLimpio;
+            }
+            
+            // Validar cuando tenga una longitud razonable
+            if (valorLimpio.length >= 2) {
+                const esValido = validarRut(valorLimpio);
+                actualizarValidacion(esValido);
+            } else {
+                rutValidIcon.style.opacity = '0';
+                rutInput.classList.remove('rut-valid', 'rut-invalid');
+            }
+        });
+
+        // Evento al perder el foco - formatear automáticamente
+        rutInput.addEventListener('blur', function() {
+            let valor = this.value.trim();
+            
+            if (!valor) {
+                rutHelp.style.display = 'none';
+                return;
+            }
+            
+            // Limpiar y validar
+            const valorLimpio = limpiarRut(valor);
+            
+            if (valorLimpio.length >= 2) {
+                const esValido = validarRut(valorLimpio);
+                
+                if (esValido) {
+                    // Formatear y mostrar con una pequeña animación
+                    const rutFormateado = formatearRut(valorLimpio);
+                    if (this.value !== rutFormateado) {
+                        this.style.transition = 'all 0.3s ease';
+                        this.value = rutFormateado;
+                    }
+                    actualizarValidacion(true);
+                } else {
+                    actualizarValidacion(false);
+                }
+            }
+            
+            // Ocultar ayuda después de un momento
+            setTimeout(() => {
+                if (document.activeElement !== rutInput) {
+                    rutHelp.classList.add('hide');
+                    rutHelp.classList.remove('show');
+                    setTimeout(() => {
+                        if (rutHelp.classList.contains('hide')) {
+                            rutHelp.style.display = 'none';
+                        }
+                    }, 300);
+                }
+            }, 1000);
+        });
+
+        // Evento al ganar el foco - mostrar ayuda
+        rutInput.addEventListener('focus', function() {
+            if (this.value.trim()) {
+                rutHelp.style.display = 'block';
+            }
+        });
+
+        // Interceptar el envío del formulario para limpiar el RUT
+        loginForm.addEventListener('submit', function(e) {
+            const rutValue = rutInput.value.trim();
+            
+            if (rutValue) {
+                // Limpiar el RUT antes de enviarlo (quitar puntos y guiones)
+                const rutLimpio = limpiarRut(rutValue);
+                rutInput.value = rutLimpio;
+            }
+            
+            // Deshabilitar el botón para evitar envíos múltiples
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Iniciando sesión...';
+            
+            // Si hay error, rehabilitar el botón después de un momento
+            setTimeout(() => {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Iniciar Sesión';
+            }, 3000);
+        });
+
+        // Manejar ejemplo de RUT (cuando el usuario hace clic en el placeholder mejorado)
+        rutInput.addEventListener('keydown', function(e) {
+            // Si presiona Tab o Enter y el campo está vacío, mostrar ejemplo
+            if ((e.key === 'Tab' || e.key === 'Enter') && !this.value.trim()) {
+                e.preventDefault();
+                this.value = '19553205';
+                this.focus();
+                
+                // Simular el evento de input para que se formatee
+                const inputEvent = new Event('input', { bubbles: true });
+                this.dispatchEvent(inputEvent);
+                
+                // Formatear después de un momento
+                setTimeout(() => {
+                    this.blur();
+                    setTimeout(() => this.focus(), 100);
+                }, 100);
+            }
+        });
+    });
+    </script>
 </body>
 </html>
