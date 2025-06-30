@@ -1669,74 +1669,103 @@ def exportar_vencimientos_excel(request):
     from django.http import HttpResponse
     
     hoy = date.today()
-    
-    # Obtener productos con vencimiento
+    # Obtener productos con vencimiento y stock > 0
     productos = Producto.objects.filter(
-        tiene_vencimiento=True,
-        fecha_vencimiento__isnull=False,
-        stock__gt=0
-    ).select_related('categoria').order_by('fecha_vencimiento')
-    
+        tiene_vencimiento=True
+    ).select_related('categoria').prefetch_related('lotes').order_by('descripcion')
+
     # Crear libro de Excel
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Control de Vencimientos"
-    
-    # Encabezados
+
+    # Encabezados principales
     headers = [
-        'Código de Barra', 'Descripción', 'Categoría', 'Stock', 
-        'Fecha de Vencimiento', 'Días Restantes', 'Estado'
+        'Código de Barra', 'Descripción', 'Categoría', 'Stock Total',
+        'N° Lote', 'Stock Lote', 'Fecha Vencimiento Lote', 'Días Restantes', 'Estado Lote', 'Estado Producto'
     ]
-    
+
     # Estilo para encabezados
     header_font = Font(bold=True, color='FFFFFF')
     header_fill = PatternFill(start_color='1a3c5e', end_color='1a3c5e', fill_type='solid')
     center_alignment = Alignment(horizontal='center', vertical='center')
-    
+
     # Escribir encabezados
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = center_alignment
-    
-    # Escribir datos
-    for row, producto in enumerate(productos, 2):
-        dias_restantes = producto.get_dias_para_vencer()
-        estado = producto.get_estado_vencimiento()
-        
-        ws.cell(row=row, column=1, value=producto.codigo_barra)
-        ws.cell(row=row, column=2, value=producto.descripcion)
-        ws.cell(row=row, column=3, value=producto.categoria.nombre if producto.categoria else 'Sin categoría')
-        ws.cell(row=row, column=4, value=producto.stock)
-        ws.cell(row=row, column=5, value=producto.fecha_vencimiento.strftime('%d/%m/%Y'))
-        ws.cell(row=row, column=6, value=dias_restantes if dias_restantes is not None else 'N/A')
-        ws.cell(row=row, column=7, value=estado)
-        
-        # Colorear según el estado
-        color_fill = None
-        if estado == 'Vencido':
-            color_fill = PatternFill(start_color='ffebee', end_color='ffebee', fill_type='solid')
-        elif estado == 'Crítico':
-            color_fill = PatternFill(start_color='fff3e0', end_color='fff3e0', fill_type='solid')
-        elif estado == 'Precaución':
-            color_fill = PatternFill(start_color='e8f5e8', end_color='e8f5e8', fill_type='solid')
-        
-        if color_fill:
-            for col in range(1, 8):
-                ws.cell(row=row, column=col).fill = color_fill
-    
+
+    row = 2
+    for producto in productos:
+        lotes = list(producto.lotes.filter(stock__gt=0).order_by('fecha_vencimiento'))
+        estado_producto = producto.get_estado_vencimiento_completo()
+        # Si tiene lotes con stock, mostrar cada lote
+        if lotes:
+            for lote in lotes:
+                ws.cell(row=row, column=1, value=producto.codigo_barra)
+                ws.cell(row=row, column=2, value=producto.descripcion)
+                ws.cell(row=row, column=3, value=producto.categoria.nombre if producto.categoria else 'Sin categoría')
+                ws.cell(row=row, column=4, value=producto.stock)
+                ws.cell(row=row, column=5, value=lote.numero_lote)
+                ws.cell(row=row, column=6, value=lote.stock)
+                ws.cell(row=row, column=7, value=lote.fecha_vencimiento.strftime('%d/%m/%Y'))
+                ws.cell(row=row, column=8, value=lote.get_dias_para_vencer())
+                ws.cell(row=row, column=9, value=lote.get_estado_vencimiento())
+                ws.cell(row=row, column=10, value=estado_producto)
+                # Colorear según el estado del lote
+                color_fill = None
+                estado_lote = lote.get_estado_vencimiento()
+                if estado_lote == 'Vencido':
+                    color_fill = PatternFill(start_color='ffebee', end_color='ffebee', fill_type='solid')
+                elif estado_lote in ['Vence Hoy', 'Crítico']:
+                    color_fill = PatternFill(start_color='fff3e0', end_color='fff3e0', fill_type='solid')
+                elif estado_lote == 'Precaución':
+                    color_fill = PatternFill(start_color='e8f5e8', end_color='e8f5e8', fill_type='solid')
+                if color_fill:
+                    for col in range(1, 11):
+                        ws.cell(row=row, column=col).fill = color_fill
+                row += 1
+        else:
+            # Producto sin lotes activos pero con vencimiento
+            ws.cell(row=row, column=1, value=producto.codigo_barra)
+            ws.cell(row=row, column=2, value=producto.descripcion)
+            ws.cell(row=row, column=3, value=producto.categoria.nombre if producto.categoria else 'Sin categoría')
+            ws.cell(row=row, column=4, value=producto.stock)
+            ws.cell(row=row, column=5, value='-')
+            ws.cell(row=row, column=6, value='-')
+            fecha_venc = producto.fecha_vencimiento.strftime('%d/%m/%Y') if producto.fecha_vencimiento else '-'
+            ws.cell(row=row, column=7, value=fecha_venc)
+            dias_rest = producto.get_dias_para_vencer() if producto.fecha_vencimiento else '-'
+            ws.cell(row=row, column=8, value=dias_rest)
+            ws.cell(row=row, column=9, value=producto.get_estado_vencimiento())
+            ws.cell(row=row, column=10, value=estado_producto)
+            # Colorear según el estado del producto
+            color_fill = None
+            estado = producto.get_estado_vencimiento()
+            if estado == 'Vencido':
+                color_fill = PatternFill(start_color='ffebee', end_color='ffebee', fill_type='solid')
+            elif estado in ['Vence Hoy', 'Crítico']:
+                color_fill = PatternFill(start_color='fff3e0', end_color='fff3e0', fill_type='solid')
+            elif estado == 'Precaución':
+                color_fill = PatternFill(start_color='e8f5e8', end_color='e8f5e8', fill_type='solid')
+            if color_fill:
+                for col in range(1, 11):
+                    ws.cell(row=row, column=col).fill = color_fill
+            row += 1
+
     # Ajustar ancho de columnas
-    column_widths = [15, 40, 20, 10, 18, 15, 15]
+    column_widths = [15, 40, 20, 12, 10, 12, 18, 15, 15, 15]
     for col, width in enumerate(column_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
-    
+
     # Respuesta HTTP
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    response['Content-Disposition'] = f'attachment; filename="control_vencimientos_{hoy.strftime("%Y%m%d")}.xlsx"'
-    
+    response['Content-Disposition'] = f'attachment; filename="control_vencimientos_{hoy.strftime('%Y%m%d')}.xlsx"'
+
     wb.save(response)
     return response
 
