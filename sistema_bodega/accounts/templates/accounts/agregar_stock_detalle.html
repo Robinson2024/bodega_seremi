@@ -439,17 +439,17 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Control de vencimiento - Mostrar/Ocultar fecha de vencimiento
+    // Control de vencimiento - Variables del DOM
     const tieneVencimientoNuevoCheckbox = document.getElementById('id_tiene_vencimiento_nuevo');
     const fechaVencimientoNuevoContainer = document.getElementById('fecha-vencimiento-nuevo-container');
     const fechaVencimientoNuevoInput = document.getElementById('id_fecha_vencimiento');
     
-    // Verificar si el producto ya tiene vencimiento (viene del contexto del template)
-    const productoTieneVencimiento = {% if tiene_vencimiento_actual %}true{% else %}false{% endif %};
+    // Detectar si el producto tiene vencimiento revisando la interfaz
+    const alertInfo = document.querySelector('.alert-info');
+    const productoTieneVencimiento = alertInfo !== null;
 
-    // Función para mostrar/ocultar el campo de fecha y actualizar número de lote
+    // Función para mostrar u ocultar el campo de fecha y actualizar número de lote
     function toggleFechaVencimientoNuevo() {
-        // Si el producto ya tiene vencimiento, no hacemos nada aquí
         if (productoTieneVencimiento) {
             return;
         }
@@ -465,10 +465,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 numeroLoteInput.style.display = 'block';
             }
             
-            // Añadir animación suave
+            // Animación suave
             fechaVencimientoNuevoContainer.style.opacity = '0';
             fechaVencimientoNuevoContainer.style.transform = 'translateY(-10px)';
-            setTimeout(() => {
+            setTimeout(function() {
                 fechaVencimientoNuevoContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
                 fechaVencimientoNuevoContainer.style.opacity = '1';
                 fechaVencimientoNuevoContainer.style.transform = 'translateY(0)';
@@ -523,14 +523,14 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.addEventListener('click', function() {
             const formIsValid = form.checkValidity();
             if (formIsValid) {
-                this.disabled = true; // Deshabilitar el botón
-                this.innerText = 'Procesando...'; // Cambiar el texto para feedback visual
-                form.submit(); // Enviar el formulario
+                this.disabled = true;
+                this.innerText = 'Procesando...';
+                form.submit();
             } else {
-                form.reportValidity(); // Mostrar mensajes de validación
+                form.reportValidity();
             }
         });
     }
-});
+}); // Fin del DOMContentLoaded
 </script>
 {% endblock %}
