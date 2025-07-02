@@ -688,10 +688,10 @@
                             <tr>
                                 <td><strong>#${lote.numero_lote}</strong></td>
                                 <td><span class="badge badge-${lote.stock === 0 ? 'danger' : (lote.stock <= 10 ? 'warning' : 'success')}">${lote.stock}</span></td>
-                                <td>${lote.fecha_vencimiento_display}</td>
-                                <td><span class="badge estado-${lote.estado.toLowerCase()}">${lote.estado}</span></td>
+                                <td>${lote.fecha_vencimiento}</td>
+                                <td><span class="badge estado-${lote.estado_vencimiento.toLowerCase()}">${lote.estado_vencimiento}</span></td>
                                 <td>
-                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="abrirModalModificarLote('${codigo}', '${lote.numero_lote}', '${lote.fecha_vencimiento}')">
+                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="abrirModalModificarLote('${codigo}', '${lote.numero_lote}', '${lote.fecha_vencimiento_raw}')">
                                         <i class="fas fa-edit"></i> Modificar
                                     </button>
                                 </td>
@@ -703,11 +703,11 @@
                     listaLotes.innerHTML = html;
                 }
             } else {
-                document.getElementById('listaLotes').innerHTML = '<p class="text-danger">Error al cargar los lotes: ' + data.error + '</p>';
+                document.getElementById('listaLotes').innerHTML = '<p class="text-danger">Error al cargar los lotes.</p>';
             }
         })
         .catch(error => {
-            document.getElementById('listaLotes').innerHTML = '<p class="text-danger">Error de conexión: ' + error.message + '</p>';
+            document.getElementById('listaLotes').innerHTML = '<p class="text-danger">Error de conexión.</p>';
         });
     }
 

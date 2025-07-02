@@ -23,6 +23,7 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db import models
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -1135,11 +1136,30 @@ def bincard_historial(request, codigo_barra):
     total_entradas = sum(m['entrada'] for m in movimientos)
     total_salidas = sum(m['salida'] for m in movimientos)
 
-    if saldo != producto.stock:
-        messages.warning(request, f'Advertencia: El saldo calculado ({saldo}) no coincide con el stock actual del producto ({producto.stock}).')
-        producto.stock = saldo
-        producto.save()
-        messages.info(request, f'El stock del producto ha sido corregido a {saldo} para que coincida con el saldo calculado.')
+    # CORRECCIÓN DEFINITIVA: Manejo diferenciado para productos con/sin vencimiento
+    if producto.tiene_vencimiento:
+        # Para productos con vencimiento: Los lotes son la fuente de verdad
+        producto.limpiar_lotes_vacios()  # Limpiar lotes vacíos primero
+        stock_real_lotes = producto.lotes.aggregate(total=models.Sum('stock'))['total'] or 0
+        
+        # Sincronizar stock del producto con la suma de lotes (fuente de verdad)
+        if stock_real_lotes != producto.stock:
+            producto.stock = stock_real_lotes
+            producto.save()
+            messages.info(request, f'Stock sincronizado: {stock_real_lotes} unidades (desde lotes activos).')
+        
+        # Para productos con vencimiento, no validamos contra el saldo histórico
+        # porque las operaciones FIFO pueden generar diferencias legítimas
+        if abs(saldo - stock_real_lotes) > 0:
+            messages.info(request, f'El saldo histórico ({saldo}) puede diferir del stock real ({stock_real_lotes}) debido al manejo FIFO de lotes con vencimiento.')
+            
+    else:
+        # Para productos sin vencimiento: El historial lineal es la fuente de verdad
+        if saldo != producto.stock:
+            messages.warning(request, f'Advertencia: El saldo calculado ({saldo}) no coincide con el stock actual del producto ({producto.stock}).')
+            producto.stock = saldo
+            producto.save()
+            messages.info(request, f'El stock del producto ha sido corregido a {saldo} para que coincida con el saldo calculado.')
 
     if request.method == 'POST' and 'exportar_excel' in request.POST:
         columnas = ['Fecha', 'Guía o Factura', 'N° Acta', 'Proveedor (RUT)', 'Programa/Departamento', 'Entrada', 'Salida', 'Saldo']
@@ -1490,6 +1510,7 @@ def agregar_categoria(request):
     """Vista para agregar una nueva categoría"""
     limpiar_sesion_productos_salida(request)
     if not request.user.has_perm('accounts.can_edit'):
+
         messages.error(request, 'No tienes permiso para agregar categorías.')
         return redirect('home')
 
@@ -1625,7 +1646,7 @@ def control_vencimientos(request):
     
     # Ordenar por días restantes (más críticos primero)
     productos_info.sort(key=lambda x: (
-        0 if x['dias_restantes'] is None else x['dias_restantes'],
+        0 if x['dias_restantes'] is None or x['dias_restantes'] < 0 else x['dias_restantes'],
         x['producto'].descripcion
     ))
     
@@ -1771,36 +1792,294 @@ def exportar_vencimientos_excel(request):
 
 @login_required 
 def agregar_vencimiento_producto(request):
-    """Vista legacy - ya no es necesaria con el sistema automático de lotes."""
-    messages.info(request, 'Esta funcionalidad ya no es necesaria. Los productos con vencimiento se manejan automáticamente al agregar stock.')
-    return redirect('control-vencimientos')
+    """Vista para agregar y modificar fechas de vencimiento de productos y lotes."""
+    if not request.user.has_perm('accounts.can_edit'):
+        messages.error(request, 'No tienes permiso para agregar o modificar vencimientos.')
+        return redirect('home')
     
-    # Código comentado - mantenido por compatibilidad
-    # if request.method == 'POST':
-    #     form = AgregarVencimientoForm(request.POST)
-    #     if form.is_valid():
-    #         producto = form.cleaned_data['producto']
-    #         fecha_vencimiento = form.cleaned_data['fecha_vencimiento']
-    #         numero_lote = form.cleaned_data['numero_lote']
-    #         
-    #         # Actualizar el producto principal
-    #         producto.tiene_vencimiento = True
-    #         producto.fecha_vencimiento = fecha_vencimiento
-    #         producto.save()
-    #         
-    #         # Crear lote si se especifica número de lote
-    #         if numero_lote:
-    #             LoteProducto.objects.create(
-    #                 producto=producto,
-    #                 fecha_vencimiento=fecha_vencimiento,
-    #                 stock=producto.stock,
-    #                 numero_lote=numero_lote
-    #             )
-    #         
-    #         messages.success(request, f'Se agregó fecha de vencimiento al producto: {producto.descripcion}')
-    #         return redirect('control-vencimientos')
-    # else:
-    #     form = AgregarVencimientoForm()
-    # 
-    # context = {'form': form}
-    # return render(request, 'accounts/agregar_vencimiento.html', context)
+    # Obtener todos los productos para mostrar en la vista
+    productos = Producto.objects.all().select_related('categoria').prefetch_related('lotes').order_by('descripcion')
+    
+    # Filtros
+    query_codigo = request.GET.get('codigo_barra', '').strip()
+    query_descripcion = request.GET.get('descripcion', '').strip()
+    query_categoria = request.GET.get('categoria', '').strip()
+    tipo_filtro = request.GET.get('tipo', 'todos')  # todos, sin_vencimiento, con_vencimiento
+    
+    # Aplicar filtros
+    if query_codigo:
+        productos = productos.filter(codigo_barra__icontains=query_codigo)
+    if query_descripcion:
+        productos = productos.filter(descripcion__icontains=query_descripcion)
+    if query_categoria:
+        productos = productos.filter(categoria__nombre__icontains=query_categoria)
+    
+    # Filtrar por tipo de vencimiento
+    if tipo_filtro == 'sin_vencimiento':
+        productos = productos.filter(tiene_vencimiento=False)
+    elif tipo_filtro == 'con_vencimiento':
+        productos = productos.filter(tiene_vencimiento=True)
+    
+    # Preparar información adicional para cada producto
+    productos_info = []
+    for producto in productos:
+        info = {
+            'producto': producto,
+            'lotes_detalle': [],
+            'total_lotes': 0,
+            'proximo_vencimiento': None,
+            'estado_vencimiento': 'Sin Vencimiento'
+        }
+        
+        if producto.tiene_vencimiento:
+            info['lotes_detalle'] = producto.get_lotes_detalle()
+            info['total_lotes'] = len(info['lotes_detalle'])
+            info['proximo_vencimiento'] = producto.get_proximo_vencimiento()
+            info['estado_vencimiento'] = producto.get_estado_vencimiento_completo()
+        
+        productos_info.append(info)
+    
+    # Paginación
+    page_obj = paginar_resultados(request, productos_info, 20)
+    
+    # Obtener categorías para el filtro
+    from .models import Categoria
+    categorias = Categoria.objects.filter(activo=True).order_by('nombre')
+    
+    context = {
+        'page_obj': page_obj,
+        'query_codigo': query_codigo,
+        'query_descripcion': query_descripcion,
+        'query_categoria': query_categoria,
+        'tipo_filtro': tipo_filtro,
+        'categorias': categorias,
+        'total_productos': productos.count(),
+        'productos_sin_vencimiento': productos.filter(tiene_vencimiento=False).count(),
+        'productos_con_vencimiento': productos.filter(tiene_vencimiento=True).count(),
+    }
+    
+    return render(request, 'accounts/agregar_vencimiento.html', context)
+
+@login_required
+def agregar_vencimiento_ajax(request):
+    """Vista AJAX para agregar vencimiento a un producto sin fecha de vencimiento."""
+    if not request.user.has_perm('accounts.can_edit'):
+        return JsonResponse({'success': False, 'error': 'No tienes permiso para realizar esta acción.'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'})
+    
+    try:
+        codigo_barra = request.POST.get('codigo_barra')
+        fecha_vencimiento = request.POST.get('fecha_vencimiento')
+        
+        if not codigo_barra or not fecha_vencimiento:
+            return JsonResponse({'success': False, 'error': 'Faltan datos requeridos.'})
+        
+        # Validar el producto
+        try:
+            producto = Producto.objects.get(codigo_barra=codigo_barra)
+        except Producto.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
+        
+        if producto.tiene_vencimiento:
+            return JsonResponse({'success': False, 'error': 'Este producto ya tiene fecha de vencimiento.'})
+        
+        # Validar la fecha
+        from datetime import datetime, date
+        try:
+            fecha_obj = datetime.strptime(fecha_vencimiento, '%Y-%m-%d').date()
+            if fecha_obj <= date.today():
+                return JsonResponse({'success': False, 'error': 'La fecha de vencimiento debe ser posterior a hoy.'})
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Formato de fecha inválido.'})
+        
+        # Activar vencimiento en el producto
+        producto.tiene_vencimiento = True
+        producto.fecha_vencimiento = fecha_obj
+        producto.save()
+        
+        # Si el producto tiene stock, crear un lote inicial
+        if producto.stock > 0:
+            lote = producto.crear_lote_automatico(
+                cantidad=producto.stock,
+                fecha_vencimiento=fecha_obj
+            )
+            # El stock ya se actualiza automáticamente en crear_lote_automatico
+            # pero necesitamos resetear el stock principal a 0 y dejarlo solo en lotes
+            producto.stock = 0
+            producto.save()
+            # Volver a calcular el stock desde lotes
+            producto.actualizar_stock_total()
+            
+            return JsonResponse({
+                'success': True, 
+                'message': f'Vencimiento agregado exitosamente. Se creó el Lote #{lote.numero_lote} con {lote.stock} unidades.',
+                'lote_creado': True,
+                'numero_lote': lote.numero_lote
+            })
+        else:
+            return JsonResponse({
+                'success': True, 
+                'message': 'Vencimiento agregado exitosamente. El producto ahora puede recibir lotes con fechas de vencimiento.',
+                'lote_creado': False
+            })
+            
+    except Exception as e:
+        logger.error(f"Error al agregar vencimiento: {str(e)}")
+        return JsonResponse({'success': False, 'error': f'Error interno: {str(e)}'})
+
+@login_required
+def modificar_vencimiento_producto_ajax(request):
+    """Vista AJAX para modificar la fecha de vencimiento principal de un producto."""
+    if not request.user.has_perm('accounts.can_edit'):
+        return JsonResponse({'success': False, 'error': 'No tienes permiso para realizar esta acción.'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'})
+    
+    try:
+        codigo_barra = request.POST.get('codigo_barra')
+        nueva_fecha = request.POST.get('nueva_fecha')
+        
+        if not codigo_barra or not nueva_fecha:
+            return JsonResponse({'success': False, 'error': 'Faltan datos requeridos.'})
+        
+        # Validar el producto
+        try:
+            producto = Producto.objects.get(codigo_barra=codigo_barra)
+        except Producto.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
+        
+        if not producto.tiene_vencimiento:
+            return JsonResponse({'success': False, 'error': 'Este producto no tiene fecha de vencimiento.'})
+        
+        # Validar la fecha
+        from datetime import datetime, date
+        try:
+            fecha_obj = datetime.strptime(nueva_fecha, '%Y-%m-%d').date()
+            if fecha_obj <= date.today():
+                return JsonResponse({'success': False, 'error': 'La fecha de vencimiento debe ser posterior a hoy.'})
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Formato de fecha inválido.'})
+        
+        # Actualizar la fecha principal del producto
+        fecha_anterior = producto.fecha_vencimiento
+        producto.fecha_vencimiento = fecha_obj
+        producto.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Fecha de vencimiento actualizada de {fecha_anterior.strftime("%d/%m/%Y") if fecha_anterior else "Sin fecha"} a {fecha_obj.strftime("%d/%m/%Y")}.',
+            'nueva_fecha': fecha_obj.strftime("%Y-%m-%d")
+        })
+            
+    except Exception as e:
+        logger.error(f"Error al modificar vencimiento del producto: {str(e)}")
+        return JsonResponse({'success': False, 'error': f'Error interno: {str(e)}'})
+
+@login_required
+def modificar_vencimiento_lote_ajax(request):
+    """Vista AJAX para modificar la fecha de vencimiento de un lote específico."""
+    if not request.user.has_perm('accounts.can_edit'):
+        return JsonResponse({'success': False, 'error': 'No tienes permiso para realizar esta acción.'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'})
+    
+    try:
+        codigo_barra = request.POST.get('codigo_barra')
+        numero_lote = request.POST.get('numero_lote')
+        nueva_fecha = request.POST.get('nueva_fecha')
+        
+        if not codigo_barra or not numero_lote or not nueva_fecha:
+            return JsonResponse({'success': False, 'error': 'Faltan datos requeridos.'})
+        
+        # Validar el producto
+        try:
+            producto = Producto.objects.get(codigo_barra=codigo_barra)
+        except Producto.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
+        
+        # Validar el lote
+        try:
+            lote = LoteProducto.objects.get(producto=producto, numero_lote=int(numero_lote))
+        except (LoteProducto.DoesNotExist, ValueError):
+            return JsonResponse({'success': False, 'error': 'Lote no encontrado.'})
+        
+        # Validar la fecha
+        from datetime import datetime, date
+        try:
+            fecha_obj = datetime.strptime(nueva_fecha, '%Y-%m-%d').date()
+            if fecha_obj <= date.today():
+                return JsonResponse({'success': False, 'error': 'La fecha de vencimiento debe ser posterior a hoy.'})
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Formato de fecha inválido.'})
+        
+        # Actualizar la fecha del lote
+        fecha_anterior = lote.fecha_vencimiento
+        lote.fecha_vencimiento = fecha_obj
+        lote.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Fecha del Lote #{lote.numero_lote} actualizada de {fecha_anterior.strftime("%d/%m/%Y")} a {fecha_obj.strftime("%d/%m/%Y")}.',
+            'nuevo_estado': lote.get_estado_vencimiento(),
+            'nuevos_dias': lote.get_dias_para_vencer(),
+            'nuevo_color': lote.get_color_estado_vencimiento()
+        })
+            
+    except Exception as e:
+        logger.error(f"Error al modificar vencimiento del lote: {str(e)}")
+        return JsonResponse({'success': False, 'error': f'Error interno: {str(e)}'})
+
+@login_required
+def obtener_lotes_producto_ajax(request):
+    """Vista AJAX para obtener los lotes de un producto."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'})
+    
+    try:
+        codigo_barra = request.GET.get('codigo_barra')
+        
+        if not codigo_barra:
+            return JsonResponse({'success': False, 'error': 'Código de barra requerido.'})
+        
+        # Validar el producto
+        try:
+            producto = Producto.objects.get(codigo_barra=codigo_barra)
+        except Producto.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
+        
+        if not producto.tiene_vencimiento:
+            return JsonResponse({'success': False, 'error': 'Este producto no maneja lotes.'})
+        
+        # Obtener lotes con stock
+        lotes_detalle = producto.get_lotes_detalle()
+        
+        lotes_data = []
+        for lote in lotes_detalle:
+            lotes_data.append({
+                'numero_lote': lote['numero_lote'],
+                'fecha_vencimiento': lote['fecha_vencimiento'].strftime('%Y-%m-%d'),
+                'fecha_vencimiento_display': lote['fecha_vencimiento'].strftime('%d/%m/%Y'),
+                'stock': lote['stock'],
+                'dias_restantes': lote['dias_restantes'],
+                'estado': lote['estado'],
+                'color': lote['color']
+            })
+        
+        return JsonResponse({
+            'success': True, 
+            'lotes': lotes_data,
+            'total_lotes': len(lotes_data),
+            'producto': {
+                'descripcion': producto.descripcion,
+                'fecha_vencimiento': producto.fecha_vencimiento.strftime('%Y-%m-%d') if producto.fecha_vencimiento else '',
+                'fecha_vencimiento_display': producto.fecha_vencimiento.strftime('%d/%m/%Y') if producto.fecha_vencimiento else 'Sin fecha'
+            }
+        })
+            
+    except Exception as e:
+        logger.error(f"Error al obtener lotes del producto: {str(e)}")
+        return JsonResponse({'success': False, 'error': f'Error interno: {str(e)}'})

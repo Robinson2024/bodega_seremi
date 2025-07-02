@@ -144,11 +144,14 @@ class Producto(models.Model):
         return colores.get(estado, '#6c757d')
 
     def get_proximo_numero_lote(self):
-        """Obtiene el siguiente número de lote automáticamente con reset cuando no hay stock."""
+        """Obtiene el siguiente número de lote automáticamente con limpieza de lotes vacíos."""
         if not self.tiene_vencimiento:
             return None
         
-        # Obtener lotes con stock activo
+        # SOLUCIÓN: Limpiar lotes sin stock antes de calcular el próximo número
+        self.limpiar_lotes_vacios()
+        
+        # Obtener lotes con stock activo después de la limpieza
         lotes_con_stock = self.lotes.filter(stock__gt=0)
         
         if not lotes_con_stock.exists():
@@ -158,6 +161,25 @@ class Producto(models.Model):
             # Si hay lotes con stock, obtener el siguiente número
             ultimo_lote = self.lotes.aggregate(max_lote=models.Max('numero_lote'))['max_lote']
             return (ultimo_lote or 0) + 1
+
+    def limpiar_lotes_vacios(self):
+        """Elimina automáticamente los lotes que no tienen stock."""
+        try:
+            lotes_vacios = self.lotes.filter(stock=0)
+            cantidad_eliminados = lotes_vacios.count()
+            lotes_vacios.delete()
+            
+            if cantidad_eliminados > 0:
+                # Registrar en logs si es necesario
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Eliminados {cantidad_eliminados} lotes vacíos del producto {self.codigo_barra}")
+                
+        except Exception as e:
+            # En caso de error, no interrumpir el flujo
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error al limpiar lotes vacíos del producto {self.codigo_barra}: {e}")
 
     def crear_lote_automatico(self, cantidad, fecha_vencimiento, numero_lote_personalizado=None):
         """Crea un lote automáticamente con numeración secuencial o personalizada."""
@@ -190,7 +212,7 @@ class Producto(models.Model):
         return self.lotes.filter(stock__gt=0).order_by('fecha_vencimiento')
 
     def reducir_stock_fifo(self, cantidad_reducir):
-        """Reduce stock siguiendo el método FIFO (First In, First Out)."""
+        """Reduce stock siguiendo el método FIFO (First In, First Out) y limpia lotes vacíos."""
         if not self.tiene_vencimiento:
             # Si no tiene vencimiento, reducir del stock principal
             if self.stock >= cantidad_reducir:
@@ -217,8 +239,15 @@ class Producto(models.Model):
                 lote.stock = 0
                 lote.save()
         
-        # Actualizar stock total del producto
-        self.actualizar_stock_total()
+        # CORRECCIÓN: Actualizar stock total primero, luego limpiar lotes vacíos
+        # Calcular nuevo stock total ANTES de limpiar
+        total_stock = self.lotes.aggregate(total=models.Sum('stock'))['total'] or 0
+        self.stock = total_stock
+        self.save()
+        
+        # Ahora limpiar lotes vacíos después de actualizar el stock
+        self.limpiar_lotes_vacios()
+        
         return cantidad_restante == 0
 
     def actualizar_stock_total(self):

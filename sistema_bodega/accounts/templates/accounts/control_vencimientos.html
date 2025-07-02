@@ -14,9 +14,11 @@
                     <a href="{% url 'exportar-vencimientos-excel' %}" class="btn btn-success btn-sm">
                         <i class="fas fa-file-excel"></i> Exportar Excel
                     </a>
-                    <a href="{% url 'agregar-vencimiento' %}" class="btn btn-warning btn-sm">
-                        <i class="fas fa-plus"></i> Agregar Vencimiento
-                    </a>
+                    {% if request.user.groups.all.0.name == "Administrador" or request.user.groups.all.0.name == "Usuario de Bodega" %}
+                        <a href="{% url 'agregar-vencimiento' %}" class="btn btn-warning btn-sm">
+                            <i class="fas fa-plus"></i> Gestionar Vencimientos
+                        </a>
+                    {% endif %}
                     <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">
                         <i class="fas fa-arrow-left"></i> Volver al Inicio
                     </a>
