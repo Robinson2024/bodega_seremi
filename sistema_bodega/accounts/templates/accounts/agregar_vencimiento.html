@@ -2,84 +2,454 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="text-primary" style="color: #1a3c5e; font-weight: 600;">
-                    <i class="fas fa-calendar-alt text-warning"></i> Gestión de Vencimientos
-                </h2>
-                <div class="d-flex gap-2">
-                    <a href="{% url 'control-vencimientos' %}" class="btn btn-secondary btn-sm">
-                        <i class="fas fa-arrow-left"></i> Volver al Control
+<style>
+    /* Estilos personalizados para mejorar la experiencia visual */
+    .page-header {
+        background: linear-gradient(135deg, #1a3c5e 0%, #2d5a8a 100%);
+        color: white;
+        padding: 2rem 0;
+        margin: -1rem -15px 2rem -15px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .page-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        opacity: 0.3;
+    }
+    
+    .page-header .container {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .page-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 0;
+    }
+    
+    .breadcrumb-nav {
+        background: rgba(255,255,255,0.1);
+        border-radius: 25px;
+        padding: 0.5rem 1rem;
+        backdrop-filter: blur(10px);
+    }
+    
+    .stats-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--card-gradient);
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    }
+    
+    .stats-card.card-info { --card-gradient: linear-gradient(90deg, #17a2b8, #20c997); }
+    .stats-card.card-warning { --card-gradient: linear-gradient(90deg, #ffc107, #fd7e14); }
+    .stats-card.card-success { --card-gradient: linear-gradient(90deg, #28a745, #20c997); }
+    
+    .card-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .card-number {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    
+    .filter-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.06);
+        margin-bottom: 2rem;
+    }
+    
+    .filter-header {
+        background: linear-gradient(90deg, #f8f9fa, #e9ecef);
+        border-radius: 15px 15px 0 0;
+        padding: 1.25rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #1a3c5e;
+        box-shadow: 0 0 0 0.2rem rgba(26, 60, 94, 0.15);
+    }
+    
+    .btn {
+        border-radius: 10px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(45deg, #1a3c5e, #2d5a8a);
+        border: none;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(26, 60, 94, 0.3);
+    }
+    
+    .btn-outline-secondary {
+        border: 2px solid #6c757d;
+    }
+    
+    .btn-outline-secondary:hover {
+        transform: translateY(-2px);
+    }
+    
+    .main-table-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 25px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .table-header {
+        background: linear-gradient(90deg, #1a3c5e, #2d5a8a);
+        color: white;
+        padding: 1.5rem;
+    }
+    
+    .table {
+        margin-bottom: 0;
+    }
+    
+    .table th {
+        background-color: #343a40;
+        color: white;
+        border: none;
+        padding: 1rem 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+    }
+    
+    .table td {
+        padding: 1rem 0.75rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f3f4;
+    }
+    
+    .table tbody tr {
+        transition: all 0.2s ease;
+    }
+    
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+        transform: scale(1.01);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .badge {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+    
+    .estado-vencido { 
+        background: linear-gradient(45deg, #dc3545, #c82333);
+        color: white;
+    }
+    
+    .estado-critico { 
+        background: linear-gradient(45deg, #fd7e14, #e8590c);
+        color: white;
+    }
+    
+    .estado-proximo { 
+        background: linear-gradient(45deg, #ffc107, #e0a800);
+        color: #000;
+    }
+    
+    .estado-bueno { 
+        background: linear-gradient(45deg, #28a745, #1e7e34);
+        color: white;
+    }
+    
+    .btn-group .btn {
+        margin-right: 0.25rem;
+    }
+    
+    .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+    }
+    
+    .pagination {
+        justify-content: center;
+        margin-top: 2rem;
+    }
+    
+    .page-link {
+        border-radius: 8px;
+        margin: 0 2px;
+        border: 1px solid #dee2e6;
+        color: #1a3c5e;
+    }
+    
+    .page-item.active .page-link {
+        background: linear-gradient(45deg, #1a3c5e, #2d5a8a);
+        border-color: #1a3c5e;
+    }
+    
+    .page-link:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(26, 60, 94, 0.2);
+    }
+    
+    .modal-content {
+        border-radius: 15px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    
+    .modal-header {
+        border-radius: 15px 15px 0 0;
+        border-bottom: 1px solid #dee2e6;
+        padding: 1.5rem;
+    }
+    
+    .alert {
+        border-radius: 10px;
+        border: none;
+        padding: 1rem 1.5rem;
+    }
+    
+    /* Animaciones */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Animaciones más suaves y menos disruptivas */
+    .fade-in-up {
+        animation: fadeInUpSmooth 0.4s ease-out;
+        animation-fill-mode: both;
+    }
+    
+    @keyframes fadeInUpSmooth {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Transiciones mínimas para cambios de página - sin scroll forzado */
+    .page-transition {
+        transition: opacity 0.1s ease-in-out;
+    }
+    
+    .page-fade-out {
+        opacity: 0.95; /* Casi imperceptible */
+    }
+    
+    .page-fade-in {
+        opacity: 1;
+    }
+    
+    /* Animaciones para cards de lotes */
+    .lote-card {
+        transition: all 0.3s ease;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    
+    .lote-card.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    
+    .lote-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+    
+    /* Gradiente para headers de cards de lotes */
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
+    }
+    
+    .pulse-animation {
+        animation: pulse 3s infinite;
+    }
+</style>
+
+<div class="page-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="page-title">
+                    <i class="fas fa-calendar-alt me-3"></i>
+                    Gestión de Vencimientos
+                </h1>
+                <p class="page-subtitle">
+                    Administra fechas de vencimiento y controla lotes de productos
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="breadcrumb-nav">
+                    <a href="{% url 'control-vencimientos' %}" class="btn btn-light btn-sm me-2">
+                        <i class="fas fa-arrow-left"></i> Control
                     </a>
-                    <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">
+                    <a href="{% url 'home' %}" class="btn btn-light btn-sm">
                         <i class="fas fa-home"></i> Inicio
                     </a>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
+<div class="container mt-4">
     <!-- Mensajes -->
     {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center" role="alert">
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center fade-in-up" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
                 {{ message }}
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">×</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         {% endfor %}
     {% endif %}
 
-    <!-- Estadísticas rápidas -->
+    <!-- Estadísticas mejoradas -->
     <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card bg-info text-white">
-                <div class="card-body text-center">
-                    <h4><i class="fas fa-list"></i> {{ total_productos }}</h4>
-                    <p class="mb-0">Total Productos</p>
+        <div class="col-md-4 mb-3 fade-in-up" style="animation-delay: 0.1s;">
+            <div class="card stats-card card-info text-center">
+                <div class="card-body">
+                    <div class="card-icon">
+                        <i class="fas fa-boxes"></i>
+                    </div>
+                    <div class="card-number">{{ total_productos }}</div>
+                    <div class="card-text">Total Productos</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card bg-warning text-white">
-                <div class="card-body text-center">
-                    <h4><i class="fas fa-exclamation-triangle"></i> {{ productos_sin_vencimiento }}</h4>
-                    <p class="mb-0">Sin Vencimiento</p>
+        <div class="col-md-4 mb-3 fade-in-up" style="animation-delay: 0.2s;">
+            <div class="card stats-card card-warning text-center">
+                <div class="card-body">
+                    <div class="card-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="card-number">{{ productos_sin_vencimiento }}</div>
+                    <div class="card-text">Sin Vencimiento</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card bg-success text-white">
-                <div class="card-body text-center">
-                    <h4><i class="fas fa-check-circle"></i> {{ productos_con_vencimiento }}</h4>
-                    <p class="mb-0">Con Vencimiento</p>
+        <div class="col-md-4 mb-3 fade-in-up" style="animation-delay: 0.3s;">
+            <div class="card stats-card card-success text-center">
+                <div class="card-body">
+                    <div class="card-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="card-number">{{ productos_con_vencimiento }}</div>
+                    <div class="card-text">Con Vencimiento</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Filtros de búsqueda -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros de Búsqueda</h5>
+    <!-- Filtros mejorados -->
+    <div class="card filter-card fade-in-up" style="animation-delay: 0.4s;">
+        <div class="filter-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter me-2"></i>
+                Filtros de Búsqueda
+            </h5>
         </div>
         <div class="card-body">
             <form method="get" id="filter-form">
-                <div class="row">
-                    <div class="col-md-3 mb-3">
-                        <label for="codigo_barra" class="form-label">Código de Barra</label>
-                        <input type="text" class="form-control" id="codigo_barra" name="codigo_barra" value="{{ query_codigo }}" placeholder="Buscar por código...">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="codigo_barra" class="form-label fw-bold">
+                            <i class="fas fa-barcode me-1"></i>
+                            Código de Barra
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="codigo_barra" 
+                               name="codigo_barra" 
+                               value="{{ query_codigo }}" 
+                               placeholder="Ej: 123456789">
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <label for="descripcion" class="form-label">Descripción</label>
-                        <input type="text" class="form-control" id="descripcion" name="descripcion" value="{{ query_descripcion }}" placeholder="Buscar por descripción...">
+                    <div class="col-md-3">
+                        <label for="descripcion" class="form-label fw-bold">
+                            <i class="fas fa-tag me-1"></i>
+                            Descripción
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="descripcion" 
+                               name="descripcion" 
+                               value="{{ query_descripcion }}" 
+                               placeholder="Buscar producto...">
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <label for="categoria" class="form-label">Categoría</label>
-                        <select class="form-control" id="categoria" name="categoria">
+                    <div class="col-md-3">
+                        <label for="categoria" class="form-label fw-bold">
+                            <i class="fas fa-layer-group me-1"></i>
+                            Categoría
+                        </label>
+                        <select class="form-select" id="categoria" name="categoria">
                             <option value="">Todas las categorías</option>
                             {% for cat in categorias %}
                                 <option value="{{ cat.nombre }}" {% if query_categoria == cat.nombre %}selected{% endif %}>
@@ -88,22 +458,27 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <label for="tipo" class="form-label">Tipo de Producto</label>
-                        <select class="form-control" id="tipo" name="tipo">
+                    <div class="col-md-3">
+                        <label for="tipo" class="form-label fw-bold">
+                            <i class="fas fa-filter me-1"></i>
+                            Tipo de Producto
+                        </label>
+                        <select class="form-select" id="tipo" name="tipo">
                             <option value="todos" {% if tipo_filtro == 'todos' %}selected{% endif %}>Todos</option>
                             <option value="sin_vencimiento" {% if tipo_filtro == 'sin_vencimiento' %}selected{% endif %}>Sin Vencimiento</option>
                             <option value="con_vencimiento" {% if tipo_filtro == 'con_vencimiento' %}selected{% endif %}>Con Vencimiento</option>
                         </select>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-12">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-search"></i> Buscar
+                <div class="row mt-4">
+                    <div class="col-12 text-center">
+                        <button type="submit" class="btn btn-primary me-3">
+                            <i class="fas fa-search me-2"></i>
+                            Buscar Productos
                         </button>
                         <button type="button" class="btn btn-outline-secondary" id="limpiar-filtros">
-                            <i class="fas fa-times"></i> Limpiar
+                            <i class="fas fa-eraser me-2"></i>
+                            Limpiar Filtros
                         </button>
                     </div>
                 </div>
@@ -111,69 +486,115 @@
         </div>
     </div>
 
-    <!-- Tabla de productos -->
-    <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="fas fa-boxes"></i> Productos para Gestión de Vencimientos</h5>
+    <!-- Tabla principal mejorada -->
+    <div class="card main-table-card fade-in-up" style="animation-delay: 0.5s;">
+        <div class="table-header">
+            <h5 class="mb-0">
+                <i class="fas fa-table me-2"></i>
+                Productos para Gestión de Vencimientos
+                {% if page_obj %}
+                    <span class="badge bg-light text-dark ms-2">
+                        {{ page_obj.paginator.count }} productos
+                    </span>
+                {% endif %}
+            </h5>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0">
             {% if page_obj %}
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead class="table-dark">
+                    <table class="table table-hover mb-0">
+                        <thead>
                             <tr>
-                                <th>Código</th>
-                                <th>Descripción</th>
-                                <th>Categoría</th>
-                                <th>Stock</th>
-                                <th>Estado Vencimiento</th>
-                                <th>Fecha Vencimiento</th>
-                                <th>Lotes</th>
-                                <th>Acciones</th>
+                                <th><i class="fas fa-barcode me-1"></i> Código</th>
+                                <th><i class="fas fa-tag me-1"></i> Descripción</th>
+                                <th><i class="fas fa-layer-group me-1"></i> Categoría</th>
+                                <th><i class="fas fa-cubes me-1"></i> Stock</th>
+                                <th><i class="fas fa-traffic-light me-1"></i> Estado</th>
+                                <th><i class="fas fa-calendar me-1"></i> Fecha Vencimiento</th>
+                                <th><i class="fas fa-boxes me-1"></i> Lotes</th>
+                                <th><i class="fas fa-cogs me-1"></i> Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for item in page_obj %}
-                            <tr id="producto-{{ item.producto.codigo_barra }}" data-codigo="{{ item.producto.codigo_barra }}">
-                                <td><code>{{ item.producto.codigo_barra }}</code></td>
-                                <td>{{ item.producto.descripcion }}</td>
+                            <tr id="producto-{{ item.producto.codigo_barra }}" 
+                                data-codigo="{{ item.producto.codigo_barra }}"
+                                class="fade-in-up">
+                                <td>
+                                    <code class="bg-light p-2 rounded">{{ item.producto.codigo_barra }}</code>
+                                </td>
+                                <td>
+                                    <div class="fw-bold">{{ item.producto.descripcion }}</div>
+                                </td>
                                 <td>
                                     {% if item.producto.categoria %}
-                                        <span class="badge badge-info">{{ item.producto.categoria.nombre }}</span>
+                                        <span class="badge bg-info text-white">
+                                            <i class="fas fa-folder me-1"></i>
+                                            {{ item.producto.categoria.nombre }}
+                                        </span>
                                     {% else %}
-                                        <span class="text-muted">Sin categoría</span>
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-question me-1"></i>
+                                            Sin categoría
+                                        </span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span class="badge badge-{% if item.producto.stock == 0 %}danger{% elif item.producto.stock <= 10 %}warning{% else %}success{% endif %}">
+                                    <span class="badge fs-6 {% if item.producto.stock == 0 %}bg-danger{% elif item.producto.stock <= 10 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                        <i class="fas fa-cubes me-1"></i>
                                         {{ item.producto.stock }}
                                     </span>
                                 </td>
                                 <td>
                                     {% if item.producto.tiene_vencimiento %}
                                         <span class="badge estado-{{ item.estado_vencimiento|lower }}">
+                                            {% if item.estado_vencimiento == 'Vencido' %}
+                                                <i class="fas fa-times-circle me-1"></i>
+                                            {% elif item.estado_vencimiento == 'Crítico' %}
+                                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                            {% elif item.estado_vencimiento == 'Precaución' %}
+                                                <i class="fas fa-clock me-1"></i>
+                                            {% else %}
+                                                <i class="fas fa-check-circle me-1"></i>
+                                            {% endif %}
                                             {{ item.estado_vencimiento }}
                                         </span>
                                     {% else %}
-                                        <span class="badge badge-secondary">Sin Vencimiento</span>
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-infinity me-1"></i>
+                                            Sin Vencimiento
+                                        </span>
                                     {% endif %}
                                 </td>
                                 <td id="fecha-{{ item.producto.codigo_barra }}">
                                     {% if item.producto.tiene_vencimiento %}
                                         {% if item.proximo_vencimiento %}
-                                            {{ item.proximo_vencimiento|date:"d/m/Y" }}
+                                            <span class="fw-bold">
+                                                <i class="fas fa-calendar-day me-1"></i>
+                                                {{ item.proximo_vencimiento|date:"d/m/Y" }}
+                                            </span>
                                         {% else %}
-                                            <span class="text-muted">Sin fecha</span>
+                                            <span class="text-muted">
+                                                <i class="fas fa-question-circle me-1"></i>
+                                                Sin fecha
+                                            </span>
                                         {% endif %}
                                     {% else %}
-                                        <span class="text-muted">-</span>
+                                        <span class="text-muted">
+                                            <i class="fas fa-minus"></i>
+                                        </span>
                                     {% endif %}
                                 </td>
                                 <td id="lotes-{{ item.producto.codigo_barra }}">
                                     {% if item.producto.tiene_vencimiento %}
-                                        <span class="badge badge-primary">{{ item.total_lotes }} lote{{ item.total_lotes|pluralize:"s" }}</span>
+                                        <span class="badge bg-primary">
+                                            <i class="fas fa-layer-group me-1"></i>
+                                            {{ item.total_lotes }} lote{{ item.total_lotes|pluralize:"s" }}
+                                        </span>
                                     {% else %}
-                                        <span class="text-muted">-</span>
+                                        <span class="text-muted">
+                                            <i class="fas fa-minus"></i>
+                                        </span>
                                     {% endif %}
                                 </td>
                                 <td>
@@ -183,8 +604,9 @@
                                             <button type="button" class="btn btn-success btn-sm" 
                                                     data-toggle="modal" data-target="#modalAgregarVencimiento"
                                                     data-codigo="{{ item.producto.codigo_barra }}"
-                                                    data-descripcion="{{ item.producto.descripcion }}">
-                                                <i class="fas fa-plus"></i> Agregar
+                                                    data-descripcion="{{ item.producto.descripcion }}"
+                                                    title="Agregar fecha de vencimiento">
+                                                <i class="fas fa-plus me-1"></i> Agregar
                                             </button>
                                         {% else %}
                                             {% if item.total_lotes == 0 %}
@@ -193,13 +615,15 @@
                                                         data-toggle="modal" data-target="#modalModificarProducto"
                                                         data-codigo="{{ item.producto.codigo_barra }}"
                                                         data-descripcion="{{ item.producto.descripcion }}"
-                                                        data-fecha="{{ item.producto.fecha_vencimiento|date:'Y-m-d' }}">
-                                                    <i class="fas fa-edit"></i> Modificar
+                                                        data-fecha="{{ item.producto.fecha_vencimiento|date:'Y-m-d' }}"
+                                                        title="Modificar fecha de vencimiento">
+                                                    <i class="fas fa-edit me-1"></i> Modificar
                                                 </button>
                                             {% else %}
                                                 <!-- Si tiene lotes, mostrar mensaje informativo -->
                                                 <span class="badge bg-info text-dark">
-                                                    <i class="fas fa-info-circle"></i> Modificar por lotes
+                                                    <i class="fas fa-info-circle me-1"></i> 
+                                                    Modificar por lotes
                                                 </span>
                                             {% endif %}
                                             <!-- Botón para gestionar lotes -->
@@ -207,8 +631,10 @@
                                                 <button type="button" class="btn btn-info btn-sm" 
                                                         data-toggle="modal" data-target="#modalGestionarLotes"
                                                         data-codigo="{{ item.producto.codigo_barra }}"
-                                                        data-descripcion="{{ item.producto.descripcion }}">
-                                                    <i class="fas fa-layer-group"></i> Lotes ({{ item.total_lotes }})
+                                                        data-descripcion="{{ item.producto.descripcion }}"
+                                                        title="Gestionar lotes del producto">
+                                                    <i class="fas fa-layer-group me-1"></i> 
+                                                    Lotes ({{ item.total_lotes }})
                                                 </button>
                                             {% endif %}
                                         {% endif %}
@@ -220,95 +646,134 @@
                     </table>
                 </div>
 
-                <!-- Paginación -->
+                <!-- Paginación mejorada -->
                 {% if page_obj.has_other_pages %}
-                    <nav aria-label="Paginación" class="mt-4">
-                        <ul class="pagination justify-content-center">
-                            {% if page_obj.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page=1{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
-                                        &laquo; Primera
-                                    </a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
-                                        &lsaquo; Anterior
-                                    </a>
-                                </li>
-                            {% endif %}
-
-                            {% for num in page_obj.paginator.page_range %}
-                                {% if page_obj.number == num %}
-                                    <li class="page-item active">
-                                        <span class="page-link">{{ num }}</span>
-                                    </li>
-                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <div class="d-flex justify-content-center mt-4 mb-3">
+                        <nav aria-label="Paginación de productos">
+                            <ul class="pagination pagination-lg">
+                                {% if page_obj.has_previous %}
                                     <li class="page-item">
-                                        <a class="page-link" href="?page={{ num }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
-                                            {{ num }}
+                                        <a class="page-link" href="?page=1{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}" title="Primera página">
+                                            <i class="fas fa-angle-double-left"></i>
+                                            <span class="d-none d-sm-inline ms-1">Primera</span>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}" title="Página anterior">
+                                            <i class="fas fa-angle-left"></i>
+                                            <span class="d-none d-sm-inline ms-1">Anterior</span>
                                         </a>
                                     </li>
                                 {% endif %}
-                            {% endfor %}
 
-                            {% if page_obj.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
-                                        Siguiente &rsaquo;
-                                    </a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
-                                        Última &raquo;
-                                    </a>
-                                </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">
+                                                {{ num }}
+                                                <span class="sr-only">(actual)</span>
+                                            </span>
+                                        </li>
+                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
+                                                {{ num }}
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}" title="Página siguiente">
+                                            <span class="d-none d-sm-inline me-1">Siguiente</span>
+                                            <i class="fas fa-angle-right"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}" title="Última página">
+                                            <span class="d-none d-sm-inline me-1">Última</span>
+                                            <i class="fas fa-angle-double-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    <div class="text-center text-muted mb-3">
+                        <small>
+                            <i class="fas fa-info-circle me-1"></i>
+                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }} 
+                            ({{ page_obj.paginator.count }} productos en total)
+                        </small>
+                    </div>
                 {% endif %}
             {% else %}
-                <div class="text-center py-4">
-                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
-                    <h5 class="text-muted">No se encontraron productos</h5>
-                    <p class="text-muted">Intenta ajustar los filtros de búsqueda.</p>
+                <div class="text-center py-5">
+                    <div class="mb-4">
+                        <i class="fas fa-search fa-4x text-muted"></i>
+                    </div>
+                    <h4 class="text-muted mb-3">No se encontraron productos</h4>
+                    <p class="text-muted mb-4">
+                        No hay productos que coincidan con los filtros aplicados.<br>
+                        Intenta ajustar los criterios de búsqueda.
+                    </p>
+                    <button type="button" class="btn btn-outline-primary" id="limpiar-filtros-vacio">
+                        <i class="fas fa-eraser me-2"></i>
+                        Limpiar Filtros
+                    </button>
                 </div>
             {% endif %}
         </div>
     </div>
 </div>
 
-<!-- Modales -->
+<!-- Modales mejorados -->
 
 <!-- Modal para Agregar Vencimiento -->
 <div class="modal fade" id="modalAgregarVencimiento" tabindex="-1" role="dialog" aria-labelledby="modalAgregarVencimientoLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-success text-white">
                 <h5 class="modal-title" id="modalAgregarVencimientoLabel">
-                    <i class="fas fa-plus-circle text-success"></i> Agregar Vencimiento
+                    <i class="fas fa-plus-circle me-2"></i> 
+                    Agregar Fecha de Vencimiento
                 </h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close btn-close-white" data-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-4">
                 <form id="formAgregarVencimiento">
-                    <div class="mb-3">
-                        <label class="form-label">Producto:</label>
-                        <p id="productoAgregar" class="form-control-static font-weight-bold"></p>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-box me-2 text-primary"></i>
+                            Producto:
+                        </label>
+                        <div class="bg-light p-3 rounded">
+                            <p id="productoAgregar" class="mb-0 fw-bold text-dark"></p>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="fechaVencimientoAgregar" class="form-label">Fecha de Vencimiento:</label>
-                        <input type="date" class="form-control" id="fechaVencimientoAgregar" required>
-                        <small class="form-text text-muted">La fecha debe ser posterior a hoy.</small>
+                    <div class="mb-4">
+                        <label for="fechaVencimientoAgregar" class="form-label fw-bold">
+                            <i class="fas fa-calendar-alt me-2 text-success"></i>
+                            Fecha de Vencimiento:
+                        </label>
+                        <input type="date" class="form-control form-control-lg" id="fechaVencimientoAgregar" required>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            La fecha debe ser posterior a hoy
+                        </div>
                     </div>
                     <input type="hidden" id="codigoBarraAgregar">
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>
+                    Cancelar
+                </button>
                 <button type="button" class="btn btn-success" id="btnAgregarVencimiento">
-                    <i class="fas fa-save"></i> Agregar Vencimiento
+                    <i class="fas fa-save me-2"></i> 
+                    Agregar Vencimiento
                 </button>
             </div>
         </div>
@@ -317,34 +782,48 @@
 
 <!-- Modal para Modificar Vencimiento del Producto -->
 <div class="modal fade" id="modalModificarProducto" tabindex="-1" role="dialog" aria-labelledby="modalModificarProductoLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-warning text-dark">
                 <h5 class="modal-title" id="modalModificarProductoLabel">
-                    <i class="fas fa-edit text-warning"></i> Modificar Vencimiento del Producto
+                    <i class="fas fa-edit me-2"></i> 
+                    Modificar Fecha de Vencimiento
                 </h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-4">
                 <form id="formModificarProducto">
-                    <div class="mb-3">
-                        <label class="form-label">Producto:</label>
-                        <p id="productoModificar" class="form-control-static font-weight-bold"></p>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-box me-2 text-primary"></i>
+                            Producto:
+                        </label>
+                        <div class="bg-light p-3 rounded">
+                            <p id="productoModificar" class="mb-0 fw-bold text-dark"></p>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="fechaVencimientoModificar" class="form-label">Nueva Fecha de Vencimiento:</label>
-                        <input type="date" class="form-control" id="fechaVencimientoModificar" required>
-                        <small class="form-text text-muted">La fecha debe ser posterior a hoy.</small>
+                    <div class="mb-4">
+                        <label for="fechaVencimientoModificar" class="form-label fw-bold">
+                            <i class="fas fa-calendar-alt me-2 text-warning"></i>
+                            Nueva Fecha de Vencimiento:
+                        </label>
+                        <input type="date" class="form-control form-control-lg" id="fechaVencimientoModificar" required>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            La fecha debe ser posterior a hoy
+                        </div>
                     </div>
                     <input type="hidden" id="codigoBarraModificar">
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>
+                    Cancelar
+                </button>
                 <button type="button" class="btn btn-warning" id="btnModificarProducto">
-                    <i class="fas fa-save"></i> Modificar Vencimiento
+                    <i class="fas fa-save me-2"></i> 
+                    Modificar Vencimiento
                 </button>
             </div>
         </div>
@@ -353,28 +832,43 @@
 
 <!-- Modal para Gestionar Lotes -->
 <div class="modal fade" id="modalGestionarLotes" tabindex="-1" role="dialog" aria-labelledby="modalGestionarLotesLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-info text-white">
                 <h5 class="modal-title" id="modalGestionarLotesLabel">
-                    <i class="fas fa-layer-group text-info"></i> Gestionar Lotes
+                    <i class="fas fa-layer-group me-2"></i> 
+                    Gestión de Lotes
                 </h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close btn-close-white" data-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Producto:</label>
-                    <p id="productoLotes" class="form-control-static font-weight-bold"></p>
+            <div class="modal-body p-4">
+                <div class="mb-4">
+                    <label class="form-label fw-bold">
+                        <i class="fas fa-box me-2 text-primary"></i>
+                        Producto:
+                    </label>
+                    <div class="bg-light p-3 rounded">
+                        <p id="productoLotes" class="mb-0 fw-bold text-dark"></p>
+                    </div>
                 </div>
-                <div id="listaLotes">
-                    <!-- Los lotes se cargarán aquí dinámicamente -->
+                <div class="row">
+                    <div class="col-12">
+                        <h6 class="fw-bold mb-3">
+                            <i class="fas fa-list me-2 text-info"></i>
+                            Lotes del Producto
+                        </h6>
+                        <div id="listaLotes">
+                            <!-- Los lotes se cargarán aquí dinámicamente -->
+                        </div>
+                    </div>
                 </div>
                 <input type="hidden" id="codigoBarraLotes">
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>
+                    Cerrar
+                </button>
             </div>
         </div>
     </div>
@@ -382,35 +876,49 @@
 
 <!-- Modal para Modificar Vencimiento de Lote -->
 <div class="modal fade" id="modalModificarLote" tabindex="-1" role="dialog" aria-labelledby="modalModificarLoteLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-info text-white">
                 <h5 class="modal-title" id="modalModificarLoteLabel">
-                    <i class="fas fa-edit text-info"></i> Modificar Vencimiento del Lote
+                    <i class="fas fa-edit me-2"></i> 
+                    Modificar Vencimiento del Lote
                 </h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close btn-close-white" data-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-4">
                 <form id="formModificarLote">
-                    <div class="mb-3">
-                        <label class="form-label">Lote:</label>
-                        <p id="loteModificar" class="form-control-static font-weight-bold"></p>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-tags me-2 text-primary"></i>
+                            Lote:
+                        </label>
+                        <div class="bg-light p-3 rounded">
+                            <p id="loteModificar" class="mb-0 fw-bold text-dark"></p>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="fechaVencimientoLote" class="form-label">Nueva Fecha de Vencimiento:</label>
-                        <input type="date" class="form-control" id="fechaVencimientoLote" required>
-                        <small class="form-text text-muted">La fecha debe ser posterior a hoy.</small>
+                    <div class="mb-4">
+                        <label for="fechaVencimientoLote" class="form-label fw-bold">
+                            <i class="fas fa-calendar-alt me-2 text-info"></i>
+                            Nueva Fecha de Vencimiento:
+                        </label>
+                        <input type="date" class="form-control form-control-lg" id="fechaVencimientoLote" required>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            La fecha debe ser posterior a hoy
+                        </div>
                     </div>
                     <input type="hidden" id="codigoBarraLote">
                     <input type="hidden" id="numeroLoteModificar">
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>
+                    Cancelar
+                </button>
                 <button type="button" class="btn btn-info" id="btnModificarLote">
-                    <i class="fas fa-save"></i> Modificar Lote
+                    <i class="fas fa-save me-2"></i> 
+                    Modificar Lote
                 </button>
             </div>
         </div>
@@ -518,7 +1026,7 @@
             }
         });
 
-        // Limpiar filtros
+        // Limpiar filtros (botón principal)
         document.getElementById('limpiar-filtros').addEventListener('click', function() {
             document.getElementById('codigo_barra').value = '';
             document.getElementById('descripcion').value = '';
@@ -526,6 +1034,14 @@
             document.getElementById('tipo').value = 'todos';
             document.getElementById('filter-form').submit();
         });
+
+        // Limpiar filtros (botón de página vacía)
+        const btnLimpiarVacio = document.getElementById('limpiar-filtros-vacio');
+        if (btnLimpiarVacio) {
+            btnLimpiarVacio.addEventListener('click', function() {
+                window.location.href = "{% url 'agregar-vencimiento' %}";
+            });
+        }
 
         // Modal Agregar Vencimiento
         $('#modalAgregarVencimiento').on('show.bs.modal', function(event) {
@@ -600,6 +1116,49 @@
             
             modificarVencimientoLote(codigo, numeroLote, fecha);
         });
+    });
+
+    // Efectos visuales mejorados para UX
+    document.addEventListener('DOMContentLoaded', function() {
+        // Añadir efectos hover a las estadísticas
+        const statsCards = document.querySelectorAll('.stats-card');
+        statsCards.forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-8px) scale(1.02)';
+            });
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+
+        // Efectos de focus en campos de formulario
+        const inputs = document.querySelectorAll('.form-control, .form-select');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                this.style.transform = 'scale(1.02)';
+                this.style.boxShadow = '0 0 15px rgba(26, 60, 94, 0.3)';
+            });
+            input.addEventListener('blur', function() {
+                this.style.transform = 'scale(1)';
+                this.style.boxShadow = '';
+            });
+        });
+
+        // Añadir tooltips dinámicos a badges
+        const badges = document.querySelectorAll('.badge');
+        badges.forEach(badge => {
+            badge.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.1)';
+                this.style.zIndex = '1000';
+            });
+            badge.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1)';
+                this.style.zIndex = '';
+            });
+        });
+
+        // Eliminado scroll automático - transiciones instantáneas
+        // Ya no forzamos scroll hacia arriba al cambiar de página
     });
 
     // Función para agregar vencimiento
@@ -679,7 +1238,7 @@
         });
     }
 
-    // Función para cargar lotes
+    // Función para cargar lotes con diseño de cards sin scroll horizontal
     function cargarLotes(codigo) {
         fetch('{% url "obtener-lotes-producto-ajax" %}?codigo_barra=' + codigo)
         .then(response => response.json())
@@ -687,35 +1246,158 @@
             if (data.success) {
                 const listaLotes = document.getElementById('listaLotes');
                 if (data.lotes.length === 0) {
-                    listaLotes.innerHTML = '<p class="text-muted">No hay lotes para este producto.</p>';
+                    listaLotes.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">No hay lotes disponibles</h6>
+                            <p class="text-muted mb-0">Este producto no tiene lotes registrados.</p>
+                        </div>
+                    `;
                 } else {
-                    let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Lote #</th><th>Stock</th><th>Fecha Vencimiento</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
+                    // Calcular totales
+                    const totalLotes = data.lotes.length;
+                    const stockTotal = data.lotes.reduce((sum, lote) => sum + lote.stock, 0);
                     
-                    data.lotes.forEach(lote => {
+                    let html = `
+                        <!-- Resumen de Lotes -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="card bg-primary text-white h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-cubes fa-2x mb-2"></i>
+                                        <h5 class="card-title mb-0">${totalLotes}</h5>
+                                        <small>Total Lotes</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-success text-white h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-boxes fa-2x mb-2"></i>
+                                        <h5 class="card-title mb-0">${stockTotal}</h5>
+                                        <small>Stock Total</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cards de Lotes -->
+                        <div class="row g-2">
+                    `;
+                    
+                    data.lotes.forEach((lote, index) => {
+                        const stockClass = lote.stock === 0 ? 'danger' : (lote.stock <= 10 ? 'warning' : 'success');
+                        const estadoIcon = getEstadoIcon(lote.estado);
+                        const estadoClass = getEstadoClass(lote.estado);
+                        
                         html += `
-                            <tr>
-                                <td><strong>#${lote.numero_lote}</strong></td>
-                                <td><span class="badge badge-${lote.stock === 0 ? 'danger' : (lote.stock <= 10 ? 'warning' : 'success')}">${lote.stock}</span></td>
-                                <td>${lote.fecha_vencimiento_display}</td>
-                                <td><span class="badge estado-${lote.estado.toLowerCase()}">${lote.estado}</span></td>
-                                <td>
-                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="abrirModalModificarLote('${codigo}', '${lote.numero_lote}', '${lote.fecha_vencimiento}')">
-                                        <i class="fas fa-edit"></i> Modificar
-                                    </button>
-                                </td>
-                            </tr>
+                            <div class="col-md-6 col-lg-4">
+                                <div class="card lote-card h-100 border-0 shadow-sm" style="animation-delay: ${index * 0.1}s;">
+                                    <div class="card-header bg-gradient-primary text-white py-2">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="fw-bold">
+                                                <i class="fas fa-tag me-1"></i>
+                                                Lote #${lote.numero_lote}
+                                            </span>
+                                            <span class="badge bg-white text-primary">
+                                                <i class="fas fa-cubes me-1"></i>
+                                                ${lote.stock}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <div class="mb-2">
+                                            <small class="text-muted">
+                                                <i class="fas fa-calendar-alt me-1"></i>
+                                                Vencimiento
+                                            </small>
+                                            <div class="fw-bold text-dark">${lote.fecha_vencimiento_display}</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <span class="badge ${estadoClass} w-100 py-2">
+                                                ${estadoIcon}
+                                                ${lote.estado}
+                                            </span>
+                                        </div>
+                                        <button type="button" 
+                                                class="btn btn-outline-info btn-sm w-100" 
+                                                onclick="abrirModalModificarLote('${codigo}', '${lote.numero_lote}', '${lote.fecha_vencimiento}')"
+                                                title="Modificar fecha de vencimiento">
+                                            <i class="fas fa-edit me-1"></i> 
+                                            Modificar Vencimiento
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         `;
                     });
                     
-                    html += '</tbody></table></div>';
+                    html += `
+                        </div>
+                    `;
                     listaLotes.innerHTML = html;
+                    
+                    // Animar las cards
+                    animarCards();
                 }
             } else {
-                document.getElementById('listaLotes').innerHTML = '<p class="text-danger">Error al cargar los lotes: ' + data.error + '</p>';
+                document.getElementById('listaLotes').innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <h6 class="text-danger">Error al cargar los lotes</h6>
+                        <p class="text-muted">${data.error}</p>
+                    </div>
+                `;
             }
         })
         .catch(error => {
-            document.getElementById('listaLotes').innerHTML = '<p class="text-danger">Error de conexión: ' + error.message + '</p>';
+            document.getElementById('listaLotes').innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-wifi fa-3x text-danger mb-3"></i>
+                    <h6 class="text-danger">Error de conexión</h6>
+                    <p class="text-muted">${error.message}</p>
+                </div>
+            `;
+        });
+    }
+
+    // Función auxiliar para obtener iconos de estado
+    function getEstadoIcon(estado) {
+        const iconos = {
+            'vencido': '<i class="fas fa-times-circle me-1"></i>',
+            'vence hoy': '<i class="fas fa-exclamation-triangle me-1"></i>',
+            'crítico': '<i class="fas fa-exclamation-triangle me-1"></i>',
+            'critico': '<i class="fas fa-exclamation-triangle me-1"></i>',
+            'precaución': '<i class="fas fa-clock me-1"></i>',
+            'precaucion': '<i class="fas fa-clock me-1"></i>',
+            'normal': '<i class="fas fa-check-circle me-1"></i>',
+            'bueno': '<i class="fas fa-check-circle me-1"></i>'
+        };
+        return iconos[estado.toLowerCase()] || '<i class="fas fa-question-circle me-1"></i>';
+    }
+
+    // Función auxiliar para obtener clases de estado para badges
+    function getEstadoClass(estado) {
+        const clases = {
+            'vencido': 'bg-danger',
+            'vence hoy': 'bg-warning text-dark',
+            'crítico': 'bg-warning text-dark',
+            'critico': 'bg-warning text-dark',
+            'precaución': 'bg-info',
+            'precaucion': 'bg-info',
+            'normal': 'bg-success',
+            'bueno': 'bg-success'
+        };
+        return clases[estado.toLowerCase()] || 'bg-secondary';
+    }
+
+    // Función para animar las cards de lotes con transiciones más suaves
+    function animarCards() {
+        const cards = document.querySelectorAll('.lote-card');
+        cards.forEach((card, index) => {
+            setTimeout(() => {
+                card.classList.add('show');
+            }, index * 50); // Reducido el delay para transición más rápida
         });
     }
 
@@ -843,5 +1525,63 @@
         }
         return cookieValue;
     }
+
+    // Funciones para transiciones de página más directas y rápidas
+    function initPageTransitions() {
+        const body = document.body;
+        body.classList.add('page-transition');
+        
+        // Aplicar fade-in inicial muy suave
+        setTimeout(() => {
+            body.classList.add('page-fade-in');
+        }, 50);
+        
+        // Navegación directa sin interceptar - más rápida
+        // Ya no interceptamos los clics para permitir navegación nativa
+    }
+
+    function smoothPageTransition(url) {
+        // Transición mínima sin scroll forzado
+        const body = document.body;
+        body.classList.add('page-fade-out');
+        
+        setTimeout(() => {
+            window.location.href = url;
+        }, 100); // Reducido a 100ms para cambio más rápido
+    }
+
+    // Mejorar la experiencia del modal de lotes
+    function enhanceModalExperience() {
+        const modalLotes = document.getElementById('modalLotes');
+        if (modalLotes) {
+            modalLotes.addEventListener('shown.bs.modal', function () {
+                // Animar cards cuando el modal se muestra
+                setTimeout(animarCards, 100);
+            });
+            
+            modalLotes.addEventListener('hidden.bs.modal', function () {
+                // Limpiar animaciones cuando se cierra
+                const cards = document.querySelectorAll('.lote-card');
+                cards.forEach(card => {
+                    card.classList.remove('show');
+                });
+            });
+        }
+    }
+
+    // Inicializar mejoras con navegación directa y rápida
+    document.addEventListener('DOMContentLoaded', function() {
+        // Solo inicializar transiciones mínimas
+        initPageTransitions();
+        enhanceModalExperience();
+        
+        // Aplicar animaciones suaves solo a elementos de la página actual
+        const elements = document.querySelectorAll('.fade-in-up');
+        elements.forEach((element, index) => {
+            element.style.animationDelay = `${index * 0.05}s`; // Más rápido
+        });
+        
+        // Permitir navegación nativa sin interceptar para mayor velocidad
+    });
 </script>
 {% endblock %}
