@@ -1968,10 +1968,16 @@ def modificar_vencimiento_producto_ajax(request):
         producto.fecha_vencimiento = fecha_obj
         producto.save()
         
+        # CORRECCIÓN: También actualizar TODOS los lotes del producto
+        lotes_actualizados = 0
+        if producto.lotes.exists():
+            lotes_actualizados = producto.lotes.update(fecha_vencimiento=fecha_obj)
+        
         return JsonResponse({
             'success': True, 
-            'message': f'Fecha de vencimiento actualizada de {fecha_anterior.strftime("%d/%m/%Y") if fecha_anterior else "Sin fecha"} a {fecha_obj.strftime("%d/%m/%Y")}.',
-            'nueva_fecha': fecha_obj.strftime("%Y-%m-%d")
+            'message': f'Fecha de vencimiento actualizada de {fecha_anterior.strftime("%d/%m/%Y") if fecha_anterior else "Sin fecha"} a {fecha_obj.strftime("%d/%m/%Y")}. {lotes_actualizados} lotes actualizados.',
+            'nueva_fecha': fecha_obj.strftime("%Y-%m-%d"),
+            'lotes_actualizados': lotes_actualizados
         })
             
     except Exception as e:
@@ -2083,3 +2089,41 @@ def obtener_lotes_producto_ajax(request):
     except Exception as e:
         logger.error(f"Error al obtener lotes del producto: {str(e)}")
         return JsonResponse({'success': False, 'error': f'Error interno: {str(e)}'})
+
+@login_required
+def obtener_datos_producto_ajax(request):
+    """Vista AJAX para obtener datos actualizados de un producto."""
+    if request.method == 'GET':
+        try:
+            codigo_barra = request.GET.get('codigo_barra')
+            if not codigo_barra:
+                return JsonResponse({'success': False, 'error': 'Código de barra requerido.'})
+            
+            producto = Producto.objects.get(codigo_barra=codigo_barra)
+            
+            # Calcular datos actualizados
+            estado_vencimiento = producto.get_estado_vencimiento_completo()
+            proximo_vencimiento = producto.get_proximo_vencimiento()
+            total_lotes = producto.lotes.filter(stock__gt=0).count()
+            
+            data = {
+                'success': True,
+                'producto': {
+                    'codigo_barra': producto.codigo_barra,
+                    'descripcion': producto.descripcion,
+                    'estado_vencimiento': estado_vencimiento,
+                    'proximo_vencimiento': proximo_vencimiento.strftime('%Y-%m-%d') if proximo_vencimiento else None,
+                    'proximo_vencimiento_display': proximo_vencimiento.strftime('%d/%m/%Y') if proximo_vencimiento else None,
+                    'total_lotes': total_lotes,
+                    'tiene_vencimiento': producto.tiene_vencimiento
+                }
+            }
+            
+            return JsonResponse(data)
+            
+        except Producto.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Error interno: {str(e)}'})
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido.'})

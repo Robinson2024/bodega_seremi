@@ -53,6 +53,7 @@ urlpatterns = [
     path('ajax/modificar-vencimiento-producto/', views.modificar_vencimiento_producto_ajax, name='modificar-vencimiento-producto-ajax'),  # AJAX para modificar vencimiento del producto
     path('ajax/modificar-vencimiento-lote/', views.modificar_vencimiento_lote_ajax, name='modificar-vencimiento-lote-ajax'),  # AJAX para modificar vencimiento de lote
     path('ajax/obtener-lotes-producto/', views.obtener_lotes_producto_ajax, name='obtener-lotes-producto-ajax'),  # AJAX para obtener lotes de un producto
+    path('ajax/obtener-datos-producto/', views.obtener_datos_producto_ajax, name='obtener-datos-producto-ajax'),  # AJAX para obtener datos actualizados de producto
 
     # Rutas de Gestión de Usuarios
     path('listar-usuarios/', views.listar_usuarios, name='listar-usuarios'),  # Listar todos los usuarios
