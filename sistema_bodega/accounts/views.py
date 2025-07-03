@@ -1651,7 +1651,7 @@ def control_vencimientos(request):
     ))
     
     # Paginación
-    productos_paginados = paginar_resultados(request, productos_info, 15)
+    productos_paginados = paginar_resultados(request, productos_info, 10)
     
     # Calcular estadísticas usando el estado completo de lotes
     estadisticas = {'vencidos': 0, 'criticos': 0, 'precaucion': 0, 'normal': 0}

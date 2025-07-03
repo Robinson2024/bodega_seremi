@@ -695,5 +695,55 @@
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
+    
+    /* Estilos mejorados para la paginación */
+    .pagination {
+        margin-bottom: 20px;
+    }
+    
+    .page-link {
+        min-width: 80px !important; /* Ancho mínimo para que entre "Siguiente" completo */
+        padding: 8px 16px !important; /* Padding adecuado */
+        text-align: center !important;
+        white-space: nowrap !important; /* Evitar que se corte el texto */
+        border: 1px solid #1a3c5e !important;
+        color: #1a3c5e !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    .page-link:hover {
+        background-color: #1a3c5e !important;
+        color: white !important;
+        border-color: #1a3c5e !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 8px rgba(26, 60, 94, 0.3) !important;
+    }
+    
+    .page-item.active .page-link {
+        background-color: #1a3c5e !important;
+        color: white !important;
+        border-color: #1a3c5e !important;
+        font-weight: 600 !important;
+    }
+    
+    .page-item.disabled .page-link {
+        color: #6c757d !important;
+        background-color: #f8f9fa !important;
+        border-color: #dee2e6 !important;
+        cursor: not-allowed !important;
+    }
+    
+    /* Responsividad para móviles */
+    @media (max-width: 768px) {
+        .page-link {
+            min-width: 70px !important;
+            padding: 6px 12px !important;
+            font-size: 0.9rem !important;
+        }
+    }
 </style>
 {% endblock %}

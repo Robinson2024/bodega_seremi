@@ -15,17 +15,39 @@
     <!-- Animaciones personalizadas para el gráfico -->
     <link rel="stylesheet" href="{% static 'css/chart-animations.css' %}" />
     <style>
+        /* Ocultar cualquier flecha de scroll del sistema */
+        *::-webkit-scrollbar {
+            display: none !important;
+        }
+        
+        /* Ocultar flechas flotantes o elementos de scroll */
+        [class*="scroll"], [id*="scroll"], 
+        [class*="arrow"], [id*="arrow"],
+        [class*="back-to-top"], [id*="back-to-top"],
+        .scroll-top, .scroll-up, .go-top,
+        .scroll-arrow, .floating-arrow {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
             font-family: 'Roboto', Arial, sans-serif;
+            /* Forzar ocultamiento de scrollbars en todos los elementos */
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
         }
         body {
             background-color: #f8fafc;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
+            overflow-x: hidden;
+            width: 100%;
+            max-width: 100%;
         }
         header {
             background: #1a3c5e;
@@ -49,60 +71,186 @@
             line-height: 1.2;
         }
         .menu-bar {
-            background: #2a4d73;
-            padding: 10px 20px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 25%, #3b82f6 60%, #60a5fa 100%);
+            padding: 18px 25px;
+            box-shadow: 
+                0 6px 25px rgba(30, 58, 138, 0.25),
+                0 3px 12px rgba(37, 99, 235, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 2px solid rgba(30, 58, 138, 0.3);
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            max-width: 100%;
         }
+        
+        .menu-bar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: menuShine 8s infinite;
+        }
+        
+        @keyframes menuShine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
         nav {
             display: flex;
             justify-content: center;
-            gap: 10px;
+            gap: 12px;
             flex-wrap: wrap;
+            position: relative;
+            z-index: 2;
+            overflow: hidden;
+            width: 100%;
+            max-width: 100%;
         }
+        
+        /* Estilo base para todos los botones - Mejorado */
         nav a, .nav-button {
             color: white;
             text-decoration: none;
-            padding: 8px 14px;
-            background-color: #3b82f6;
-            border-radius: 5px;
-            transition: background-color 0.3s ease, transform 0.1s ease;
+            padding: 14px 20px;
+            border-radius: 10px;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 10px;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
+            border: none;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            box-shadow: 
+                0 4px 15px rgba(0, 0, 0, 0.15),
+                0 2px 8px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, var(--btn-primary) 0%, var(--btn-secondary) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
         }
-        nav a:hover {
-            background-color: #2563eb;
-            transform: translateY(-1px);
+        
+        /* Efecto de brillo profesional */
+        nav a::before, .nav-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.6s ease;
+            z-index: 1;
         }
-        .nav-button {
-            color: #1a3c5e;
-            background-color: white;
-            border: 1px solid #1a3c5e;
+        
+        nav a:hover::before, .nav-button:hover::before {
+            left: 100%;
         }
-        .nav-button:hover {
-            background-color: #e6f0fa;
-            transform: translateY(-1px);
+        
+        /* Estados hover mejorados - Más profesionales */
+        nav a:hover, .nav-button:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 
+                0 12px 35px rgba(0, 0, 0, 0.25),
+                0 6px 20px rgba(0, 0, 0, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            filter: brightness(1.15) saturate(1.2);
+            border-color: rgba(255, 255, 255, 0.3);
         }
+        
+        nav a:active, .nav-button:active {
+            transform: translateY(-1px) scale(1.02);
+            transition: all 0.1s ease;
+        }
+        
+        /* Colores específicos basados en la imagen de referencia */
+        
+        /* Botones principales - Azul profesional uniforme */
+        nav a[href*="home"],
+        nav a[href*="salida-productos"],
+        nav a[href*="listar-productos"],
+        nav a[href*="listar-actas"],
+        nav a[href*="listar-usuarios"],
+        .dropdown > a.dropdown-toggle {
+            --btn-primary: #2563eb;
+            --btn-secondary: #1d4ed8;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+        }
+        
+        /* Control de Vencimientos - Amarillo/Naranja profesional */
+        nav a[href*="control-vencimientos"] {
+            --btn-primary: #f59e0b;
+            --btn-secondary: #d97706;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+            color: #1a202c !important;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+            border: 1px solid rgba(217, 119, 6, 0.3);
+        }
+        
+        nav a[href*="control-vencimientos"]:hover {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+            color: #000000 !important;
+        }
+        
+        /* Panel de Administración - Rojo profesional */
         .admin-access-btn {
-            background-color: #dc3545 !important;
-            color: white !important;
+            --btn-primary: #dc2626 !important;
+            --btn-secondary: #b91c1c !important;
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3) !important;
+            border: 1px solid rgba(185, 28, 28, 0.3) !important;
         }
+        
         .admin-access-btn:hover {
-            background-color: #c82333 !important;
-            transform: translateY(-1px);
+            background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4) !important;
+        }
+        
+        /* Cerrar Sesión - Gris plomo profesional */
+        .nav-button {
+            --btn-primary: #64748b;
+            --btn-secondary: #475569;
+            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%) !important;
+            color: #475569 !important;
+            border: 2px solid #94a3b8 !important;
+            text-shadow: none;
+            box-shadow: 0 4px 12px rgba(100, 116, 139, 0.2) !important;
+        }
+        
+        .nav-button:hover {
+            background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%) !important;
+            border-color: #64748b !important;
+            color: #1e293b !important;
+            box-shadow: 0 6px 18px rgba(100, 116, 139, 0.3) !important;
+            transform: translateY(-2px) scale(1.02);
         }
         main {
             flex: 1;
             padding: 30px 20px;
             text-align: center;
             width: 100%;
-            overflow: visible;
+            max-width: 100%;
+            overflow-x: hidden;
+            overflow-y: auto;
         }
         main .container {
             width: 100%;
+            max-width: 100%;
             padding: 0 15px;
             box-sizing: border-box;
+            overflow-x: hidden;
         }
         main h2 {
             color: #1a3c5e;
@@ -123,18 +271,144 @@
             font-weight: 400;
         }
         .dropdown-menu {
-            background-color: #ffffff;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+            border: none;
+            border-radius: 12px;
+            box-shadow: 
+                0 15px 35px rgba(0, 0, 0, 0.12),
+                0 6px 12px rgba(0, 0, 0, 0.08),
+                0 2px 6px rgba(0, 0, 0, 0.04),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            padding: 8px 0;
+            margin-top: 5px;
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            animation: dropdownSlideIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            min-width: 180px;
+            max-width: none;
+            width: auto;
+            overflow: visible;
+            z-index: 9999;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: auto;
+            transform: none;
         }
+        
+        .dropdown-menu::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6, #60a5fa, #93c5fd);
+            border-radius: 12px 12px 0 0;
+        }
+        
+        @keyframes dropdownSlideIn {
+            0% {
+                opacity: 0;
+                transform: translateY(-8px) scale(0.95);
+                filter: blur(1px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+            }
+        }
+        
         .dropdown-item {
-            color: #1a3c5e;
-            font-size: 14px;
-            padding: 8px 14px;
+            color: #374151;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 12px 16px;
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            border-radius: 8px;
+            margin: 2px 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            border: 1px solid transparent;
+            white-space: nowrap;
+            min-width: 160px;
         }
+        
+        .dropdown-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+            transition: left 0.4s ease;
+        }
+        
+        .dropdown-item:hover::before {
+            left: 100%;
+        }
+        
         .dropdown-item:hover {
-            background-color: #f1f5f9;
-            color: #2563eb;
+            background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%);
+            color: white;
+            transform: translateX(6px) scale(1.01);
+            box-shadow: 
+                0 4px 12px rgba(100, 116, 139, 0.25),
+                0 2px 6px rgba(148, 163, 184, 0.15);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .dropdown-item:active {
+            transform: translateX(3px) scale(0.98);
+        }
+        
+        /* Iconos en los items del dropdown - Mejorado */
+        .dropdown-item i {
+            width: 18px;
+            text-align: center;
+            opacity: 0.8;
+            transition: all 0.2s ease;
+            margin-right: 8px;
+            font-size: 14px;
+            color: #64748b;
+        }
+        
+        .dropdown-item:hover i {
+            opacity: 1;
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        /* Mejoras para la flecha del dropdown */
+        .dropdown-toggle::after {
+            margin-left: 8px;
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            border-top: 0.3em solid;
+            border-right: 0.3em solid transparent;
+            border-bottom: 0;
+            border-left: 0.3em solid transparent;
+        }
+        
+        .dropdown.show .dropdown-toggle::after {
+            transform: rotate(180deg);
+        }
+        
+        /* Efecto especial para dropdowns cuando están abiertos - Mejorado */
+        .dropdown.show > a.dropdown-toggle {
+            background: linear-gradient(135deg, #475569 0%, #64748b 100%) !important;
+            box-shadow: 
+                0 6px 20px rgba(71, 85, 105, 0.3),
+                0 3px 10px rgba(100, 116, 139, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+            transform: translateY(-2px) scale(1.02);
+            border-color: rgba(255, 255, 255, 0.3) !important;
         }
         @media (max-width: 768px) {
             .header-content {
@@ -149,23 +423,86 @@
             }
             .menu-bar {
                 padding: 10px;
+                overflow: visible;
             }
             nav {
                 flex-direction: column;
                 gap: 8px;
+                overflow: visible;
             }
             nav a, .nav-button {
                 width: 100%;
                 text-align: center;
                 justify-content: center;
             }
+            .dropdown {
+                width: 100%;
+            }
             .dropdown-menu {
                 width: 100%;
                 text-align: center;
+                position: relative;
+                transform: none;
+                left: 0;
+                right: 0;
+                margin-top: 5px;
+                min-width: auto;
             }
             main {
                 padding: 20px 10px;
             }
+        }
+        
+        /* Estilos adicionales para mejorar la visibilidad de dropdowns */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .dropdown:hover .dropdown-menu {
+            display: block;
+        }
+        
+        /* Asegurar que los dropdowns tengan suficiente espacio */
+        .menu-bar {
+            position: relative;
+            z-index: 100;
+            overflow: visible;
+        }
+        
+        nav {
+            overflow: visible;
+        }
+        
+        .dropdown-menu {
+            will-change: transform, opacity;
+            pointer-events: auto;
+        }
+        
+        /* Posicionamiento responsivo de dropdowns */
+        .dropdown-menu.dropdown-menu-right {
+            left: auto;
+            right: 0;
+        }
+        
+        /* Asegurar que dropdowns largos se ajusten automáticamente */
+        @media (max-width: 1200px) {
+            .dropdown-menu {
+                left: auto;
+                right: 0;
+                min-width: 160px;
+                max-width: calc(100vw - 40px);
+            }
+        }
+        
+        /* Prevenir overflow horizontal en toda la página */
+        * {
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        
+        html {
+            overflow-x: hidden;
         }
         main .form-select {
             display: block !important;
@@ -394,15 +731,16 @@
         }
         .legend-container {
             display: flex;
-            flex-direction: row; /* Cambio de column a row */
-            justify-content: center; /* Centrar los elementos */
-            gap: 20px; /* Espacio uniforme entre elementos */
-            margin-top: 25px;
-            padding: 20px;
+            flex-direction: row;
+            justify-content: space-between; /* Distribución uniforme */
+            align-items: stretch; /* Igualar altura de todos los items */
+            gap: 15px; /* Espacio optimizado entre elementos */
+            margin: 25px auto; /* Centrar el contenedor */
+            padding: 25px;
+            max-width: 800px; /* Ancho máximo para mejor control */
             background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
             border-radius: 12px;
             box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
-            flex-wrap: wrap; /* Permitir wrap en pantallas pequeñas */
             /* Animación de entrada de la leyenda */
             opacity: 0;
             transform: translateY(30px);
@@ -411,24 +749,28 @@
         }
         .legend-item {
             display: flex;
-            flex-direction: column; /* Cambio para layout vertical dentro del item */
-            align-items: center; /* Centrar contenido */
-            text-align: center; /* Centrar texto */
-            gap: 8px; /* Reducir gap interno */
-            padding: 15px 20px; /* Aumentar padding horizontal para mejor centrado */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center; /* Centrar contenido verticalmente */
+            text-align: center;
+            gap: 12px;
+            padding: 20px 15px;
             background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            border-top: 4px solid transparent; /* Cambio de border-left a border-top */
-            flex: 0 1 auto; /* No expandir, mantener tamaño natural */
-            min-width: 140px; /* Ancho mínimo más amplio para mejor centrado */
-            max-width: 160px; /* Ancho máximo para uniformidad */
-            transform: translateZ(0); /* Hardware acceleration */
+            border-radius: 10px;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+            border-top: 4px solid transparent;
+            flex: 1; /* Cada item ocupa el mismo espacio disponible */
+            min-height: 120px; /* Altura mínima para uniformidad */
+            max-width: none; /* Remover restricción de ancho máximo */
+            min-width: 0; /* Permitir que se contraiga si es necesario */
+            transform: translateZ(0);
             /* Animación de entrada escalonada para cada item */
             opacity: 0;
             transform: translateY(20px) translateZ(0) scale(0.9);
-            /* Sin efectos de hover para mantener colores estables */
             cursor: default;
+            /* Evitar desbordamiento de contenido */
+            overflow: hidden;
+            word-wrap: break-word;
         }
         .legend-item:nth-child(1) {
             animation: itemEntrance 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
@@ -496,23 +838,33 @@
                 inset 0 -1px 0 rgba(0, 0, 0, 0.1);
         }
         .legend-text {
-            font-size: 0.9rem; /* Aumentar ligeramente el tamaño */
+            font-size: 0.95rem;
             color: #4a5568;
-            font-weight: 600; /* Aumentar peso para mejor legibilidad */
-            margin-bottom: 4px; /* Espacio entre título y contador */
-            line-height: 1.2; /* Mejorar el espaciado de líneas */
+            font-weight: 600;
+            margin-bottom: 6px;
+            line-height: 1.3;
+            /* Asegurar que el texto no se desborde */
+            word-break: break-word;
+            hyphens: auto;
+            max-width: 100%;
         }
         .legend-count {
-            font-size: 0.8rem; /* Aumentar ligeramente el tamaño */
+            font-size: 0.85rem;
             color: #718096;
-            font-weight: 600; /* Aumentar peso para consistencia */
+            font-weight: 600;
             background: rgba(76, 99, 210, 0.1);
-            padding: 6px 12px; /* Aumentar padding para mejor apariencia */
-            border-radius: 12px;
-            white-space: nowrap; /* Evitar que se rompa el texto */
-            display: inline-block; /* Asegurar que se comporte como bloque inline */
-            min-width: 80px; /* Ancho mínimo para uniformidad */
-            text-align: center; /* Centrar texto dentro del badge */
+            padding: 8px 14px;
+            border-radius: 15px;
+            white-space: nowrap;
+            display: inline-block;
+            text-align: center;
+            /* Ajuste para contenido variable */
+            min-width: 90px;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            /* Asegurar que se ajuste al contenedor padre */
+            box-sizing: border-box;
         }
         .chart-container {
             max-width: 380px;
@@ -737,16 +1089,22 @@
                 padding: 15px;
             }
             .legend-container {
-                flex-direction: column; /* Volver a columna en móvil */
-                gap: 10px;
-                padding: 15px;
+                flex-direction: column;
+                gap: 12px;
+                padding: 20px 15px;
+                max-width: none; /* Remover restricción de ancho en móvil */
+                margin: 20px 10px; /* Márgenes laterales en móvil */
             }
             .legend-item {
-                flex-direction: row; /* Volver a fila en móvil */
-                text-align: left; /* Alinear a la izquierda en móvil */
-                padding: 10px 12px;
-                border-top: none; /* Quitar border-top */
-                border-left: 4px solid transparent; /* Volver a border-left */
+                flex-direction: row;
+                align-items: center;
+                justify-content: flex-start;
+                text-align: left;
+                padding: 15px;
+                min-height: auto; /* Remover altura mínima en móvil */
+                border-top: none;
+                border-left: 4px solid transparent;
+                gap: 15px;
             }
             .legend-item:nth-child(1) {
                 border-left-color: #FF4757;
@@ -761,12 +1119,17 @@
                 border-top-color: transparent;
             }
             .legend-text {
-                font-size: 0.85rem;
+                font-size: 0.9rem;
                 margin-bottom: 0;
                 flex: 1;
+                word-break: normal; /* Mantener texto normal en móvil */
             }
             .legend-count {
                 margin-left: auto;
+                white-space: nowrap;
+                min-width: auto; /* Permitir ancho natural en móvil */
+                padding: 6px 12px;
+                font-size: 0.8rem;
             }
             .chart-title h3 {
                 font-size: 1.3rem;
@@ -781,6 +1144,26 @@
             }
             .total-number {
                 font-size: 2rem;
+            }
+        }
+        
+        /* Media query adicional para tablets */
+        @media (max-width: 992px) and (min-width: 769px) {
+            .legend-container {
+                max-width: 700px;
+                gap: 12px;
+                padding: 20px;
+            }
+            .legend-item {
+                padding: 18px 12px;
+                min-height: 110px;
+            }
+            .legend-text {
+                font-size: 0.9rem;
+            }
+            .legend-count {
+                font-size: 0.8rem;
+                padding: 7px 12px;
             }
         }
         .chart-title {
@@ -993,19 +1376,19 @@
 
                 <!-- Botón "Informes" (visible para todos) -->
                 <div class="dropdown">
-                    <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fas fa-chart-bar"></i> Informes</a>
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><i class="fas fa-chart-bar"></i> Informes</a>
                     <div class="dropdown-menu">
-                        <a class="dropdown-item" href="{% url 'bincard-buscar' %}">Bincard</a>
+                        <a class="dropdown-item" href="{% url 'bincard-buscar' %}"><i class="fas fa-file-medical"></i> Bincard</a>
                     </div>
                 </div>
 
                 <!-- Botón "Agregar" (visible solo para Administrador y Usuario de Bodega) -->
                 {% if request.user.groups.all.0.name == "Administrador" or request.user.groups.all.0.name == "Usuario de Bodega" %}
                     <div class="dropdown">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fas fa-plus"></i> Agregar</a>
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><i class="fas fa-plus"></i> Agregar</a>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="{% url 'registrar-producto' %}">Registrar Producto</a>
-                            <a class="dropdown-item" href="{% url 'agregar-stock' %}">Agregar Stock</a>
+                            <a class="dropdown-item" href="{% url 'registrar-producto' %}"><i class="fas fa-box-open"></i> Registrar Producto</a>
+                            <a class="dropdown-item" href="{% url 'agregar-stock' %}"><i class="fas fa-plus-circle"></i> Agregar Stock</a>
                         </div>
                     </div>
                 {% endif %}
@@ -1013,11 +1396,11 @@
                 <!-- Botón "Gestión de Departamentos" (visible solo para Administrador) -->
                 {% if request.user.groups.all.0.name == "Administrador" %}
                     <div class="dropdown">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fas fa-building"></i> Gestión de Departamentos</a>
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><i class="fas fa-building"></i> Gestión de Departamentos</a>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="{% url 'agregar-departamento' %}">Agregar Departamento</a>
-                            <a class="dropdown-item" href="{% url 'modificar-departamento' %}">Modificar Departamento</a>
-                            <a class="dropdown-item" href="{% url 'eliminar-departamento' %}">Deshabilitar Departamento</a>
+                            <a class="dropdown-item" href="{% url 'agregar-departamento' %}"><i class="fas fa-plus-square"></i> Agregar Departamento</a>
+                            <a class="dropdown-item" href="{% url 'modificar-departamento' %}"><i class="fas fa-edit"></i> Modificar Departamento</a>
+                            <a class="dropdown-item" href="{% url 'eliminar-departamento' %}"><i class="fas fa-ban"></i> Deshabilitar Departamento</a>
                         </div>
                     </div>
                 {% endif %}
@@ -1025,11 +1408,11 @@
                 <!-- Botón "Gestión de Categorías" (visible solo para Administrador) -->
                 {% if request.user.groups.all.0.name == "Administrador" %}
                     <div class="dropdown">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fas fa-tags"></i> Gestión de Categorías</a>
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><i class="fas fa-tags"></i> Gestión de Categorías</a>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="{% url 'agregar-categoria' %}">Agregar Categoría</a>
-                            <a class="dropdown-item" href="{% url 'modificar-categoria' %}">Modificar Categoría</a>
-                            <a class="dropdown-item" href="{% url 'eliminar-categoria' %}">Deshabilitar Categoría</a>
+                            <a class="dropdown-item" href="{% url 'agregar-categoria' %}"><i class="fas fa-tag"></i> Agregar Categoría</a>
+                            <a class="dropdown-item" href="{% url 'modificar-categoria' %}"><i class="fas fa-pencil-alt"></i> Modificar Categoría</a>
+                            <a class="dropdown-item" href="{% url 'eliminar-categoria' %}"><i class="fas fa-times-circle"></i> Deshabilitar Categoría</a>
                         </div>
                     </div>
                 {% endif %}
@@ -1260,6 +1643,72 @@
                 $('#errorMessage').hide();
                 $('#successMessage').hide();
             });
+            
+            // Ocultar cualquier elemento flotante de scroll que aparezca
+            function hideScrollElements() {
+                // Buscar y ocultar elementos que puedan ser flechas de scroll
+                const scrollSelectors = [
+                    '[class*="scroll"]', '[id*="scroll"]',
+                    '[class*="arrow"]', '[id*="arrow"]', 
+                    '[class*="back-to-top"]', '[id*="back-to-top"]',
+                    '.scroll-top', '.scroll-up', '.go-top',
+                    '.scroll-arrow', '.floating-arrow',
+                    '.btn-scroll', '.scroll-btn'
+                ];
+                
+                scrollSelectors.forEach(selector => {
+                    $(selector).hide();
+                });
+            }
+            
+            // Ejecutar al cargar y cada 100ms para capturar elementos dinámicos
+            hideScrollElements();
+            setInterval(hideScrollElements, 100);
+            
+            // Mejorar comportamiento de dropdowns - permitir cierre al hacer clic nuevamente
+            $('.dropdown-toggle').on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const $dropdown = $(this).closest('.dropdown');
+                const isOpen = $dropdown.hasClass('show');
+                
+                // Cerrar todos los otros dropdowns
+                $('.dropdown').removeClass('show');
+                $('.dropdown-menu').removeClass('show');
+                
+                // Si el dropdown no estaba abierto, abrirlo
+                if (!isOpen) {
+                    $dropdown.addClass('show');
+                    $dropdown.find('.dropdown-menu').addClass('show');
+                }
+            });
+            
+            // Cerrar dropdowns cuando se hace clic fuera de ellos
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('.dropdown').length) {
+                    $('.dropdown').removeClass('show');
+                    $('.dropdown-menu').removeClass('show');
+                }
+            });
+            
+            // Mantener el comportamiento hover para los dropdowns
+            $('.dropdown').hover(
+                function() {
+                    $(this).addClass('show');
+                    $(this).find('.dropdown-menu').addClass('show');
+                },
+                function() {
+                    // Solo cerrar si no está "fijado" por clic
+                    const self = this;
+                    setTimeout(function() {
+                        if (!$(self).is(':hover')) {
+                            $(self).removeClass('show');
+                            $(self).find('.dropdown-menu').removeClass('show');
+                        }
+                    }, 100);
+                }
+            );
         });
     </script>
 </body>
