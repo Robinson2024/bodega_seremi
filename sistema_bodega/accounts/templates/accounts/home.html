@@ -146,9 +146,10 @@
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             border-bottom: 2px solid rgba(30, 58, 138, 0.3);
             position: relative;
-            overflow: hidden;
+            overflow: visible !important;
             width: 100%;
             max-width: 100%;
+            z-index: 200;
         }
         
         .menu-bar::before {
@@ -174,7 +175,7 @@
             flex-wrap: wrap;
             position: relative;
             z-index: 2;
-            overflow: hidden;
+            overflow: visible !important;
             width: 100%;
             max-width: 100%;
         }
@@ -336,6 +337,13 @@
             font-size: 12px;
             font-weight: 400;
         }
+        /* Dropdowns mejorados - SOLUCIÓN DEFINITIVA para evitar cortes */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+            z-index: 300;
+        }
+        
         .dropdown-menu {
             background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
             border: none;
@@ -350,16 +358,41 @@
             backdrop-filter: blur(12px);
             border: 1px solid rgba(59, 130, 246, 0.2);
             animation: dropdownSlideIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-            min-width: 180px;
-            max-width: none;
-            width: auto;
-            overflow: visible;
-            z-index: 9999;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: auto;
-            transform: none;
+            
+            /* CONFIGURACIONES CRÍTICAS PARA EVITAR CORTES */
+            min-width: 320px !important;
+            max-width: 400px !important;
+            width: max-content !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            position: absolute !important;
+            top: 100% !important;
+            left: 0 !important;
+            right: auto !important;
+            z-index: 999999 !important;
+            
+            /* PREVENIR CUALQUIER TIPO DE CORTE */
+            clip: unset !important;
+            clip-path: unset !important;
+            transform: none !important;
+            -webkit-transform: none !important;
+            will-change: auto !important;
+            contain: none !important;
+            isolation: auto !important;
+            
+            /* ASEGURAR VISIBILIDAD COMPLETA */
+            opacity: 1 !important;
+            visibility: visible !important;
+            display: none;
+        }
+        
+        /* Mostrar dropdown cuando está activo */
+        .dropdown.show .dropdown-menu,
+        .dropdown:hover .dropdown-menu {
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
         }
         
         .dropdown-menu::before {
@@ -388,21 +421,37 @@
         
         .dropdown-item {
             color: #374151;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 500;
-            padding: 12px 16px;
+            padding: 15px 22px !important;
             transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
             border-radius: 8px;
-            margin: 2px 6px;
-            display: flex;
+            margin: 3px 8px !important;
+            display: flex !important;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             position: relative;
-            overflow: hidden;
+            overflow: visible !important;
             text-decoration: none;
             border: 1px solid transparent;
-            white-space: nowrap;
-            min-width: 160px;
+            
+            /* CONFIGURACIONES CRÍTICAS PARA TEXTO COMPLETO */
+            white-space: nowrap !important;
+            min-height: 48px !important;
+            line-height: 1.4 !important;
+            min-width: 280px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            
+            /* ASEGURAR VISIBILIDAD COMPLETA DEL TEXTO */
+            text-overflow: visible !important;
+            word-wrap: normal !important;
+            overflow-wrap: normal !important;
+        }
+        
+        .dropdown-item:last-child {
+            border-bottom: none !important;
+            margin-bottom: 5px !important;
         }
         
         .dropdown-item::before {
@@ -494,12 +543,12 @@
             }
             .menu-bar {
                 padding: 10px;
-                overflow: visible;
+                overflow: visible !important;
             }
             nav {
                 flex-direction: column;
                 gap: 8px;
-                overflow: visible;
+                overflow: visible !important;
             }
             nav a, .nav-button {
                 width: 100%;
@@ -508,17 +557,44 @@
             }
             .dropdown {
                 width: 100%;
+                overflow: visible !important;
             }
             .dropdown-menu {
-                width: 100%;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 100% !important;
                 text-align: center;
-                position: relative;
-                transform: none;
-                left: 0;
-                right: 0;
+                position: relative !important;
+                transform: none !important;
+                left: 0 !important;
+                right: 0 !important;
                 margin-top: 5px;
-                min-width: auto;
+                background-color: rgba(255, 255, 255, 0.98) !important;
+                backdrop-filter: blur(10px);
+                border-radius: 8px !important;
+                padding: 8px 0 !important;
+                overflow: visible !important;
+                max-height: none !important;
+                height: auto !important;
             }
+            
+            .dropdown-item {
+                padding: 18px 20px !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+                min-width: auto !important;
+                width: 100% !important;
+                text-align: center !important;
+                justify-content: center !important;
+                white-space: normal !important;
+                line-height: 1.5 !important;
+                min-height: 50px !important;
+                font-size: 15px !important;
+            }
+            
+            .dropdown-item:last-child {
+                border-bottom: none !important;
+            }
+            
             main {
                 padding: 20px 10px;
             }
@@ -540,56 +616,79 @@
             }
         }
         
-        /* Estilos adicionales para mejorar la visibilidad de dropdowns */
-        .dropdown {
-            position: relative;
-            display: inline-block;
+        /* CONFIGURACIONES CRÍTICAS PARA CONTENEDORES PADRE */
+        html, body {
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
         }
         
-        .dropdown:hover .dropdown-menu {
-            display: block;
-        }
-        
-        /* Asegurar que los dropdowns tengan suficiente espacio */
-        .menu-bar {
-            position: relative;
+        header {
             z-index: 100;
-            overflow: visible;
+            position: relative;
+            overflow: visible !important;
+        }
+        
+        .menu-bar {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 25%, #3b82f6 60%, #60a5fa 100%);
+            padding: 18px 25px;
+            box-shadow: 
+                0 6px 25px rgba(30, 58, 138, 0.25),
+                0 3px 12px rgba(37, 99, 235, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 2px solid rgba(30, 58, 138, 0.3);
+            position: relative;
+            overflow: visible !important;
+            width: 100%;
+            max-width: 100%;
+            z-index: 200;
+            
+            /* ASEGURAR QUE NO SE CORTEN LOS DROPDOWNS */
+            contain: none !important;
+            isolation: auto !important;
         }
         
         nav {
-            overflow: visible;
-        }
-        
-        .dropdown-menu {
-            will-change: transform, opacity;
-            pointer-events: auto;
-        }
-        
-        /* Posicionamiento responsivo de dropdowns */
-        .dropdown-menu.dropdown-menu-right {
-            left: auto;
-            right: 0;
-        }
-        
-        /* Asegurar que dropdowns largos se ajusten automáticamente */
-        @media (max-width: 1200px) {
-            .dropdown-menu {
-                left: auto;
-                right: 0;
-                min-width: 160px;
-                max-width: calc(100vw - 40px);
-            }
-        }
-        
-        /* Prevenir overflow horizontal en toda la página */
-        * {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 2;
+            overflow: visible !important;
+            width: 100%;
             max-width: 100%;
-            box-sizing: border-box;
+            
+            /* CONFIGURACIONES ADICIONALES PARA DROPDOWNS */
+            contain: none !important;
+            isolation: auto !important;
         }
         
-        html {
-            overflow-x: hidden;
+        main {
+            overflow: visible !important;
+        }
+        
+        main .container {
+            overflow: visible !important;
+        }
+        
+        .container {
+            overflow: visible !important;
+        }
+        
+        /* FORZAR QUE LOS DROPDOWNS SE POSICIONEN CORRECTAMENTE */
+        .dropdown-menu {
+            /* Si se sale por la derecha, moverlo a la izquierda */
+            transform-origin: top left !important;
+        }
+        
+        /* Para pantallas pequeñas, ajustar posición automáticamente */
+        @media (max-width: 1400px) {
+            .dropdown:nth-last-child(-n+3) .dropdown-menu {
+                left: auto !important;
+                right: 0 !important;
+                transform-origin: top right !important;
+            }
         }
         main .form-select {
             display: block !important;
@@ -1752,50 +1851,130 @@
             hideScrollElements();
             setInterval(hideScrollElements, 100);
             
-            // Mejorar comportamiento de dropdowns - permitir cierre al hacer clic nuevamente
-            $('.dropdown-toggle').on('click', function(e) {
+            // JavaScript MEJORADO para dropdowns sin cortes - SOLUCIÓN DEFINITIVA
+            function adjustDropdownPosition(dropdownElement, contentElement) {
+                // Resetear estilos primero
+                contentElement.style.left = '0';
+                contentElement.style.right = 'auto';
+                contentElement.style.top = '100%';
+                contentElement.style.bottom = 'auto';
+                contentElement.style.transform = 'none';
+                contentElement.style.maxHeight = 'none';
+                contentElement.style.overflow = 'visible';
+                
+                // Forzar recálculo después del reset
+                requestAnimationFrame(() => {
+                    const rect = contentElement.getBoundingClientRect();
+                    const windowWidth = window.innerWidth;
+                    const windowHeight = window.innerHeight;
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    
+                    // Ajustar horizontalmente si se sale por la derecha
+                    if (rect.right > windowWidth - 20) {
+                        contentElement.style.left = 'auto';
+                        contentElement.style.right = '0';
+                    }
+                    
+                    // Ajustar verticalmente si se sale por abajo
+                    if (rect.bottom > windowHeight - 20) {
+                        contentElement.style.top = 'auto';
+                        contentElement.style.bottom = '100%';
+                    }
+                    
+                    // Asegurar que siempre sea visible
+                    contentElement.style.visibility = 'visible';
+                    contentElement.style.opacity = '1';
+                    contentElement.style.display = 'block';
+                    contentElement.style.zIndex = '999999';
+                });
+            }
+            
+            // Mejorar comportamiento de dropdowns - SOLUCIÓN COMPLETA
+            $('.dropdown-toggle').off('click').on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 
                 const $dropdown = $(this).closest('.dropdown');
+                const $dropdownMenu = $dropdown.find('.dropdown-menu');
                 const isOpen = $dropdown.hasClass('show');
                 
-                // Cerrar todos los otros dropdowns
+                // Cerrar TODOS los otros dropdowns primero
                 $('.dropdown').removeClass('show');
-                $('.dropdown-menu').removeClass('show');
+                $('.dropdown-menu').removeClass('show').hide();
                 
                 // Si el dropdown no estaba abierto, abrirlo
                 if (!isOpen) {
                     $dropdown.addClass('show');
-                    $dropdown.find('.dropdown-menu').addClass('show');
+                    $dropdownMenu.addClass('show').show();
+                    
+                    // Ajustar posición inmediatamente
+                    adjustDropdownPosition($dropdown[0], $dropdownMenu[0]);
+                    
+                    // Forzar visibilidad
+                    $dropdownMenu.css({
+                        'display': 'block',
+                        'visibility': 'visible',
+                        'opacity': '1',
+                        'z-index': '999999'
+                    });
                 }
             });
             
-            // Cerrar dropdowns cuando se hace clic fuera de ellos
-            $(document).on('click', function(e) {
+            // Cerrar dropdowns cuando se hace clic fuera
+            $(document).off('click.dropdown').on('click.dropdown', function(e) {
                 if (!$(e.target).closest('.dropdown').length) {
                     $('.dropdown').removeClass('show');
-                    $('.dropdown-menu').removeClass('show');
+                    $('.dropdown-menu').removeClass('show').hide();
                 }
             });
             
-            // Mantener el comportamiento hover para los dropdowns
-            $('.dropdown').hover(
+            // MEJORAR comportamiento hover
+            $('.dropdown').off('mouseenter mouseleave').hover(
                 function() {
-                    $(this).addClass('show');
-                    $(this).find('.dropdown-menu').addClass('show');
+                    const $dropdown = $(this);
+                    const $dropdownMenu = $dropdown.find('.dropdown-menu');
+                    
+                    // Cerrar otros dropdowns
+                    $('.dropdown').not(this).removeClass('show');
+                    $('.dropdown-menu').not($dropdownMenu).removeClass('show').hide();
+                    
+                    $dropdown.addClass('show');
+                    $dropdownMenu.addClass('show').show();
+                    
+                    // Ajustar posición en hover también
+                    adjustDropdownPosition($dropdown[0], $dropdownMenu[0]);
+                    
+                    // Forzar visibilidad
+                    $dropdownMenu.css({
+                        'display': 'block',
+                        'visibility': 'visible',
+                        'opacity': '1',
+                        'z-index': '999999'
+                    });
                 },
                 function() {
-                    // Solo cerrar si no está "fijado" por clic
                     const self = this;
+                    const $dropdown = $(this);
+                    const $dropdownMenu = $dropdown.find('.dropdown-menu');
+                    
+                    // Delay para evitar cierre accidental
                     setTimeout(function() {
-                        if (!$(self).is(':hover')) {
-                            $(self).removeClass('show');
-                            $(self).find('.dropdown-menu').removeClass('show');
+                        if (!$(self).is(':hover') && !$dropdownMenu.is(':hover')) {
+                            $dropdown.removeClass('show');
+                            $dropdownMenu.removeClass('show').hide();
                         }
-                    }, 100);
+                    }, 150);
                 }
             );
+            
+            // Ajustar al redimensionar ventana
+            $(window).off('resize.dropdown').on('resize.dropdown', function() {
+                $('.dropdown.show').each(function() {
+                    const $dropdown = $(this);
+                    const $dropdownMenu = $dropdown.find('.dropdown-menu');
+                    adjustDropdownPosition($dropdown[0], $dropdownMenu[0]);
+                });
+            });
         });
     </script>
 </body>
