@@ -260,8 +260,29 @@ def generar_pdf_acta(actas, disposition='attachment'):
         ]))
 
         from reportlab.platypus import KeepTogether
-        firmas_keep = KeepTogether([Spacer(1, 1*cm), firma_table])
-        elements.extend([table, firmas_keep])
+        
+        # Estrategia simple y efectiva: spacer adaptativo según cantidad de productos
+        num_productos = len(productos_salida)
+        
+        # Calcular spacer inteligente que empuje las firmas hacia abajo
+        # pero sin crear páginas innecesarias
+        if num_productos <= 3:
+            # Pocos productos: usar spacer grande para empujar hacia abajo
+            spacer_firmas = Spacer(1, 6*cm)
+        elif num_productos <= 8:
+            # Productos medios: spacer moderado  
+            spacer_firmas = Spacer(1, 3*cm)
+        else:
+            # Muchos productos: spacer mínimo para evitar nueva página
+            spacer_firmas = Spacer(1, 0.8*cm)
+        
+        # KeepTogether asegura que las firmas no se corten
+        firmas_completas = KeepTogether([
+            spacer_firmas,
+            firma_table
+        ])
+        
+        elements.extend([table, firmas_completas])
         logger.info("Construyendo el PDF...")
         doc.build(elements)
         logger.info("PDF generado correctamente.")
