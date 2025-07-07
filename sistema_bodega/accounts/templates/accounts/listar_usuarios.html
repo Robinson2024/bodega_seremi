@@ -33,7 +33,12 @@
                 {{ form.rol }}
             </div>
             <div class="col-md-3 mb-3 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-search"></i> Buscar</button>
+                <div class="btn-group w-100" role="group">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Buscar</button>
+                    <button type="button" class="btn btn-warning" id="limpiar-filtros" onclick="limpiarFiltros(); return false;">
+                        <i class="fas fa-eraser"></i> Limpiar
+                    </button>
+                </div>
             </div>
         </div>
     </form>
@@ -132,8 +137,83 @@
     {% endif %}
 </div>
 
+<style>
+    /* Estilos para el grupo de botones */
+    .btn-group .btn {
+        border-radius: 0;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-group .btn:first-child {
+        border-top-left-radius: 0.375rem;
+        border-bottom-left-radius: 0.375rem;
+    }
+    
+    .btn-group .btn:last-child {
+        border-top-right-radius: 0.375rem;
+        border-bottom-right-radius: 0.375rem;
+    }
+    
+    .btn-warning {
+        background-color: #ffc107;
+        border-color: #ffc107;
+        color: #212529;
+        font-weight: 500;
+    }
+    
+    .btn-warning:hover {
+        background-color: #e0a800;
+        border-color: #d39e00;
+        color: #212529;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .btn-warning:disabled {
+        background-color: #ffc107;
+        border-color: #ffc107;
+        color: #212529;
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* Animación para el spinner */
+    .fa-spinner {
+        animation: spin 1s infinite linear;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Responsividad para móviles */
+    @media (max-width: 768px) {
+        .btn-group {
+            flex-direction: column;
+        }
+        
+        .btn-group .btn {
+            border-radius: 0.375rem !important;
+            margin-bottom: 0.25rem;
+        }
+        
+        .btn-group .btn:last-child {
+            margin-bottom: 0;
+        }
+    }
+</style>
+
 <script>
     $(document).ready(function() {
+        console.log('DOM cargado correctamente'); // Debug
+        
         // Inicializar Select2 en el campo de rol
         $('#id_rol').select2({
             placeholder: "Seleccione un rol",
@@ -146,6 +226,106 @@
         if (selectedRol) {
             $('#id_rol').val(selectedRol).trigger('change.select2');
         }
+
+        // Funcionalidad del botón "Limpiar Filtros" - Implementación mejorada
+        $(document).on('click', '#limpiar-filtros', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('Botón Limpiar Filtros clickeado'); // Debug
+            
+            // Feedback visual inmediato
+            var $btn = $(this);
+            var originalText = $btn.html();
+            $btn.html('<i class="fas fa-spinner fa-spin"></i> Limpiando...');
+            $btn.prop('disabled', true);
+            
+            // Limpiar todos los campos del formulario con verificación
+            var $rutField = $('#id_rut');
+            var $nombreField = $('#id_nombre');
+            var $rolField = $('#id_rol');
+            
+            console.log('Limpiando campos...'); // Debug
+            
+            // Limpiar campo RUT
+            if ($rutField.length) {
+                $rutField.val('');
+                console.log('Campo RUT limpiado');
+            }
+            
+            // Limpiar campo Nombre
+            if ($nombreField.length) {
+                $nombreField.val('');
+                console.log('Campo Nombre limpiado');
+            }
+            
+            // Limpiar campo Rol (Select2)
+            if ($rolField.length) {
+                $rolField.val(null).trigger('change');
+                console.log('Campo Rol limpiado');
+            }
+            
+            // Alternativa: Usar location.replace para forzar la redirección
+            console.log('Redirigiendo...'); // Debug
+            setTimeout(function() {
+                window.location.replace('{% url "listar-usuarios" %}');
+            }, 1000);
+            
+            // Fallback adicional
+            setTimeout(function() {
+                if (window.location.pathname.includes('listar-usuarios')) {
+                    window.location.reload();
+                }
+            }, 2000);
+        });
     });
+
+    // Función global para limpiar filtros (fuera del document.ready)
+    function limpiarFiltros() {
+        console.log('Función limpiarFiltros llamada directamente');
+        
+        // Mostrar feedback visual en el botón
+        var btn = document.getElementById('limpiar-filtros');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Limpiando...';
+            btn.disabled = true;
+        }
+        
+        // Limpiar campos usando JavaScript nativo
+        var rutField = document.getElementById('id_rut');
+        var nombreField = document.getElementById('id_nombre');
+        
+        if (rutField) {
+            rutField.value = '';
+            console.log('Campo RUT limpiado');
+        }
+        
+        if (nombreField) {
+            nombreField.value = '';
+            console.log('Campo Nombre limpiado');
+        }
+        
+        // Limpiar Select2 si existe
+        if (typeof $ !== 'undefined' && $('#id_rol').length) {
+            $('#id_rol').val(null).trigger('change');
+            console.log('Campo Rol limpiado con Select2');
+        } else {
+            // Fallback para select normal
+            var rolField = document.getElementById('id_rol');
+            if (rolField) {
+                rolField.value = '';
+                console.log('Campo Rol limpiado');
+            }
+        }
+        
+        // Redirigir inmediatamente
+        console.log('Redirigiendo a la página principal...');
+        setTimeout(function() {
+            window.location.href = '/accounts/listar-usuarios/';
+        }, 500);
+    }
+    
+    // Verificar que la función esté disponible cuando se carga la página
+    console.log('Función limpiarFiltros definida:', typeof limpiarFiltros);
 </script>
 {% endblock %}

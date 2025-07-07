@@ -24,6 +24,11 @@
                 <div class="col-md-6 mb-3">
                     <label for="id_rut" class="form-label">RUT</label>
                     {{ form.rut }}
+                    <small class="form-text text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <strong>Formato:</strong> Puedes escribir el RUT con puntos y guión (ej: 19.553.205-2) o sin formato (ej: 195532052). 
+                        El sistema acepta ambos formatos y los procesa automáticamente.
+                    </small>
                     {% if form.rut.errors %}
                         <div class="text-danger">
                             {% for error in form.rut.errors %}
