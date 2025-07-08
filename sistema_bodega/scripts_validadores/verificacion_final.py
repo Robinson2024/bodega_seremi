@@ -74,15 +74,15 @@ def limpiar_final():
     """Limpieza final para asegurar consistencia"""
     producto = Producto.objects.get(codigo_barra='100041')
     
-    print(f"\n=== LIMPIEZA FINAL ===")
+    print(f"\n=== SINCRONIZACIÓN FINAL ===")
     
-    # Limpiar lotes vacíos
-    producto.limpiar_lotes_vacios()
-    print("✅ Lotes vacíos limpiados")
+    # CRÍTICO: NO limpiar lotes vacíos - preservar trazabilidad para Bincard
+    # Los lotes con stock=0 se conservan para mantener el historial
+    print("✅ Lotes vacíos conservados para trazabilidad")
     
-    # Actualizar stock total
-    producto.actualizar_stock_total()
-    print("✅ Stock total actualizado")
+    # Sincronizar stock total
+    producto.sincronizar_stock_con_lotes()
+    print("✅ Stock sincronizado con lotes")
     
     # Verificar estado final
     stock_final = producto.stock

@@ -83,6 +83,58 @@ def paginar_resultados(request, objetos, items_por_pagina=20):
         page_obj = paginator.page(paginator.num_pages)
     return page_obj
 
+def paginar_resultados_dinamico(request, objetos, items_por_pagina=20):
+    """
+    Aplica paginación con numeración dinámica limitada
+    Solo muestra un rango limitado de páginas para evitar sobrecarga visual
+    """
+    from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+    
+    paginator = Paginator(objetos, items_por_pagina)
+    page = request.GET.get('page')
+    
+    try:
+        page_obj = paginator.page(page)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+    
+    # Crear rango de páginas dinámico
+    current_page = page_obj.number
+    total_pages = paginator.num_pages
+    
+    # Configuración de la paginación dinámica
+    max_pages_to_show = 10  # Máximo de páginas a mostrar
+    side_pages = 2  # Páginas a mostrar a cada lado de la actual
+    
+    if total_pages <= max_pages_to_show:
+        # Si hay pocas páginas, mostrar todas
+        page_range = list(range(1, total_pages + 1))
+        show_first_last = False
+    else:
+        # Lógica para páginas limitadas
+        start_page = max(1, current_page - side_pages)
+        end_page = min(total_pages, current_page + side_pages)
+        
+        # Ajustar para mantener siempre el mismo número de páginas visibles
+        if end_page - start_page < 2 * side_pages:
+            if start_page == 1:
+                end_page = min(total_pages, start_page + 2 * side_pages)
+            elif end_page == total_pages:
+                start_page = max(1, end_page - 2 * side_pages)
+        
+        page_range = list(range(start_page, end_page + 1))
+        show_first_last = start_page > 1 or end_page < total_pages
+    
+    # Agregar información adicional al objeto page
+    page_obj.dynamic_page_range = page_range
+    page_obj.show_first_last = show_first_last
+    page_obj.show_first_ellipsis = page_range[0] > 2 if page_range else False
+    page_obj.show_last_ellipsis = page_range[-1] < total_pages - 1 if page_range else False
+    
+    return page_obj
+
 def generar_pdf_acta(actas, disposition='attachment'):
     """Genera un PDF para un acta de entrega con límite de 100 caracteres y texto ajustado."""
     try:
@@ -1160,7 +1212,7 @@ def bincard_historial(request, codigo_barra):
     # CORRECCIÓN DEFINITIVA: Manejo diferenciado para productos con/sin vencimiento
     if producto.tiene_vencimiento:
         # Para productos con vencimiento: Los lotes son la fuente de verdad
-        producto.limpiar_lotes_vacios()  # Limpiar lotes vacíos primero
+        # CRÍTICO: NO limpiar lotes vacíos - preservar trazabilidad para Bincard
         stock_real_lotes = producto.lotes.aggregate(total=models.Sum('stock'))['total'] or 0
         
         # Sincronizar stock del producto con la suma de lotes (fuente de verdad)
@@ -1671,8 +1723,8 @@ def control_vencimientos(request):
         x['producto'].descripcion
     ))
     
-    # Paginación
-    productos_paginados = paginar_resultados(request, productos_info, 10)
+    # Paginación con numeración dinámica
+    productos_paginados = paginar_resultados_dinamico(request, productos_info, 10)
     
     # Calcular estadísticas usando el estado completo de lotes
     estadisticas = {'vencidos': 0, 'criticos': 0, 'precaucion': 0, 'normal': 0}

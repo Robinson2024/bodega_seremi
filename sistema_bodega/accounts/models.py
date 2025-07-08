@@ -144,42 +144,41 @@ class Producto(models.Model):
         return colores.get(estado, '#6c757d')
 
     def get_proximo_numero_lote(self):
-        """Obtiene el siguiente número de lote automáticamente con limpieza de lotes vacíos."""
+        """Obtiene el siguiente número de lote automáticamente SIN eliminar lotes."""
         if not self.tiene_vencimiento:
             return None
         
-        # SOLUCIÓN: Limpiar lotes sin stock antes de calcular el próximo número
-        self.limpiar_lotes_vacios()
-        
-        # Obtener lotes con stock activo después de la limpieza
-        lotes_con_stock = self.lotes.filter(stock__gt=0)
-        
-        if not lotes_con_stock.exists():
-            # Si no hay lotes con stock, reiniciar desde 1
-            return 1
-        else:
-            # Si hay lotes con stock, obtener el siguiente número
-            ultimo_lote = self.lotes.aggregate(max_lote=models.Max('numero_lote'))['max_lote']
-            return (ultimo_lote or 0) + 1
+        # SOLUCIÓN CORREGIDA: NO eliminar lotes, solo calcular el próximo número
+        # Obtener el último número de lote usado (incluye lotes con stock=0 para preservar trazabilidad)
+        ultimo_lote = self.lotes.aggregate(max_lote=models.Max('numero_lote'))['max_lote']
+        return (ultimo_lote or 0) + 1
 
-    def limpiar_lotes_vacios(self):
-        """Elimina automáticamente los lotes que no tienen stock."""
+    def marcar_lotes_vencidos(self):
+        """Marca lotes vencidos pero NO los elimina (preserva trazabilidad)."""
         try:
-            lotes_vacios = self.lotes.filter(stock=0)
-            cantidad_eliminados = lotes_vacios.count()
-            lotes_vacios.delete()
+            from datetime import date
+            hoy = date.today()
             
-            if cantidad_eliminados > 0:
-                # Registrar en logs si es necesario
+            # Solo marcar como información, NO eliminar
+            lotes_vencidos = self.lotes.filter(
+                fecha_vencimiento__lt=hoy,
+                stock__gt=0  # Solo lotes vencidos que aún tienen stock
+            )
+            
+            cantidad_vencidos = lotes_vencidos.count()
+            
+            if cantidad_vencidos > 0:
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.info(f"Eliminados {cantidad_eliminados} lotes vacíos del producto {self.codigo_barra}")
+                logger.info(f"Producto {self.codigo_barra}: {cantidad_vencidos} lotes vencidos con stock")
+                
+            return cantidad_vencidos
                 
         except Exception as e:
-            # En caso de error, no interrumpir el flujo
             import logging
             logger = logging.getLogger(__name__)
-            logger.warning(f"Error al limpiar lotes vacíos del producto {self.codigo_barra}: {e}")
+            logger.warning(f"Error al marcar lotes vencidos del producto {self.codigo_barra}: {e}")
+            return 0
 
     def crear_lote_automatico(self, cantidad, fecha_vencimiento, numero_lote_personalizado=None):
         """Crea un lote automáticamente con numeración secuencial o personalizada."""
@@ -201,7 +200,34 @@ class Producto(models.Model):
             stock=cantidad
         )
         
-        # CRÍTICO: Actualizar el stock del producto
+        # CRÍTICO: Actualizar el stock del producto de forma sincronizada
+        self.stock += cantidad
+        self.save()
+        
+        return lote
+
+    def agregar_lote(self, cantidad, fecha_vencimiento, numero_lote_personalizado=None):
+        """Agrega un nuevo lote y stock a un producto existente de forma segura."""
+        if not self.tiene_vencimiento:
+            raise ValueError("No se pueden crear lotes para productos sin fecha de vencimiento")
+        
+        if numero_lote_personalizado:
+            # Validar que el número de lote personalizado no exista
+            if self.lotes.filter(numero_lote=numero_lote_personalizado).exists():
+                raise ValueError(f"Ya existe un lote con el número {numero_lote_personalizado} para este producto")
+            numero_lote = numero_lote_personalizado
+        else:
+            numero_lote = self.get_proximo_numero_lote()
+            
+        # Crear el lote
+        lote = LoteProducto.objects.create(
+            producto=self,
+            numero_lote=numero_lote,
+            fecha_vencimiento=fecha_vencimiento,
+            stock=cantidad
+        )
+        
+        # CRÍTICO: Agregar stock al producto (para productos existentes)
         self.stock += cantidad
         self.save()
         
@@ -211,8 +237,17 @@ class Producto(models.Model):
         """Obtiene todos los lotes que tienen stock, ordenados por fecha de vencimiento (FIFO)."""
         return self.lotes.filter(stock__gt=0).order_by('fecha_vencimiento')
 
+    def get_lotes_vencidos_con_stock(self):
+        """Obtiene lotes vencidos que aún tienen stock (requieren gestión manual)."""
+        from datetime import date
+        hoy = date.today()
+        return self.lotes.filter(
+            fecha_vencimiento__lt=hoy,
+            stock__gt=0
+        ).order_by('fecha_vencimiento')
+
     def reducir_stock_fifo(self, cantidad_reducir):
-        """Reduce stock siguiendo el método FIFO (First In, First Out) y limpia lotes vacíos."""
+        """Reduce stock siguiendo el método FIFO (First In, First Out) SIN eliminar lotes."""
         if not self.tiene_vencimiento:
             # Si no tiene vencimiento, reducir del stock principal
             if self.stock >= cantidad_reducir:
@@ -239,23 +274,29 @@ class Producto(models.Model):
                 lote.stock = 0
                 lote.save()
         
-        # CORRECCIÓN: Actualizar stock total primero, luego limpiar lotes vacíos
-        # Calcular nuevo stock total ANTES de limpiar
+        # CORRECCIÓN CRÍTICA: Sincronizar stock total SIN eliminar lotes
+        # Esto preserva la trazabilidad para el Bincard
         total_stock = self.lotes.aggregate(total=models.Sum('stock'))['total'] or 0
         self.stock = total_stock
         self.save()
         
-        # Ahora limpiar lotes vacíos después de actualizar el stock
-        self.limpiar_lotes_vacios()
+        # IMPORTANTE: NO llamar a limpiar_lotes_vacios() aquí
+        # Los lotes con stock=0 se conservan para la trazabilidad del Bincard
         
         return cantidad_restante == 0
 
-    def actualizar_stock_total(self):
-        """Actualiza el stock total del producto sumando todos los lotes."""
+    def sincronizar_stock_con_lotes(self):
+        """Sincroniza el stock del producto con la suma de todos los lotes."""
         if self.tiene_vencimiento and self.lotes.exists():
             total_stock = self.lotes.aggregate(total=models.Sum('stock'))['total'] or 0
-            self.stock = total_stock
-            self.save()
+            if self.stock != total_stock:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Sincronizando stock del producto {self.codigo_barra}: {self.stock} → {total_stock}")
+                self.stock = total_stock
+                self.save()
+                return True
+        return False
 
     def get_estado_vencimiento_completo(self):
         """Obtiene el estado de vencimiento considerando TODOS los lotes."""
@@ -281,18 +322,47 @@ class Producto(models.Model):
         return estado_mas_critico
 
     def get_lotes_detalle(self):
-        """Obtiene detalle de todos los lotes con stock."""
+        """Obtiene detalle de todos los lotes con información de vencimiento."""
         lotes_detalle = []
-        for lote in self.lotes.filter(stock__gt=0).order_by('fecha_vencimiento'):
+        for lote in self.lotes.all().order_by('fecha_vencimiento'):  # Incluye TODOS los lotes, incluso con stock=0
             lotes_detalle.append({
                 'numero_lote': lote.numero_lote,
                 'fecha_vencimiento': lote.fecha_vencimiento,
                 'stock': lote.stock,
                 'dias_restantes': lote.get_dias_para_vencer(),
                 'estado': lote.get_estado_vencimiento(),
-                'color': lote.get_color_estado_vencimiento()
+                'color': lote.get_color_estado_vencimiento(),
+                'esta_vacio': lote.stock == 0,  # Indica si el lote está vacío
+                'esta_vencido': lote.get_dias_para_vencer() < 0 if lote.get_dias_para_vencer() is not None else False
             })
         return lotes_detalle
+
+    def get_estadisticas_lotes(self):
+        """Obtiene estadísticas completas de los lotes del producto."""
+        if not self.tiene_vencimiento:
+            return None
+            
+        total_lotes = self.lotes.count()
+        lotes_con_stock = self.lotes.filter(stock__gt=0).count()
+        lotes_vacios = self.lotes.filter(stock=0).count()
+        lotes_vencidos_con_stock = self.get_lotes_vencidos_con_stock().count()
+        
+        from datetime import date, timedelta
+        hoy = date.today()
+        lotes_criticos = self.lotes.filter(
+            fecha_vencimiento__lte=hoy + timedelta(days=7),
+            fecha_vencimiento__gte=hoy,
+            stock__gt=0
+        ).count()
+        
+        return {
+            'total_lotes': total_lotes,
+            'lotes_con_stock': lotes_con_stock,
+            'lotes_vacios': lotes_vacios,
+            'lotes_vencidos_con_stock': lotes_vencidos_con_stock,
+            'lotes_criticos': lotes_criticos,
+            'stock_total': self.stock
+        }
 
     def get_proximo_vencimiento(self):
         """Obtiene la fecha de vencimiento más próxima considerando todos los lotes."""
@@ -308,13 +378,23 @@ class Producto(models.Model):
         
         proximo_numero = self.get_proximo_numero_lote()
         lotes_activos = self.lotes.filter(stock__gt=0).count()
+        lotes_vencidos = self.get_lotes_vencidos_con_stock().count()
+        
+        mensaje = f"Se creará el Lote #{proximo_numero}"
+        if proximo_numero == 1:
+            mensaje += " (primer lote del producto)"
+        else:
+            mensaje += f" ({lotes_activos} lotes activos"
+            if lotes_vencidos > 0:
+                mensaje += f", {lotes_vencidos} lotes vencidos con stock"
+            mensaje += ")"
         
         return {
             'numero': proximo_numero,
             'es_primer_lote': proximo_numero == 1,
             'lotes_activos': lotes_activos,
-            'mensaje': f"Se creará el Lote #{proximo_numero}" + 
-                      (" (primer lote del producto)" if proximo_numero == 1 else f" ({lotes_activos} lotes activos)")
+            'lotes_vencidos': lotes_vencidos,
+            'mensaje': mensaje
         }
 
     def __str__(self):
@@ -329,13 +409,17 @@ class LoteProducto(models.Model):
     fecha_vencimiento = models.DateField(verbose_name="Fecha de vencimiento")
     stock = models.IntegerField(default=0, verbose_name="Stock del lote")
     fecha_ingreso = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de ingreso")
-    numero_lote = models.IntegerField(verbose_name="Número de lote")  # Cambiado a IntegerField para numeración automática
+    numero_lote = models.IntegerField(verbose_name="Número de lote")
     
     def get_dias_para_vencer(self):
         """Calcula los días restantes hasta el vencimiento."""
         from datetime import date
         hoy = date.today()
         return (self.fecha_vencimiento - hoy).days
+
+    def esta_vencido(self):
+        """Verifica si el lote está vencido."""
+        return self.get_dias_para_vencer() < 0
 
     def get_estado_vencimiento(self):
         """Determina el estado de vencimiento del lote."""
@@ -363,6 +447,29 @@ class LoteProducto(models.Model):
             'Normal': '#6c757d',       # Gris
         }
         return colores.get(estado, '#6c757d')
+
+    def puede_ser_usado(self):
+        """Determina si el lote puede ser usado (tiene stock y no está marcado como problemático)."""
+        return self.stock > 0
+
+    def requiere_atencion(self):
+        """Determina si el lote requiere atención especial (vencido con stock)."""
+        return self.stock > 0 and self.esta_vencido()
+
+    def get_descripcion_estado(self):
+        """Obtiene una descripción completa del estado del lote."""
+        if self.stock == 0:
+            return "Lote vacío (sin stock)"
+        elif self.esta_vencido():
+            return f"Lote vencido con {self.stock} unidades"
+        else:
+            dias = self.get_dias_para_vencer()
+            if dias == 0:
+                return f"Vence hoy - {self.stock} unidades"
+            elif dias <= 7:
+                return f"Vence en {dias} días - {self.stock} unidades"
+            else:
+                return f"Stock normal - {self.stock} unidades"
 
     def __str__(self):
         return f"{self.producto.descripcion} - Lote: {self.numero_lote} - Vence: {self.fecha_vencimiento}"

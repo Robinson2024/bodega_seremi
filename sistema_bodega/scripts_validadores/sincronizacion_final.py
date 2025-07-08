@@ -21,11 +21,11 @@ def sincronizar_producto_final():
     print(f"  Stock en producto: {producto.stock}")
     print(f"  Stock en lotes: {producto.lotes.aggregate(total=models.Sum('stock'))['total'] or 0}")
     
-    # Limpiar lotes vacíos automáticamente
-    producto.limpiar_lotes_vacios()
+    # CRÍTICO: NO limpiar lotes vacíos - preservar trazabilidad para Bincard
+    # Los lotes con stock=0 se conservan para mantener el historial
     
     # Sincronizar stock total
-    producto.actualizar_stock_total()
+    producto.sincronizar_stock_con_lotes()
     
     # Refrescar desde BD
     producto.refresh_from_db()

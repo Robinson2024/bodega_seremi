@@ -327,10 +327,15 @@ class ProductoForm(forms.ModelForm):
         self.instance.codigo_barra = None
         producto = super().save(commit=commit)
         if commit and producto.tiene_vencimiento and producto.stock > 0 and producto.fecha_vencimiento:
-            producto.crear_lote_automatico(
-                cantidad=producto.stock,
-                fecha_vencimiento=producto.fecha_vencimiento
+            # CORRECCIÓN CRÍTICA: Crear lote inicial SIN duplicar stock
+            # El stock ya está asignado al producto, solo crear el lote
+            LoteProducto.objects.create(
+                producto=producto,
+                numero_lote=producto.get_proximo_numero_lote(),
+                fecha_vencimiento=producto.fecha_vencimiento,
+                stock=producto.stock
             )
+            # NO sumar stock adicional - ya está asignado al producto
         return producto
 
 class TransaccionForm(forms.ModelForm):
@@ -914,9 +919,9 @@ class AgregarStockConVencimientoForm(forms.Form):
                 producto.fecha_vencimiento = fecha_vencimiento
                 producto.save()
             
-            # Crear lote automáticamente (SIEMPRE AUTOMÁTICO)
+            # Crear lote automáticamente usando el método correcto para agregar stock
             try:
-                lote = producto.crear_lote_automatico(cantidad, fecha_vencimiento)
+                lote = producto.agregar_lote(cantidad, fecha_vencimiento)
             except ValueError as e:
                 raise forms.ValidationError(f"Error al crear el lote: {str(e)}")
             

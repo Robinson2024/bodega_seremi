@@ -213,17 +213,40 @@
                     </table>
                 </div>
 
-                <!-- Paginación -->
+                <!-- Paginación con numeración dinámica limitada -->
                 {% if productos.has_other_pages %}
                 <nav aria-label="Paginación">
                     <ul class="pagination justify-content-center">
-                        {% if productos.has_previous %}
+                        <!-- Ir a primera página -->
+                        {% if productos.show_first_last and productos.number > 1 %}
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ productos.previous_page_number }}{% if estado_filtro != 'todos' %}&estado={{ estado_filtro }}{% endif %}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}">Anterior</a>
+                                <a class="page-link" href="?page=1{% if estado_filtro != 'todos' %}&estado={{ estado_filtro }}{% endif %}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}" title="Primera página">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
                             </li>
                         {% endif %}
                         
-                        {% for num in productos.paginator.page_range %}
+                        <!-- Página anterior -->
+                        {% if productos.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ productos.previous_page_number }}{% if estado_filtro != 'todos' %}&estado={{ estado_filtro }}{% endif %}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}" title="Página anterior">
+                                    <i class="fas fa-angle-left"></i> Anterior
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        <!-- Primera página si no está en el rango -->
+                        {% if productos.show_first_ellipsis %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if estado_filtro != 'todos' %}&estado={{ estado_filtro }}{% endif %}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}">1</a>
+                            </li>
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                        
+                        <!-- Rango de páginas dinámico -->
+                        {% for num in productos.dynamic_page_range %}
                             {% if productos.number == num %}
                                 <li class="page-item active">
                                     <span class="page-link">{{ num }}</span>
@@ -235,12 +258,42 @@
                             {% endif %}
                         {% endfor %}
                         
+                        <!-- Última página si no está en el rango -->
+                        {% if productos.show_last_ellipsis %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ productos.paginator.num_pages }}{% if estado_filtro != 'todos' %}&estado={{ estado_filtro }}{% endif %}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}">{{ productos.paginator.num_pages }}</a>
+                            </li>
+                        {% endif %}
+                        
+                        <!-- Página siguiente -->
                         {% if productos.has_next %}
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ productos.next_page_number }}{% if estado_filtro != 'todos' %}&estado={{ estado_filtro }}{% endif %}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}">Siguiente</a>
+                                <a class="page-link" href="?page={{ productos.next_page_number }}{% if estado_filtro != 'todos' %}&estado={{ estado_filtro }}{% endif %}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}" title="Página siguiente">
+                                    Siguiente <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        <!-- Ir a última página -->
+                        {% if productos.show_first_last and productos.number < productos.paginator.num_pages %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ productos.paginator.num_pages }}{% if estado_filtro != 'todos' %}&estado={{ estado_filtro }}{% endif %}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}" title="Última página">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
                             </li>
                         {% endif %}
                     </ul>
+                    
+                    <!-- Información de paginación -->
+                    <div class="text-center mt-2">
+                        <small class="text-muted">
+                            Página {{ productos.number }} de {{ productos.paginator.num_pages }} 
+                            ({{ productos.paginator.count }} productos total)
+                        </small>
+                    </div>
                 </nav>
                 {% endif %}
             {% else %}
@@ -811,6 +864,90 @@
         
         .btn-group .btn-filtros:last-child {
             margin-bottom: 0;
+        }
+    }
+    
+    /* Estilos específicos para paginación dinámica */
+    .pagination .page-item .page-link {
+        min-width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        font-weight: 500;
+        border-radius: 8px;
+        margin: 0 2px;
+        transition: all 0.2s ease;
+    }
+    
+    /* Botones de navegación (anterior/siguiente) */
+    .pagination .page-item .page-link[title*="anterior"],
+    .pagination .page-item .page-link[title*="siguiente"] {
+        min-width: 90px;
+        padding: 8px 12px;
+        font-size: 0.85rem;
+    }
+    
+    /* Botones de primera/última página */
+    .pagination .page-item .page-link[title*="Primera"],
+    .pagination .page-item .page-link[title*="Última"] {
+        min-width: 40px;
+        padding: 8px 10px;
+    }
+    
+    /* Puntos suspensivos */
+    .pagination .page-item.disabled .page-link {
+        background-color: transparent;
+        border: none;
+        color: #6c757d;
+        font-weight: bold;
+        cursor: default;
+    }
+    
+    /* Información de paginación */
+    .pagination + .text-center small {
+        color: #6c757d;
+        font-size: 0.8rem;
+        margin-top: 10px;
+        display: block;
+    }
+    
+    /* Responsive para paginación */
+    @media (max-width: 768px) {
+        .pagination {
+            font-size: 0.8rem;
+        }
+        
+        .pagination .page-item .page-link {
+            min-width: 35px;
+            height: 35px;
+            font-size: 0.8rem;
+            margin: 0 1px;
+        }
+        
+        .pagination .page-item .page-link[title*="anterior"],
+        .pagination .page-item .page-link[title*="siguiente"] {
+            min-width: 70px;
+            font-size: 0.75rem;
+            padding: 6px 8px;
+        }
+        
+        /* Ocultar botones de primera/última en móviles para ahorrar espacio */
+        .pagination .page-item .page-link[title*="Primera"],
+        .pagination .page-item .page-link[title*="Última"] {
+            display: none;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .pagination {
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .pagination .page-item {
+            margin-bottom: 5px;
         }
     }
 </style>

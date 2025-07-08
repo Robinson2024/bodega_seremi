@@ -44,9 +44,8 @@ class Command(BaseCommand):
             # Stock actual del producto
             stock_producto = producto.stock
             
-            # Limpiar lotes vacíos
-            if not dry_run:
-                producto.limpiar_lotes_vacios()
+            # CRÍTICO: NO limpiar lotes vacíos - preservar trazabilidad para Bincard
+            # Los lotes con stock=0 se conservan para el historial
             
             # Stock desde lotes
             stock_lotes = producto.lotes.aggregate(total=models.Sum('stock'))['total'] or 0
