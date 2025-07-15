@@ -1974,16 +1974,16 @@ def agregar_vencimiento_ajax(request):
         
         # Si el producto tiene stock, crear un lote inicial
         if producto.stock > 0:
-            lote = producto.crear_lote_automatico(
-                cantidad=producto.stock,
-                fecha_vencimiento=fecha_obj
+            stock_inicial = producto.stock  # Guardar el stock actual
+            lote = LoteProducto.objects.create(
+                producto=producto,
+                numero_lote=producto.get_proximo_numero_lote(),
+                fecha_vencimiento=fecha_obj,
+                stock=stock_inicial
             )
-            # El stock ya se actualiza automáticamente en crear_lote_automatico
-            # pero necesitamos resetear el stock principal a 0 y dejarlo solo en lotes
-            producto.stock = 0
-            producto.save()
-            # Volver a calcular el stock desde lotes
-            producto.actualizar_stock_total()
+            # No cambiar el stock del producto, ya está correcto
+            # Solo sincronizar para asegurar consistencia
+            producto.sincronizar_stock_con_lotes()
             
             return JsonResponse({
                 'success': True, 

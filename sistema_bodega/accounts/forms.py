@@ -798,7 +798,7 @@ class LoteProductoForm(forms.ModelForm):
         lote = self.producto.crear_lote_automatico(cantidad, fecha_vencimiento)
         
         # Actualizar el stock total del producto
-        self.producto.actualizar_stock_total()
+        self.producto.sincronizar_stock_con_lotes()
         
         return lote
 
