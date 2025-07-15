@@ -337,6 +337,26 @@ class Producto(models.Model):
             })
         return lotes_detalle
 
+    def get_lotes_activos_detalle(self):
+        """Obtiene detalle solo de los lotes con stock > 0 para gestión."""
+        lotes_detalle = []
+        for lote in self.lotes.filter(stock__gt=0).order_by('fecha_vencimiento'):  # Solo lotes con stock
+            lotes_detalle.append({
+                'numero_lote': lote.numero_lote,
+                'fecha_vencimiento': lote.fecha_vencimiento,
+                'stock': lote.stock,
+                'dias_restantes': lote.get_dias_para_vencer(),
+                'estado': lote.get_estado_vencimiento(),
+                'color': lote.get_color_estado_vencimiento(),
+                'esta_vacio': False,  # Por definición, estos lotes no están vacíos
+                'esta_vencido': lote.get_dias_para_vencer() < 0 if lote.get_dias_para_vencer() is not None else False
+            })
+        return lotes_detalle
+
+    def get_total_lotes_activos(self):
+        """Obtiene el número de lotes que tienen stock > 0."""
+        return self.lotes.filter(stock__gt=0).count()
+
     def get_estadisticas_lotes(self):
         """Obtiene estadísticas completas de los lotes del producto."""
         if not self.tiene_vencimiento:

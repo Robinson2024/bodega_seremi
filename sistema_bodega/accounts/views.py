@@ -1669,11 +1669,19 @@ def control_vencimientos(request):
     from datetime import date, timedelta
     hoy = date.today()
     
-    # Obtener productos con vencimiento que tienen stock
+    # Obtener productos con vencimiento que tienen stock > 0 Y que tienen lotes activos
     productos_base = Producto.objects.filter(
         tiene_vencimiento=True,
         stock__gt=0
     ).select_related('categoria').prefetch_related('lotes')
+    
+    # FILTRO ADICIONAL: Solo incluir productos que tienen al menos un lote con stock > 0
+    productos_con_lotes_activos = []
+    for producto in productos_base:
+        if producto.get_total_lotes_activos() > 0:  # Solo productos con lotes activos
+            productos_con_lotes_activos.append(producto)
+    
+    productos_base = productos_con_lotes_activos
     
     # Filtrado por estado
     estado_filtro = request.GET.get('estado', 'todos')
@@ -1685,7 +1693,7 @@ def control_vencimientos(request):
         # Usar el estado de vencimiento completo que considera todos los lotes
         estado_vencimiento = producto.get_estado_vencimiento_completo()
         proximo_vencimiento = producto.get_proximo_vencimiento()
-        lotes_detalle = producto.get_lotes_detalle()
+        lotes_detalle = producto.get_lotes_activos_detalle()  # Solo lotes activos para el control
         
         # Calcular días restantes del lote más próximo a vencer
         dias_restantes = None
@@ -1905,8 +1913,8 @@ def agregar_vencimiento_producto(request):
         }
         
         if producto.tiene_vencimiento:
-            info['lotes_detalle'] = producto.get_lotes_detalle()
-            info['total_lotes'] = len(info['lotes_detalle'])
+            info['lotes_detalle'] = producto.get_lotes_activos_detalle()  # Solo lotes activos para gestión
+            info['total_lotes'] = len(info['lotes_detalle'])  # Solo contar lotes activos
             info['proximo_vencimiento'] = producto.get_proximo_vencimiento()
             info['estado_vencimiento'] = producto.get_estado_vencimiento_completo()
         
@@ -2133,8 +2141,8 @@ def obtener_lotes_producto_ajax(request):
         if not producto.tiene_vencimiento:
             return JsonResponse({'success': False, 'error': 'Este producto no maneja lotes.'})
         
-        # Obtener lotes con stock
-        lotes_detalle = producto.get_lotes_detalle()
+        # Obtener solo lotes activos (con stock > 0) para gestión
+        lotes_detalle = producto.get_lotes_activos_detalle()
         
         lotes_data = []
         for lote in lotes_detalle:

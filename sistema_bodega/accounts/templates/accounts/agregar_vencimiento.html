@@ -610,23 +610,22 @@
                                             </button>
                                         {% else %}
                                             {% if item.total_lotes == 0 %}
-                                                <!-- Solo mostrar botón MODIFICAR si NO tiene lotes -->
-                                                <button type="button" class="btn btn-warning btn-sm" 
-                                                        data-toggle="modal" data-target="#modalModificarProducto"
+                                                <!-- Si no tiene lotes activos, mostrar botón AGREGAR (como si fuera nuevo) -->
+                                                <button type="button" class="btn btn-success btn-sm" 
+                                                        data-toggle="modal" data-target="#modalAgregarVencimiento"
                                                         data-codigo="{{ item.producto.codigo_barra }}"
                                                         data-descripcion="{{ item.producto.descripcion }}"
-                                                        data-fecha="{{ item.producto.fecha_vencimiento|date:'Y-m-d' }}"
-                                                        title="Modificar fecha de vencimiento">
-                                                    <i class="fas fa-edit me-1"></i> Modificar
+                                                        title="Agregar fecha de vencimiento">
+                                                    <i class="fas fa-plus me-1"></i> Agregar
                                                 </button>
                                             {% else %}
-                                                <!-- Si tiene lotes, mostrar mensaje informativo -->
+                                                <!-- Si tiene lotes activos, mostrar mensaje informativo -->
                                                 <span class="badge bg-info text-dark">
                                                     <i class="fas fa-info-circle me-1"></i> 
                                                     Modificar por lotes
                                                 </span>
                                             {% endif %}
-                                            <!-- Botón para gestionar lotes -->
+                                            <!-- Botón para gestionar lotes (solo si tiene lotes activos) -->
                                             {% if item.total_lotes > 0 %}
                                                 <button type="button" class="btn btn-info btn-sm" 
                                                         data-toggle="modal" data-target="#modalGestionarLotes"
