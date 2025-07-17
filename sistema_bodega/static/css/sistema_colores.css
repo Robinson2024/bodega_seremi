@@ -1,0 +1,383 @@
+/* SISTEMA DE PALETA DE COLORES UNIFORME */
+/* Paleta principal basada en el color corporativo azul */
+
+:root {
+    /* Colores primarios - Azul corporativo */
+    --primary-color: #1a3c5e;
+    --primary-light: #2d5a8a;
+    --primary-lighter: #4a7bb3;
+    --primary-dark: #0f2436;
+    --primary-darker: #081018;
+
+    /* Colores de estado - Vencimientos */
+    --estado-vencido: #dc2626;        /* Rojo más uniforme */
+    --estado-vencido-light: #ef4444;
+    --estado-vence-hoy: #ea580c;      /* Naranja más coherente */
+    --estado-vence-hoy-light: #f97316;
+    --estado-critico: #d97706;        /* Amarillo-naranja más fuerte */
+    --estado-critico-light: #f59e0b;
+    --estado-precaucion: #16a34a;     /* Verde más consistente */
+    --estado-precaucion-light: #22c55e;
+    --estado-normal: #64748b;         /* Gris más moderno */
+    --estado-normal-light: #94a3b8;
+
+    /* Colores de acción - Botones */
+    --btn-success: #059669;           /* Verde más profesional */
+    --btn-success-hover: #047857;
+    --btn-primary: #2563eb;           /* Azul más consistente */
+    --btn-primary-hover: #1d4ed8;
+    --btn-warning: #d97706;           /* Amarillo más fuerte */
+    --btn-warning-hover: #b45309;
+    --btn-danger: #dc2626;            /* Rojo consistente */
+    --btn-danger-hover: #b91c1c;
+    --btn-info: #0891b2;              /* Turquesa más moderno */
+    --btn-info-hover: #0e7490;
+
+    /* Colores de fondo */
+    --bg-primary: #f8fafc;            /* Fondo principal */
+    --bg-secondary: #f1f5f9;          /* Fondo secundario */
+    --bg-tertiary: #e2e8f0;           /* Fondo terciario */
+    --bg-card: #ffffff;               /* Fondo de tarjetas */
+    --bg-header: linear-gradient(135deg, #1a3c5e 0%, #2d5a8a 100%);
+
+    /* Colores de texto */
+    --text-primary: #1e293b;          /* Texto principal */
+    --text-secondary: #64748b;        /* Texto secundario */
+    --text-muted: #94a3b8;            /* Texto tenue */
+    --text-white: #ffffff;            /* Texto blanco */
+    --text-inverse: #ffffff;          /* Texto sobre fondos oscuros */
+
+    /* Colores de borde */
+    --border-light: #e2e8f0;          /* Borde claro */
+    --border-medium: #cbd5e1;         /* Borde medio */
+    --border-dark: #94a3b8;           /* Borde oscuro */
+    --border-focus: #2563eb;          /* Borde en foco */
+
+    /* Sombras */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
+    --shadow-primary: 0 4px 15px rgba(26, 60, 94, 0.3);
+    --shadow-success: 0 4px 15px rgba(5, 150, 105, 0.3);
+    --shadow-warning: 0 4px 15px rgba(217, 119, 6, 0.3);
+    --shadow-danger: 0 4px 15px rgba(220, 38, 38, 0.3);
+
+    /* Gradientes */
+    --gradient-primary: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+    --gradient-success: linear-gradient(135deg, var(--btn-success) 0%, var(--estado-precaucion) 100%);
+    --gradient-warning: linear-gradient(135deg, var(--btn-warning) 0%, var(--estado-critico) 100%);
+    --gradient-danger: linear-gradient(135deg, var(--btn-danger) 0%, var(--estado-vencido) 100%);
+    --gradient-info: linear-gradient(135deg, var(--btn-info) 0%, var(--primary-lighter) 100%);
+    --gradient-card: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+}
+
+/* Clases utilitarias para colores uniformes */
+.text-primary-custom { color: var(--primary-color) !important; }
+.text-secondary-custom { color: var(--text-secondary) !important; }
+.text-muted-custom { color: var(--text-muted) !important; }
+
+.bg-primary-custom { background-color: var(--primary-color) !important; }
+.bg-secondary-custom { background-color: var(--bg-secondary) !important; }
+.bg-gradient-primary { background: var(--gradient-primary) !important; }
+
+.border-primary-custom { border-color: var(--primary-color) !important; }
+.border-light-custom { border-color: var(--border-light) !important; }
+
+.shadow-primary-custom { box-shadow: var(--shadow-primary) !important; }
+.shadow-md-custom { box-shadow: var(--shadow-md) !important; }
+
+/* Estados de vencimiento uniformes */
+.estado-vencido { 
+    background: linear-gradient(135deg, var(--estado-vencido) 0%, var(--estado-vencido-light) 100%) !important;
+    color: var(--text-white) !important;
+}
+
+.estado-vence-hoy { 
+    background: linear-gradient(135deg, var(--estado-vence-hoy) 0%, var(--estado-vence-hoy-light) 100%) !important;
+    color: var(--text-white) !important;
+}
+
+.estado-critico { 
+    background: linear-gradient(135deg, var(--estado-critico) 0%, var(--estado-critico-light) 100%) !important;
+    color: var(--text-white) !important;
+}
+
+.estado-precaucion { 
+    background: linear-gradient(135deg, var(--estado-precaucion) 0%, var(--estado-precaucion-light) 100%) !important;
+    color: var(--text-white) !important;
+}
+
+.estado-normal { 
+    background: linear-gradient(135deg, var(--estado-normal) 0%, var(--estado-normal-light) 100%) !important;
+    color: var(--text-white) !important;
+}
+
+/* Botones uniformes */
+.btn-primary-custom {
+    background: var(--gradient-primary) !important;
+    border: none !important;
+    color: var(--text-white) !important;
+    box-shadow: var(--shadow-primary) !important;
+    transition: all 0.3s ease !important;
+}
+
+.btn-primary-custom:hover {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: var(--shadow-lg) !important;
+    color: var(--text-white) !important;
+}
+
+.btn-success-custom {
+    background: var(--gradient-success) !important;
+    border: none !important;
+    color: var(--text-white) !important;
+    box-shadow: var(--shadow-success) !important;
+    transition: all 0.3s ease !important;
+}
+
+.btn-success-custom:hover {
+    background: linear-gradient(135deg, var(--btn-success-hover) 0%, var(--estado-precaucion) 100%) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: var(--shadow-lg) !important;
+    color: var(--text-white) !important;
+}
+
+.btn-warning-custom {
+    background: var(--gradient-warning) !important;
+    border: none !important;
+    color: var(--text-white) !important;
+    box-shadow: var(--shadow-warning) !important;
+    transition: all 0.3s ease !important;
+}
+
+.btn-warning-custom:hover {
+    background: linear-gradient(135deg, var(--btn-warning-hover) 0%, var(--estado-critico) 100%) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: var(--shadow-lg) !important;
+    color: var(--text-white) !important;
+}
+
+.btn-danger-custom {
+    background: var(--gradient-danger) !important;
+    border: none !important;
+    color: var(--text-white) !important;
+    box-shadow: var(--shadow-danger) !important;
+    transition: all 0.3s ease !important;
+}
+
+.btn-danger-custom:hover {
+    background: linear-gradient(135deg, var(--btn-danger-hover) 0%, var(--estado-vencido) 100%) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: var(--shadow-lg) !important;
+    color: var(--text-white) !important;
+}
+
+/* Tarjetas uniformes */
+.card-custom {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-light) !important;
+    border-radius: 12px !important;
+    box-shadow: var(--shadow-md) !important;
+    transition: all 0.3s ease !important;
+}
+
+.card-custom:hover {
+    box-shadow: var(--shadow-lg) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* Headers uniformes */
+.header-custom {
+    background: var(--bg-header) !important;
+    color: var(--text-white) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+/* Tablas uniformes */
+.table-custom {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-light) !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+.table-custom thead {
+    background: var(--gradient-primary) !important;
+    color: var(--text-white) !important;
+}
+
+.table-custom tbody tr:hover {
+    background-color: var(--bg-secondary) !important;
+}
+
+/* Formularios uniformes */
+.form-control-custom {
+    border: 2px solid var(--border-light) !important;
+    border-radius: 8px !important;
+    padding: 12px 16px !important;
+    transition: all 0.3s ease !important;
+}
+
+.form-control-custom:focus {
+    border-color: var(--border-focus) !important;
+    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.15) !important;
+    outline: none !important;
+}
+
+/* Alertas uniformes */
+.alert-custom {
+    border-radius: 8px !important;
+    border: none !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+.alert-success-custom {
+    background: rgba(5, 150, 105, 0.1) !important;
+    color: var(--btn-success) !important;
+    border-left: 4px solid var(--btn-success) !important;
+}
+
+.alert-warning-custom {
+    background: rgba(217, 119, 6, 0.1) !important;
+    color: var(--btn-warning) !important;
+    border-left: 4px solid var(--btn-warning) !important;
+}
+
+.alert-danger-custom {
+    background: rgba(220, 38, 38, 0.1) !important;
+    color: var(--btn-danger) !important;
+    border-left: 4px solid var(--btn-danger) !important;
+}
+
+.alert-info-custom {
+    background: rgba(8, 145, 178, 0.1) !important;
+    color: var(--btn-info) !important;
+    border-left: 4px solid var(--btn-info) !important;
+}
+
+/* Navegación uniforme */
+.nav-custom {
+    background: var(--bg-card) !important;
+    border-bottom: 1px solid var(--border-light) !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+.nav-link-custom {
+    color: var(--text-secondary) !important;
+    transition: all 0.3s ease !important;
+}
+
+.nav-link-custom:hover {
+    color: var(--primary-color) !important;
+    background-color: var(--bg-secondary) !important;
+}
+
+.nav-link-custom.active {
+    color: var(--primary-color) !important;
+    background-color: var(--bg-secondary) !important;
+    border-bottom: 2px solid var(--primary-color) !important;
+}
+
+/* Paginación uniforme */
+.pagination-custom .page-link {
+    color: var(--primary-color) !important;
+    border: 1px solid var(--border-light) !important;
+    transition: all 0.3s ease !important;
+}
+
+.pagination-custom .page-link:hover {
+    color: var(--text-white) !important;
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+.pagination-custom .page-item.active .page-link {
+    color: var(--text-white) !important;
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* Modales uniformes */
+.modal-custom .modal-header {
+    background: var(--gradient-primary) !important;
+    color: var(--text-white) !important;
+    border-bottom: none !important;
+}
+
+.modal-custom .modal-content {
+    border-radius: 12px !important;
+    border: none !important;
+    box-shadow: var(--shadow-xl) !important;
+}
+
+.modal-custom .modal-footer {
+    background-color: var(--bg-secondary) !important;
+    border-top: 1px solid var(--border-light) !important;
+}
+
+/* Badges uniformes */
+.badge-custom {
+    padding: 6px 12px !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    font-size: 0.875rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+/* Utilidades responsive */
+@media (max-width: 768px) {
+    .btn-primary-custom,
+    .btn-success-custom,
+    .btn-warning-custom,
+    .btn-danger-custom {
+        padding: 8px 16px !important;
+        font-size: 0.875rem !important;
+    }
+    
+    .card-custom {
+        margin-bottom: 1rem !important;
+    }
+}
+
+/* Animaciones suaves */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Efectos de carga */
+.loading-overlay {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(4px) !important;
+}
+
+.loading-spinner {
+    border-top-color: var(--primary-color) !important;
+}
+
+/* Personalización de scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
