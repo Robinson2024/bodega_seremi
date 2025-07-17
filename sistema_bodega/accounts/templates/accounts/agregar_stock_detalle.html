@@ -73,9 +73,11 @@
                                 <span class="input-group-text">RUT Proveedor</span>
                             </div>
                         </div>
+                        <small class="text-muted">Ingrese el RUT con o sin guión (ej: 12345678-9)</small>
                         {% if form.rut_proveedor.errors %}
                             <div class="text-danger small">{{ form.rut_proveedor.errors }}</div>
                         {% endif %}
+                        <div id="rut-feedback" class="text-danger small"></div>
                     </div>
                 </div>
 
@@ -336,13 +338,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return dv == dvEsperado;
     }
 
-    // Función para formatear el RUT con puntos y guion
+    // Función para formatear el RUT con puntos y guion - Versión mejorada
     function formatearRut(rut) {
+        // Limpiar el RUT de puntos y guiones
         rut = rut.replace(/\./g, '').replace(/\-/g, '').toUpperCase();
+        
+        if (rut.length < 2) return rut;
+        
         var rutLimpio = rut.slice(0, -1);
         var dv = rut.slice(-1);
         var rutFormateado = '';
 
+        // Formatear con puntos cada tres dígitos
         for (var i = rutLimpio.length - 1; i >= 0; i--) {
             rutFormateado = rutLimpio.charAt(i) + rutFormateado;
             if (i > 0 && (rutLimpio.length - i) % 3 === 0) {
@@ -353,9 +360,39 @@ document.addEventListener('DOMContentLoaded', function() {
         return rutFormateado + '-' + dv;
     }
 
+    // Función para formatear RUT en tiempo real de forma más intuitiva
+    function formatearRutEnTiempoReal(valor) {
+        // Limpiar valor manteniendo solo números y K
+        let valorLimpio = valor.replace(/[^0-9K]/gi, '');
+        
+        if (valorLimpio.length === 0) return '';
+        
+        // Solo formatear cuando tenga 8 o 9 caracteres (RUT completo)
+        // RUT chileno: 7-8 dígitos + 1 dígito verificador = 8-9 caracteres totales
+        if (valorLimpio.length < 8) return valorLimpio;
+        
+        // Si tiene 8 o 9 caracteres, formatear automáticamente
+        let cuerpo = valorLimpio.slice(0, -1);
+        let dv = valorLimpio.slice(-1);
+        
+        // Formatear cuerpo con puntos
+        let cuerpoFormateado = '';
+        for (let i = cuerpo.length - 1; i >= 0; i--) {
+            cuerpoFormateado = cuerpo[i] + cuerpoFormateado;
+            if (i > 0 && (cuerpo.length - i) % 3 === 0) {
+                cuerpoFormateado = '.' + cuerpoFormateado;
+            }
+        }
+        
+        // Retornar con guión automático
+        return cuerpoFormateado + '-' + dv.toUpperCase();
+    }
+
     // Función para limpiar el RUT (quitar puntos) antes de enviarlo
     function cleanRut(rut) {
-        return rut.replace(/[^0-9K-]/g, '').toUpperCase();
+        let cleaned = rut.replace(/[^0-9K-]/g, '').toUpperCase();
+        console.log('cleanRut - Input:', rut, 'Output:', cleaned);
+        return cleaned;
     }
 
     // Validación de la cantidad en tiempo real
@@ -375,66 +412,82 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Validación y formateo del RUT
+    // Validación y formateo del RUT - Versión mejorada
     if (rutInput) {
+        // Configuración inicial del campo RUT
+        rutInput.placeholder = "Ej: 12345678-9 o 123456789";
+        const rutFeedback = document.getElementById('rut-feedback');
+
+        // Evento oninput mejorado para mejor experiencia de usuario
         rutInput.oninput = function(e) {
-            let value = this.value;
-            // Permitir números, guion y K
-            let cleanedValue = value.replace(/[^0-9-K]/gi, '');
-            let parts = cleanedValue.split('-');
-            let body = parts[0] || '';
-            let dv = parts[1] || '';
-
-            // Limitar cuerpo a 8 dígitos
-            body = body.replace(/[^0-9]/g, '').slice(0, 8);
-
-            // Permitir guion y dígito verificador (0-9 o K)
-            if (parts.length > 1) {
-                dv = dv.replace(/[^0-9K]/gi, '').slice(0, 1);
-            } else if (value.includes('-')) {
-                dv = ''; // Mantener el guion si no hay dígito verificador aún
+            let valor = this.value;
+            
+            // Permitir solo números, guión y K
+            let valorLimpio = valor.replace(/[^0-9-K]/gi, '');
+            
+            // Limitar a máximo 12 caracteres formateados (XX.XXX.XXX-X)
+            // Pero permitir hasta 9 caracteres sin formateo
+            let soloNumeros = valorLimpio.replace(/[.-]/g, '');
+            if (soloNumeros.length > 9) {
+                soloNumeros = soloNumeros.slice(0, 9);
+                valorLimpio = soloNumeros;
             }
-
-            // Reconstruir el valor
-            let formattedValue = body;
-            if (body) {
-                // Formatear el cuerpo con puntos
-                let tempBody = '';
-                for (let i = body.length - 1; i >= 0; i--) {
-                    tempBody = body[i] + tempBody;
-                    if (i > 0 && (body.length - i) % 3 === 0) {
-                        tempBody = '.' + tempBody;
+            
+            // Si el usuario ingresa RUT sin guión, formatear automáticamente solo cuando tenga 9 caracteres
+            if (valorLimpio.length === 9 && !valorLimpio.includes('-')) {
+                let rutFormateado = formatearRutEnTiempoReal(valorLimpio);
+                this.value = rutFormateado;
+            } else if (valorLimpio.includes('-')) {
+                // Si ya tiene guión, mantener el formateo manual
+                let parts = valorLimpio.split('-');
+                let cuerpo = parts[0].replace(/[^0-9]/g, '').slice(0, 8);
+                let dv = parts[1] ? parts[1].replace(/[^0-9K]/gi, '').slice(0, 1) : '';
+                
+                // Formatear cuerpo con puntos
+                let cuerpoFormateado = '';
+                for (let i = cuerpo.length - 1; i >= 0; i--) {
+                    cuerpoFormateado = cuerpo[i] + cuerpoFormateado;
+                    if (i > 0 && (cuerpo.length - i) % 3 === 0) {
+                        cuerpoFormateado = '.' + cuerpoFormateado;
                     }
                 }
-                formattedValue = tempBody;
-
-                // Agregar el guion y el dígito verificador si existe
-                if (value.includes('-')) {
-                    formattedValue += '-';
-                    if (dv) {
-                        formattedValue += dv.toUpperCase();
-                    }
-                }
+                
+                this.value = cuerpoFormateado + (dv || parts.length > 1 ? '-' + dv.toUpperCase() : '');
+            } else {
+                // Permitir escribir hasta 9 caracteres sin formateo
+                this.value = valorLimpio.slice(0, 9);
             }
-
-            this.value = formattedValue;
+            
+            // Limpiar estilos de error mientras se escribe
             this.classList.remove('is-invalid');
+            rutFeedback.textContent = '';
             rutError.textContent = '';
         };
 
-        // Validación al perder el foco
+        // Validación mejorada al perder el foco
         rutInput.addEventListener('blur', function() {
-            let value = this.value.trim();
-            if (!value) return;
+            let valor = this.value.trim();
+            if (!valor) return;
 
-            let cleanedValue = cleanRut(value);
-            if (validarRut(cleanedValue)) {
-                this.value = formatearRut(cleanedValue);
+            // Contar solo números y K (sin puntos ni guiones)
+            let soloDigitos = valor.replace(/[^0-9K]/gi, '');
+            console.log('Solo dígitos:', soloDigitos, 'Longitud:', soloDigitos.length);
+            
+            // Para el formato, no validar matemáticamente, solo formatear
+            if (soloDigitos.length >= 8 && soloDigitos.length <= 9) {
+                let valorLimpio = cleanRut(valor);
+                this.value = formatearRut(valorLimpio);
                 this.classList.remove('is-invalid');
+                rutFeedback.textContent = '';
                 rutError.textContent = '';
-            } else if (value) {
+            } else if (soloDigitos.length < 8) {
                 this.classList.add('is-invalid');
-                rutError.textContent = 'El RUT ingresado no es válido.';
+                rutFeedback.textContent = 'RUT debe tener al menos 8 dígitos (incluyendo dígito verificador).';
+                rutError.textContent = 'RUT incompleto.';
+            } else {
+                this.classList.add('is-invalid');
+                rutFeedback.textContent = 'RUT no puede tener más de 9 dígitos.';
+                rutError.textContent = 'RUT muy largo.';
             }
         });
     }
