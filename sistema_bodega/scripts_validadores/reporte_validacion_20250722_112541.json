@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-07-22T11:25:41.992079",
+  "resumen": {
+    "total_pruebas": 1,
+    "exitos": 0,
+    "errores": 1,
+    "warnings": 0
+  },
+  "metricas_rendimiento": {},
+  "exitos": [],
+  "errores": [
+    {
+      "timestamp": "2025-07-22T11:25:41.975915",
+      "mensaje": "Error creando usuarios de prueba",
+      "detalle": "CustomUser() got unexpected keyword arguments: 'apellido'",
+      "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\Robinson Bravo\\Desktop\\bodega_seremi\\sistema_bodega\\analisis_escalabilidad.py\", line 140, in crear_usuarios_prueba\n    user = User.objects.create_user(\n        username=datos['username'],\n    ...<6 lines>...\n        is_superuser=datos['is_superuser']\n    )\n  File \"C:\\Users\\Robinson Bravo\\Desktop\\bodega_seremi\\.venv\\Lib\\site-packages\\django\\contrib\\auth\\models.py\", line 161, in create_user\n    return self._create_user(username, email, password, **extra_fields)\n           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\Robinson Bravo\\Desktop\\bodega_seremi\\.venv\\Lib\\site-packages\\django\\contrib\\auth\\models.py\", line 153, in _create_user\n    user = self.model(username=username, email=email, **extra_fields)\n  File \"C:\\Users\\Robinson Bravo\\Desktop\\bodega_seremi\\.venv\\Lib\\site-packages\\django\\db\\models\\base.py\", line 567, in __init__\n    raise TypeError(\n    ...<2 lines>...\n    )\nTypeError: CustomUser() got unexpected keyword arguments: 'apellido'\n"
+    }
+  ],
+  "warnings": []
+}

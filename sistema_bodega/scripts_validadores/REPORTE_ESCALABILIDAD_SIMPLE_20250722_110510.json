@@ -1,0 +1,140 @@
+{
+  "timestamp": "2025-07-22T11:05:10.871167",
+  "nivel_escalabilidad": "🟢 EXCELENTE",
+  "mensaje": "Sistema altamente escalable",
+  "metricas": {
+    "base_datos": {
+      "total_registros": 470,
+      "estadisticas": {
+        "productos": 52,
+        "transacciones": 355,
+        "lotes": 48,
+        "categorias": 15
+      },
+      "tiempo_stats_basicas": 0.008077383041381836,
+      "stock_total": 7618,
+      "tiempo_consultas_promedio": 0.001123984654744466
+    },
+    "consultas_masivas": {
+      "tiempo_total": 0.037178754806518555,
+      "tiempo_promedio": 0.007435750961303711,
+      "consultas_exitosas": 4,
+      "total_consultas": 5,
+      "resultados": {
+        "Productos con stock > 0": {
+          "tiempo": 0.0012242794036865234,
+          "cantidad": 49,
+          "exitosa": true
+        },
+        "Transacciones últimos 30 días": {
+          "tiempo": 0.032503604888916016,
+          "cantidad": 140,
+          "exitosa": true
+        },
+        "Lotes próximos a vencer": {
+          "tiempo": 0.0014297962188720703,
+          "cantidad": 37,
+          "exitosa": true
+        },
+        "Productos más vendidos": {
+          "tiempo": 2.1457672119140625e-05,
+          "error": "module 'django.db.transaction' has no attribute 'models'",
+          "exitosa": false
+        },
+        "Stock por categoría": {
+          "tiempo": 0.0020210742950439453,
+          "cantidad": 10,
+          "exitosa": true
+        }
+      }
+    },
+    "carga_secuencial": {
+      "operaciones_totales": 100,
+      "exitosas": 100,
+      "errores": 0,
+      "tiempo_total": 0.09220552444458008,
+      "ops_por_segundo": 1084.5337153318267
+    }
+  },
+  "resultados": [
+    {
+      "mensaje": "Estadísticas básicas obtenidas",
+      "tiempo": 0.008077383041381836,
+      "nivel": "INFO",
+      "timestamp": "2025-07-22T11:05:10.632899"
+    },
+    {
+      "mensaje": "Consulta productos top",
+      "tiempo": 0.0005743503570556641,
+      "nivel": "INFO",
+      "timestamp": "2025-07-22T11:05:10.636444"
+    },
+    {
+      "mensaje": "Consulta por tipo",
+      "tiempo": 0.0007588863372802734,
+      "nivel": "INFO",
+      "timestamp": "2025-07-22T11:05:10.636600"
+    },
+    {
+      "mensaje": "Consulta stock agregado",
+      "tiempo": 0.002038717269897461,
+      "nivel": "INFO",
+      "timestamp": "2025-07-22T11:05:10.636747"
+    },
+    {
+      "mensaje": "Rendimiento de BD excelente",
+      "tiempo": null,
+      "nivel": "INFO",
+      "timestamp": "2025-07-22T11:05:10.637068"
+    },
+    {
+      "mensaje": "Consultas masivas completadas",
+      "tiempo": 0.037178754806518555,
+      "nivel": "INFO",
+      "timestamp": "2025-07-22T11:05:10.676609"
+    },
+    {
+      "mensaje": "Rendimiento consultas masivas excelente",
+      "tiempo": null,
+      "nivel": "INFO",
+      "timestamp": "2025-07-22T11:05:10.676759"
+    },
+    {
+      "mensaje": "Carga secuencial completada",
+      "tiempo": 0.09220552444458008,
+      "nivel": "INFO",
+      "timestamp": "2025-07-22T11:05:10.770667"
+    },
+    {
+      "mensaje": "Excelente velocidad secuencial: 1084.5 ops/seg",
+      "tiempo": null,
+      "nivel": "INFO",
+      "timestamp": "2025-07-22T11:05:10.770818"
+    },
+    {
+      "mensaje": "Creación de datos de prueba completada",
+      "tiempo": 0.0481722354888916,
+      "nivel": "INFO",
+      "timestamp": "2025-07-22T11:05:10.820161"
+    },
+    {
+      "mensaje": "Proyección de crecimiento completada",
+      "tiempo": null,
+      "nivel": "INFO",
+      "timestamp": "2025-07-22T11:05:10.839234"
+    },
+    {
+      "mensaje": "Limpieza de datos completada",
+      "tiempo": null,
+      "nivel": "INFO",
+      "timestamp": "2025-07-22T11:05:10.866414"
+    }
+  ],
+  "resumen": {
+    "total_pruebas": 12,
+    "exitosas": 12,
+    "warnings": 0,
+    "errores": 0,
+    "porcentaje_exito": 100.0
+  }
+}

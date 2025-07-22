@@ -1,0 +1,40 @@
+{
+  "timestamp": "2025-07-22T11:45:51.399675",
+  "resumen": {
+    "total_pruebas": 5,
+    "exitos": 4,
+    "errores": 1,
+    "warnings": 0
+  },
+  "metricas_rendimiento": {
+    "crear_proveedor": 0.00040268898010253906,
+    "registrar_producto": 1.3167314529418945
+  },
+  "exitos": [
+    {
+      "timestamp": "2025-07-22T11:45:48.436581",
+      "mensaje": "Usuario admin creado exitosamente"
+    },
+    {
+      "timestamp": "2025-07-22T11:45:49.181476",
+      "mensaje": "Usuario bodeguero creado exitosamente"
+    },
+    {
+      "timestamp": "2025-07-22T11:45:50.081747",
+      "mensaje": "Usuario operador creado exitosamente"
+    },
+    {
+      "timestamp": "2025-07-22T11:45:50.082197",
+      "mensaje": "RUT de proveedor configurado exitosamente"
+    }
+  ],
+  "errores": [
+    {
+      "timestamp": "2025-07-22T11:45:51.399246",
+      "mensaje": "Producto no encontrado después del registro",
+      "detalle": "",
+      "traceback": ""
+    }
+  ],
+  "warnings": []
+}

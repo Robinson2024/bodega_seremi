@@ -1,0 +1,268 @@
+{
+  "timestamp": "2025-07-22T11:41:26.208850",
+  "validaciones": {
+    "validacion_completa_final.py": {
+      "descripcion": "Validacion Funcional Completa",
+      "exitoso": true,
+      "salida": null,
+      "errores": "",
+      "archivo_reporte": "REPORTE_VALIDACION_COMPLETA_20250722_114128.json",
+      "datos_reporte": {
+        "timestamp": "2025-07-22T11:41:27.200220",
+        "pruebas": [],
+        "errores": [
+          "Error probando funcionalidad web: Manager isn't available; 'auth.User' has been swapped for 'accounts.CustomUser'"
+        ],
+        "exitos": [
+          "Productos en sistema: 52",
+          "Transacciones en sistema: 355",
+          "Lotes en sistema: 48",
+          "Categorías en sistema: 15",
+          "No hay productos con stock negativo",
+          "Todos los productos tienen movimientos registrados",
+          "Producto de prueba creado: VALIDACION97526",
+          "Creadas 3 transacciones de entrada",
+          "Creados 3 lotes de prueba",
+          "Transacción de salida creada",
+          "Consulta productos: 20 registros",
+          "Consulta transacciones: 50 registros",
+          "Consulta lotes críticos: 23 registros",
+          "Consulta agregada: {'total_stock': 7693, 'total_productos': 53}",
+          "Rendimiento excelente: 0.002s promedio",
+          "Lógica FIFO funcionando correctamente",
+          "Página principal accesible: 302",
+          "Datos de prueba eliminados correctamente"
+        ],
+        "metricas": {
+          "Consulta productos con stock": 0.0009951591491699219,
+          "Consulta transacciones recientes": 0.0019485950469970703,
+          "Consulta lotes críticos": 0.0012369155883789062,
+          "Consulta agregada": 0.002532958984375
+        },
+        "estadisticas": {
+          "productos": 52,
+          "transacciones": 355,
+          "lotes": 48,
+          "categorias": 15
+        },
+        "estado_final": "🟡 BUENO",
+        "mensaje_final": "Sistema con errores menores",
+        "resumen": {
+          "total_exitos": 18,
+          "total_errores": 1,
+          "total_pruebas": 19,
+          "porcentaje_exito": 94.73684210526315
+        }
+      }
+    },
+    "validacion_seguridad.py": {
+      "descripcion": "Auditoria de Seguridad",
+      "exitoso": true,
+      "salida": null,
+      "errores": "",
+      "archivo_reporte": "REPORTE_SEGURIDAD_20250722_114129.json",
+      "datos_reporte": {
+        "timestamp": "2025-07-22T11:41:29.103281",
+        "nivel_seguridad": "🔴 CRÍTICO",
+        "mensaje": "Vulnerabilidades críticas encontradas",
+        "resumen": {
+          "vulnerabilidades": 3,
+          "advertencias": 5,
+          "buenas_practicas": 6,
+          "vulnerabilidades_criticas": 1,
+          "vulnerabilidades_altas": 1
+        },
+        "vulnerabilidades": [
+          {
+            "mensaje": "DEBUG=True en producción expone información sensible",
+            "nivel": "ALTA",
+            "timestamp": "2025-07-22T11:41:29.083841"
+          },
+          {
+            "mensaje": "Usando SECRET_KEY de desarrollo",
+            "nivel": "CRÍTICA",
+            "timestamp": "2025-07-22T11:41:29.083867"
+          },
+          {
+            "mensaje": "ALLOWED_HOSTS demasiado permisivo",
+            "nivel": "MEDIA",
+            "timestamp": "2025-07-22T11:41:29.083882"
+          }
+        ],
+        "advertencias": [
+          "HTTPS redirect no configurado",
+          "CSRF cookie no segura",
+          "Session cookie no segura",
+          "Archivo sistema_bodega/settings.py es escribible",
+          "RUTs con formato inválido encontrados: 8"
+        ],
+        "buenas_practicas": [
+          "Número apropiado de superusuarios: 2",
+          "No se encontraron datos sensibles en observaciones",
+          "No se encontraron caracteres sospechosos en códigos",
+          "No se encontró código malicioso en descripciones",
+          "Longitud de descripciones dentro de límites normales",
+          "Longitud de observaciones dentro de límites normales"
+        ]
+      }
+    },
+    "validacion_escalabilidad_simple.py": {
+      "descripcion": "Analisis de Escalabilidad",
+      "exitoso": true,
+      "salida": null,
+      "errores": "C:\\Users\\Robinson Bravo\\Desktop\\bodega_seremi\\.venv\\Lib\\site-packages\\django\\db\\models\\fields\\__init__.py:1659: RuntimeWarning: DateTimeField Transaccion.fecha received a naive datetime (2025-06-22 11:41:30.112201) while time zone support is active.\n  warnings.warn(\n",
+      "archivo_reporte": "REPORTE_ESCALABILIDAD_SIMPLE_20250722_114130.json",
+      "datos_reporte": {
+        "timestamp": "2025-07-22T11:41:30.235643",
+        "nivel_escalabilidad": "🟢 EXCELENTE",
+        "mensaje": "Sistema altamente escalable",
+        "metricas": {
+          "base_datos": {
+            "total_registros": 470,
+            "estadisticas": {
+              "productos": 52,
+              "transacciones": 355,
+              "lotes": 48,
+              "categorias": 15
+            },
+            "tiempo_stats_basicas": 0.007817983627319336,
+            "stock_total": 7618,
+            "tiempo_consultas_promedio": 0.0010526974995930989
+          },
+          "consultas_masivas": {
+            "tiempo_total": 0.01025700569152832,
+            "tiempo_promedio": 0.0020514011383056642,
+            "consultas_exitosas": 4,
+            "total_consultas": 5,
+            "resultados": {
+              "Productos con stock > 0": {
+                "tiempo": 0.0007462501525878906,
+                "cantidad": 49,
+                "exitosa": true
+              },
+              "Transacciones últimos 30 días": {
+                "tiempo": 0.0073506832122802734,
+                "cantidad": 140,
+                "exitosa": true
+              },
+              "Lotes próximos a vencer": {
+                "tiempo": 0.0007154941558837891,
+                "cantidad": 37,
+                "exitosa": true
+              },
+              "Productos más vendidos": {
+                "tiempo": 1.33514404296875e-05,
+                "error": "module 'django.db.transaction' has no attribute 'models'",
+                "exitosa": false
+              },
+              "Stock por categoría": {
+                "tiempo": 0.0014445781707763672,
+                "cantidad": 10,
+                "exitosa": true
+              }
+            }
+          },
+          "carga_secuencial": {
+            "operaciones_totales": 100,
+            "exitosas": 100,
+            "errores": 0,
+            "tiempo_total": 0.0561983585357666,
+            "ops_por_segundo": 1779.4114028500762
+          }
+        },
+        "resultados": [
+          {
+            "mensaje": "Estadísticas básicas obtenidas",
+            "tiempo": 0.007817983627319336,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:41:30.108588"
+          },
+          {
+            "mensaje": "Consulta productos top",
+            "tiempo": 0.0005280971527099609,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:41:30.111354"
+          },
+          {
+            "mensaje": "Consulta por tipo",
+            "tiempo": 0.0007112026214599609,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:41:30.111375"
+          },
+          {
+            "mensaje": "Consulta stock agregado",
+            "tiempo": 0.001918792724609375,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:41:30.111385"
+          },
+          {
+            "mensaje": "Rendimiento de BD excelente",
+            "tiempo": null,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:41:30.111398"
+          },
+          {
+            "mensaje": "Consultas masivas completadas",
+            "tiempo": 0.01025700569152832,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:41:30.121832"
+          },
+          {
+            "mensaje": "Rendimiento consultas masivas excelente",
+            "tiempo": null,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:41:30.121849"
+          },
+          {
+            "mensaje": "Carga secuencial completada",
+            "tiempo": 0.0561983585357666,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:41:30.178182"
+          },
+          {
+            "mensaje": "Excelente velocidad secuencial: 1779.4 ops/seg",
+            "tiempo": null,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:41:30.178226"
+          },
+          {
+            "mensaje": "Creación de datos de prueba completada",
+            "tiempo": 0.03630566596984863,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:41:30.214648"
+          },
+          {
+            "mensaje": "Proyección de crecimiento completada",
+            "tiempo": null,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:41:30.220287"
+          },
+          {
+            "mensaje": "Limpieza de datos completada",
+            "tiempo": null,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:41:30.235432"
+          }
+        ],
+        "resumen": {
+          "total_pruebas": 12,
+          "exitosas": 12,
+          "warnings": 0,
+          "errores": 0,
+          "porcentaje_exito": 100.0
+        }
+      }
+    }
+  },
+  "resumen_ejecutivo": {
+    "total_validaciones": 3,
+    "validaciones_exitosas": 3,
+    "porcentaje_exito": 100.0,
+    "vulnerabilidades_criticas": 0,
+    "vulnerabilidades_altas": 0,
+    "problemas_escalabilidad": 0,
+    "errores_funcionales": 1
+  },
+  "recomendaciones_criticas": [],
+  "estado_general": "APROBADO"
+}

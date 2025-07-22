@@ -1,0 +1,40 @@
+{
+  "timestamp": "2025-07-22T11:26:21.990008",
+  "resumen": {
+    "total_pruebas": 5,
+    "exitos": 4,
+    "errores": 1,
+    "warnings": 0
+  },
+  "metricas_rendimiento": {
+    "crear_proveedor": 0.00036787986755371094,
+    "registrar_producto": 1.2833633422851562
+  },
+  "exitos": [
+    {
+      "timestamp": "2025-07-22T11:26:19.141713",
+      "mensaje": "Usuario admin creado exitosamente"
+    },
+    {
+      "timestamp": "2025-07-22T11:26:19.911091",
+      "mensaje": "Usuario bodeguero creado exitosamente"
+    },
+    {
+      "timestamp": "2025-07-22T11:26:20.705439",
+      "mensaje": "Usuario operador creado exitosamente"
+    },
+    {
+      "timestamp": "2025-07-22T11:26:20.705922",
+      "mensaje": "RUT de proveedor configurado exitosamente"
+    }
+  ],
+  "errores": [
+    {
+      "timestamp": "2025-07-22T11:26:21.974828",
+      "mensaje": "Error en prueba de registro de producto",
+      "detalle": "'accounts' is not a registered namespace",
+      "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\Robinson Bravo\\Desktop\\bodega_seremi\\.venv\\Lib\\site-packages\\django\\urls\\base.py\", line 71, in reverse\n    extra, resolver = resolver.namespace_dict[ns]\n                      ~~~~~~~~~~~~~~~~~~~~~~~^^^^\nKeyError: 'accounts'\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"C:\\Users\\Robinson Bravo\\Desktop\\bodega_seremi\\sistema_bodega\\analisis_escalabilidad.py\", line 196, in probar_registro_producto\n    reverse('accounts:registrar_producto'),\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\Robinson Bravo\\Desktop\\bodega_seremi\\.venv\\Lib\\site-packages\\django\\urls\\base.py\", line 82, in reverse\n    raise NoReverseMatch(\"%s is not a registered namespace\" % key)\ndjango.urls.exceptions.NoReverseMatch: 'accounts' is not a registered namespace\n"
+    }
+  ],
+  "warnings": []
+}

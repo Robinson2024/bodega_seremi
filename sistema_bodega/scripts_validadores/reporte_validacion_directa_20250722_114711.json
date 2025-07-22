@@ -1,0 +1,194 @@
+{
+  "timestamp": "2025-07-22T11:47:11.903916",
+  "tipo_validacion": "directa_sin_web",
+  "resumen": {
+    "total_pruebas": 42,
+    "exitos": 40,
+    "errores": 1,
+    "warnings": 1,
+    "estado": "CON_OBSERVACIONES"
+  },
+  "metricas_rendimiento": {
+    "Productos con stock": 0.0014891624450683594,
+    "Transacciones recientes": 0.015544414520263672,
+    "Lotes activos": 0.0012974739074707031,
+    "Usuarios activos": 0.0012805461883544922
+  },
+  "validaciones": {
+    "exitos": [
+      {
+        "timestamp": "2025-07-22T11:47:11.519687",
+        "mensaje": "Producto creado: TEST_DIRECTO_000"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.525758",
+        "mensaje": "Producto creado: TEST_DIRECTO_001"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.532686",
+        "mensaje": "Producto creado: TEST_DIRECTO_002"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.539035",
+        "mensaje": "Producto creado: TEST_DIRECTO_003"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.544574",
+        "mensaje": "Producto creado: TEST_DIRECTO_004"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.546664",
+        "mensaje": "Todos los productos verificados en BD"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.567575",
+        "mensaje": "Entrada creada: 28 unidades para TEST_DIRECTO_000"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.581302",
+        "mensaje": "Entrada creada: 45 unidades para TEST_DIRECTO_000"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.601623",
+        "mensaje": "Entrada creada: 44 unidades para TEST_DIRECTO_000"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.613189",
+        "mensaje": "Salida creada: 10 unidades para TEST_DIRECTO_000"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.629576",
+        "mensaje": "Entrada creada: 12 unidades para TEST_DIRECTO_001"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.646131",
+        "mensaje": "Entrada creada: 11 unidades para TEST_DIRECTO_001"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.659055",
+        "mensaje": "Entrada creada: 39 unidades para TEST_DIRECTO_001"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.675016",
+        "mensaje": "Salida creada: 10 unidades para TEST_DIRECTO_001"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.690782",
+        "mensaje": "Entrada creada: 35 unidades para TEST_DIRECTO_002"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.703278",
+        "mensaje": "Entrada creada: 25 unidades para TEST_DIRECTO_002"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.713956",
+        "mensaje": "Entrada creada: 27 unidades para TEST_DIRECTO_002"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.726781",
+        "mensaje": "Salida creada: 10 unidades para TEST_DIRECTO_002"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.740746",
+        "mensaje": "Entrada creada: 43 unidades para TEST_DIRECTO_003"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.751707",
+        "mensaje": "Entrada creada: 34 unidades para TEST_DIRECTO_003"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.763713",
+        "mensaje": "Entrada creada: 50 unidades para TEST_DIRECTO_003"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.776780",
+        "mensaje": "Salida creada: 10 unidades para TEST_DIRECTO_003"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.790713",
+        "mensaje": "Entrada creada: 48 unidades para TEST_DIRECTO_004"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.805046",
+        "mensaje": "Entrada creada: 30 unidades para TEST_DIRECTO_004"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.819439",
+        "mensaje": "Entrada creada: 30 unidades para TEST_DIRECTO_004"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.830479",
+        "mensaje": "Salida creada: 10 unidades para TEST_DIRECTO_004"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.830667",
+        "mensaje": "Total transacciones creadas: 20"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.837459",
+        "mensaje": "Stock consistente en TEST_DIRECTO_000: 107"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.838964",
+        "mensaje": "Stock consistente en TEST_DIRECTO_001: 52"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.840068",
+        "mensaje": "Stock consistente en TEST_DIRECTO_002: 77"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.841116",
+        "mensaje": "Stock consistente en TEST_DIRECTO_003: 117"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.842180",
+        "mensaje": "Stock consistente en TEST_DIRECTO_004: 98"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.842381",
+        "mensaje": "Todos los productos tienen stock consistente"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.843711",
+        "mensaje": "Validación de código único funcionando"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.859779",
+        "mensaje": "Validación de fechas de vencimiento funcionando"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.861781",
+        "mensaje": "Productos con stock: 0.0015s (54 registros)"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.877529",
+        "mensaje": "Transacciones recientes: 0.0155s (49 registros)"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.879031",
+        "mensaje": "Lotes activos: 0.0013s (29 registros)"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.880512",
+        "mensaje": "Usuarios activos: 0.0013s (11 registros)"
+      },
+      {
+        "timestamp": "2025-07-22T11:47:11.903653",
+        "mensaje": "Limpieza completada: 5 productos, 20 transacciones, 0 lotes"
+      }
+    ],
+    "errores": [
+      {
+        "timestamp": "2025-07-22T11:47:11.831763",
+        "mensaje": "Error en lotes",
+        "detalle": "Field 'numero_lote' expected a number but got 'LOTE_TEST_DIRECTO_000_0'."
+      }
+    ],
+    "warnings": [
+      {
+        "timestamp": "2025-07-22T11:47:11.850990",
+        "mensaje": "Sistema permite stock negativo"
+      }
+    ]
+  }
+}
