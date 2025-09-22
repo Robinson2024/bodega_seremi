@@ -29,3 +29,6 @@ reportlab==4.2.2
 
 # Para formularios mejorados (opcional)
 # django-crispy-forms==2.1
+
+# ejecuta y administra aplicaciones web de forma estable y eficiente en producción. 
+gunicorn==22.0.0
