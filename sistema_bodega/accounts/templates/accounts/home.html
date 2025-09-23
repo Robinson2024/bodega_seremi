@@ -12,95 +12,312 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <!-- Incluir Select2 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <!-- Animaciones personalizadas para el gráfico -->
+    <link rel="stylesheet" href="{% static 'css/chart-animations.css' %}" />
     <style>
+        /* Ocultar cualquier flecha de scroll del sistema */
+        *::-webkit-scrollbar {
+            display: none !important;
+        }
+        
+        /* Ocultar flechas flotantes o elementos de scroll */
+        [class*="scroll"], [id*="scroll"], 
+        [class*="arrow"], [id*="arrow"],
+        [class*="back-to-top"], [id*="back-to-top"],
+        .scroll-top, .scroll-up, .go-top,
+        .scroll-arrow, .floating-arrow {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
             font-family: 'Roboto', Arial, sans-serif;
+            /* Forzar ocultamiento de scrollbars en todos los elementos */
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
         }
         body {
             background-color: #f8fafc;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
+            overflow-x: hidden;
+            width: 100%;
+            max-width: 100%;
         }
         header {
-            background: #1a3c5e;
+            background: linear-gradient(135deg, #1a3c5e 0%, #2c5aa0 50%, #1a3c5e 100%);
             color: white;
-            padding: 15px 20px;
+            padding: 20px 30px;
             text-align: center;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 
+                0 4px 20px rgba(26, 60, 94, 0.3),
+                0 2px 10px rgba(0, 0, 0, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border-bottom: 3px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
         }
+        
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+            animation: headerShine 12s infinite;
+        }
+        
+        @keyframes headerShine {
+            0% { left: -100%; }
+            50% { left: 100%; }
+            100% { left: 100%; }
+        }
+        
         .header-content {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 15px;
+            gap: 25px;
+            position: relative;
+            z-index: 2;
+            max-width: 1200px;
+            margin: 0 auto;
         }
+        
         header .logo {
-            max-width: 100px;
+            max-width: 120px;
+            height: auto;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+            transition: all 0.3s ease;
+            /* Optimizaciones para imagen súper nítida */
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            image-rendering: high-quality;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            backface-visibility: hidden;
+            transform: translateZ(0);
         }
+        
+        header .logo:hover {
+            transform: translateZ(0) scale(1.05);
+            filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+        }
+        
         header h1 {
-            font-size: 24px;
-            font-weight: 500;
-            line-height: 1.2;
+            font-size: 28px;
+            font-weight: 600;
+            line-height: 1.3;
+            margin: 0;
+            text-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.3),
+                0 1px 2px rgba(0, 0, 0, 0.5);
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            letter-spacing: 0.5px;
+            position: relative;
+        }
+        
+        header h1::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+            border-radius: 1px;
         }
         .menu-bar {
-            background: #2a4d73;
-            padding: 10px 20px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 25%, #3b82f6 60%, #60a5fa 100%);
+            padding: 18px 25px;
+            box-shadow: 
+                0 6px 25px rgba(30, 58, 138, 0.25),
+                0 3px 12px rgba(37, 99, 235, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 2px solid rgba(30, 58, 138, 0.3);
+            position: relative;
+            overflow: visible !important;
+            width: 100%;
+            max-width: 100%;
+            z-index: 200;
         }
+        
+        .menu-bar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: menuShine 8s infinite;
+        }
+        
+        @keyframes menuShine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
         nav {
             display: flex;
             justify-content: center;
-            gap: 10px;
+            gap: 12px;
             flex-wrap: wrap;
+            position: relative;
+            z-index: 2;
+            overflow: visible !important;
+            width: 100%;
+            max-width: 100%;
         }
+        
+        /* Estilo base para todos los botones - Mejorado */
         nav a, .nav-button {
             color: white;
             text-decoration: none;
-            padding: 8px 14px;
-            background-color: #3b82f6;
-            border-radius: 5px;
-            transition: background-color 0.3s ease, transform 0.1s ease;
+            padding: 14px 20px;
+            border-radius: 10px;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 10px;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
+            border: none;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            box-shadow: 
+                0 4px 15px rgba(0, 0, 0, 0.15),
+                0 2px 8px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, var(--btn-primary) 0%, var(--btn-secondary) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
         }
-        nav a:hover {
-            background-color: #2563eb;
-            transform: translateY(-1px);
+        
+        /* Efecto de brillo profesional */
+        nav a::before, .nav-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.6s ease;
+            z-index: 1;
         }
-        .nav-button {
-            color: #1a3c5e;
-            background-color: white;
-            border: 1px solid #1a3c5e;
+        
+        nav a:hover::before, .nav-button:hover::before {
+            left: 100%;
         }
-        .nav-button:hover {
-            background-color: #e6f0fa;
-            transform: translateY(-1px);
+        
+        /* Estados hover mejorados - Más profesionales */
+        nav a:hover, .nav-button:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 
+                0 12px 35px rgba(0, 0, 0, 0.25),
+                0 6px 20px rgba(0, 0, 0, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            filter: brightness(1.15) saturate(1.2);
+            border-color: rgba(255, 255, 255, 0.3);
         }
+        
+        nav a:active, .nav-button:active {
+            transform: translateY(-1px) scale(1.02);
+            transition: all 0.1s ease;
+        }
+        
+        /* Colores específicos basados en la imagen de referencia */
+        
+        /* Botones principales - Azul profesional uniforme */
+        nav a[href*="home"],
+        nav a[href*="salida-productos"],
+        nav a[href*="listar-productos"],
+        nav a[href*="listar-actas"],
+        nav a[href*="listar-usuarios"],
+        .dropdown > a.dropdown-toggle {
+            --btn-primary: #2563eb;
+            --btn-secondary: #1d4ed8;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+        }
+        
+        /* Control de Vencimientos - Amarillo/Naranja profesional */
+        nav a[href*="control-vencimientos"] {
+            --btn-primary: #f59e0b;
+            --btn-secondary: #d97706;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+            color: #1a202c !important;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+            border: 1px solid rgba(217, 119, 6, 0.3);
+        }
+        
+        nav a[href*="control-vencimientos"]:hover {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+            color: #000000 !important;
+        }
+        
+        /* Panel de Administración - Rojo profesional */
         .admin-access-btn {
-            background-color: #dc3545 !important;
-            color: white !important;
+            --btn-primary: #dc2626 !important;
+            --btn-secondary: #b91c1c !important;
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3) !important;
+            border: 1px solid rgba(185, 28, 28, 0.3) !important;
         }
+        
         .admin-access-btn:hover {
-            background-color: #c82333 !important;
-            transform: translateY(-1px);
+            background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4) !important;
+        }
+        
+        /* Cerrar Sesión - Gris plomo profesional */
+        .nav-button {
+            --btn-primary: #64748b;
+            --btn-secondary: #475569;
+            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%) !important;
+            color: #475569 !important;
+            border: 2px solid #94a3b8 !important;
+            text-shadow: none;
+            box-shadow: 0 4px 12px rgba(100, 116, 139, 0.2) !important;
+        }
+        
+        .nav-button:hover {
+            background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%) !important;
+            border-color: #64748b !important;
+            color: #1e293b !important;
+            box-shadow: 0 6px 18px rgba(100, 116, 139, 0.3) !important;
+            transform: translateY(-2px) scale(1.02);
         }
         main {
             flex: 1;
             padding: 30px 20px;
             text-align: center;
             width: 100%;
-            overflow: visible;
+            max-width: 100%;
+            overflow-x: hidden;
+            overflow-y: auto;
         }
         main .container {
             width: 100%;
+            max-width: 100%;
             padding: 0 15px;
             box-sizing: border-box;
+            overflow-x: hidden;
         }
         main h2 {
             color: #1a3c5e;
@@ -120,49 +337,357 @@
             font-size: 12px;
             font-weight: 400;
         }
+        /* Dropdowns mejorados - SOLUCIÓN DEFINITIVA para evitar cortes */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+            z-index: 300;
+        }
+        
         .dropdown-menu {
-            background-color: #ffffff;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+            border: none;
+            border-radius: 12px;
+            box-shadow: 
+                0 15px 35px rgba(0, 0, 0, 0.12),
+                0 6px 12px rgba(0, 0, 0, 0.08),
+                0 2px 6px rgba(0, 0, 0, 0.04),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            padding: 8px 0;
+            margin-top: 5px;
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            animation: dropdownSlideIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            
+            /* CONFIGURACIONES CRÍTICAS PARA EVITAR CORTES */
+            min-width: 320px !important;
+            max-width: 400px !important;
+            width: max-content !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            position: absolute !important;
+            top: 100% !important;
+            left: 0 !important;
+            right: auto !important;
+            z-index: 999999 !important;
+            
+            /* PREVENIR CUALQUIER TIPO DE CORTE */
+            clip: unset !important;
+            clip-path: unset !important;
+            transform: none !important;
+            -webkit-transform: none !important;
+            will-change: auto !important;
+            contain: none !important;
+            isolation: auto !important;
+            
+            /* ASEGURAR VISIBILIDAD COMPLETA */
+            opacity: 1 !important;
+            visibility: visible !important;
+            display: none;
         }
+        
+        /* Mostrar dropdown cuando está activo */
+        .dropdown.show .dropdown-menu,
+        .dropdown:hover .dropdown-menu {
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+        
+        .dropdown-menu::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6, #60a5fa, #93c5fd);
+            border-radius: 12px 12px 0 0;
+        }
+        
+        @keyframes dropdownSlideIn {
+            0% {
+                opacity: 0;
+                transform: translateY(-8px) scale(0.95);
+                filter: blur(1px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+            }
+        }
+        
         .dropdown-item {
-            color: #1a3c5e;
+            color: #374151;
             font-size: 14px;
-            padding: 8px 14px;
+            font-weight: 500;
+            padding: 15px 22px !important;
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            border-radius: 8px;
+            margin: 3px 8px !important;
+            display: flex !important;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            overflow: visible !important;
+            text-decoration: none;
+            border: 1px solid transparent;
+            
+            /* CONFIGURACIONES CRÍTICAS PARA TEXTO COMPLETO */
+            white-space: nowrap !important;
+            min-height: 48px !important;
+            line-height: 1.4 !important;
+            min-width: 280px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            
+            /* ASEGURAR VISIBILIDAD COMPLETA DEL TEXTO */
+            text-overflow: visible !important;
+            word-wrap: normal !important;
+            overflow-wrap: normal !important;
         }
+        
+        .dropdown-item:last-child {
+            border-bottom: none !important;
+            margin-bottom: 5px !important;
+        }
+        
+        .dropdown-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+            transition: left 0.4s ease;
+        }
+        
+        .dropdown-item:hover::before {
+            left: 100%;
+        }
+        
         .dropdown-item:hover {
-            background-color: #f1f5f9;
-            color: #2563eb;
+            background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%);
+            color: white;
+            transform: translateX(6px) scale(1.01);
+            box-shadow: 
+                0 4px 12px rgba(100, 116, 139, 0.25),
+                0 2px 6px rgba(148, 163, 184, 0.15);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .dropdown-item:active {
+            transform: translateX(3px) scale(0.98);
+        }
+        
+        /* Iconos en los items del dropdown - Mejorado */
+        .dropdown-item i {
+            width: 18px;
+            text-align: center;
+            opacity: 0.8;
+            transition: all 0.2s ease;
+            margin-right: 8px;
+            font-size: 14px;
+            color: #64748b;
+        }
+        
+        .dropdown-item:hover i {
+            opacity: 1;
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        /* Mejoras para la flecha del dropdown */
+        .dropdown-toggle::after {
+            margin-left: 8px;
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            border-top: 0.3em solid;
+            border-right: 0.3em solid transparent;
+            border-bottom: 0;
+            border-left: 0.3em solid transparent;
+        }
+        
+        .dropdown.show .dropdown-toggle::after {
+            transform: rotate(180deg);
+        }
+        
+        /* Efecto especial para dropdowns cuando están abiertos - Mejorado */
+        .dropdown.show > a.dropdown-toggle {
+            background: linear-gradient(135deg, #475569 0%, #64748b 100%) !important;
+            box-shadow: 
+                0 6px 20px rgba(71, 85, 105, 0.3),
+                0 3px 10px rgba(100, 116, 139, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+            transform: translateY(-2px) scale(1.02);
+            border-color: rgba(255, 255, 255, 0.3) !important;
         }
         @media (max-width: 768px) {
+            header {
+                padding: 15px 20px;
+            }
             .header-content {
                 flex-direction: column;
-                gap: 10px;
+                gap: 15px;
             }
             header .logo {
-                max-width: 80px;
+                max-width: 100px;
             }
             header h1 {
-                font-size: 20px;
+                font-size: 22px;
+                text-align: center;
+                line-height: 1.4;
             }
             .menu-bar {
                 padding: 10px;
+                overflow: visible !important;
             }
             nav {
                 flex-direction: column;
                 gap: 8px;
+                overflow: visible !important;
             }
             nav a, .nav-button {
                 width: 100%;
                 text-align: center;
                 justify-content: center;
             }
-            .dropdown-menu {
+            .dropdown {
                 width: 100%;
-                text-align: center;
+                overflow: visible !important;
             }
+            .dropdown-menu {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 100% !important;
+                text-align: center;
+                position: relative !important;
+                transform: none !important;
+                left: 0 !important;
+                right: 0 !important;
+                margin-top: 5px;
+                background-color: rgba(255, 255, 255, 0.98) !important;
+                backdrop-filter: blur(10px);
+                border-radius: 8px !important;
+                padding: 8px 0 !important;
+                overflow: visible !important;
+                max-height: none !important;
+                height: auto !important;
+            }
+            
+            .dropdown-item {
+                padding: 18px 20px !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+                min-width: auto !important;
+                width: 100% !important;
+                text-align: center !important;
+                justify-content: center !important;
+                white-space: normal !important;
+                line-height: 1.5 !important;
+                min-height: 50px !important;
+                font-size: 15px !important;
+            }
+            
+            .dropdown-item:last-child {
+                border-bottom: none !important;
+            }
+            
             main {
                 padding: 20px 10px;
+            }
+        }
+        
+        /* Media query adicional para tablets */
+        @media (max-width: 992px) and (min-width: 769px) {
+            header {
+                padding: 18px 25px;
+            }
+            .header-content {
+                gap: 20px;
+            }
+            header .logo {
+                max-width: 110px;
+            }
+            header h1 {
+                font-size: 26px;
+            }
+        }
+        
+        /* CONFIGURACIONES CRÍTICAS PARA CONTENEDORES PADRE */
+        html, body {
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+        }
+        
+        header {
+            z-index: 100;
+            position: relative;
+            overflow: visible !important;
+        }
+        
+        .menu-bar {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 25%, #3b82f6 60%, #60a5fa 100%);
+            padding: 18px 25px;
+            box-shadow: 
+                0 6px 25px rgba(30, 58, 138, 0.25),
+                0 3px 12px rgba(37, 99, 235, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 2px solid rgba(30, 58, 138, 0.3);
+            position: relative;
+            overflow: visible !important;
+            width: 100%;
+            max-width: 100%;
+            z-index: 200;
+            
+            /* ASEGURAR QUE NO SE CORTEN LOS DROPDOWNS */
+            contain: none !important;
+            isolation: auto !important;
+        }
+        
+        nav {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 2;
+            overflow: visible !important;
+            width: 100%;
+            max-width: 100%;
+            
+            /* CONFIGURACIONES ADICIONALES PARA DROPDOWNS */
+            contain: none !important;
+            isolation: auto !important;
+        }
+        
+        main {
+            overflow: visible !important;
+        }
+        
+        main .container {
+            overflow: visible !important;
+        }
+        
+        .container {
+            overflow: visible !important;
+        }
+        
+        /* FORZAR QUE LOS DROPDOWNS SE POSICIONEN CORRECTAMENTE */
+        .dropdown-menu {
+            /* Si se sale por la derecha, moverlo a la izquierda */
+            transform-origin: top left !important;
+        }
+        
+        /* Para pantallas pequeñas, ajustar posición automáticamente */
+        @media (max-width: 1400px) {
+            .dropdown:nth-last-child(-n+3) .dropdown-menu {
+                left: auto !important;
+                right: 0 !important;
+                transform-origin: top right !important;
             }
         }
         main .form-select {
@@ -251,6 +776,83 @@
         .btn-cancel:hover {
             background-color: #c82333;
         }
+        
+        /* Estilos para el Control de Vencimientos */
+        .vencimiento-stats {
+            margin-top: 20px;
+        }
+        .vencimiento-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-left: 4px solid;
+        }
+        .vencimiento-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        .vencimiento-card.vencido {
+            border-left-color: #dc3545;
+        }
+        .vencimiento-card.critico {
+            border-left-color: #ffc107;
+        }
+        .vencimiento-card.precaucion {
+            border-left-color: #fd7e14;
+        }
+        .vencimiento-card.total {
+            border-left-color: #17a2b8;
+        }
+        .vencimiento-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: white;
+        }
+        .vencimiento-card.vencido .vencimiento-icon {
+            background-color: #dc3545;
+        }
+        .vencimiento-card.critico .vencimiento-icon {
+            background-color: #ffc107;
+        }
+        .vencimiento-card.precaucion .vencimiento-icon {
+            background-color: #fd7e14;
+        }
+        .vencimiento-card.total .vencimiento-icon {
+            background-color: #17a2b8;
+        }
+        .vencimiento-info h4 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+            color: #1a3c5e;
+        }
+        .vencimiento-info p {
+            margin: 0;
+            font-size: 14px;
+            color: #6c757d;
+            font-weight: 500;
+        }
+        @media (max-width: 768px) {
+            .vencimiento-card {
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
+            }
+            .vencimiento-info h4 {
+                font-size: 20px;
+            }
+        }
         .btn-submit {
             background-color: #1a3c5e;
             color: white;
@@ -315,39 +917,575 @@
         }
         .legend-container {
             display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 20px;
-            flex-wrap: wrap;
+            flex-direction: row;
+            justify-content: space-between; /* Distribución uniforme */
+            align-items: stretch; /* Igualar altura de todos los items */
+            gap: 15px; /* Espacio optimizado entre elementos */
+            margin: 25px auto; /* Centrar el contenedor */
+            padding: 25px;
+            max-width: 800px; /* Ancho máximo para mejor control */
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-radius: 12px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+            /* Animación de entrada de la leyenda */
+            opacity: 0;
+            transform: translateY(30px);
+            animation: legendEntrance 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+            animation-delay: 1.8s;
         }
         .legend-item {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 8px;
+            justify-content: center; /* Centrar contenido verticalmente */
+            text-align: center;
+            gap: 12px;
+            padding: 20px 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+            border-top: 4px solid transparent;
+            flex: 1; /* Cada item ocupa el mismo espacio disponible */
+            min-height: 120px; /* Altura mínima para uniformidad */
+            max-width: none; /* Remover restricción de ancho máximo */
+            min-width: 0; /* Permitir que se contraiga si es necesario */
+            transform: translateZ(0);
+            /* Animación de entrada escalonada para cada item */
+            opacity: 0;
+            transform: translateY(20px) translateZ(0) scale(0.9);
+            cursor: default;
+            /* Evitar desbordamiento de contenido */
+            overflow: hidden;
+            word-wrap: break-word;
+        }
+        .legend-item:nth-child(1) {
+            animation: itemEntrance 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+            animation-delay: 2.0s;
+        }
+        .legend-item:nth-child(2) {
+            animation: itemEntrance 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+            animation-delay: 2.2s;
+        }
+        .legend-item:nth-child(3) {
+            animation: itemEntrance 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+            animation-delay: 2.4s;
+        }
+        .legend-item:nth-child(1) {
+            border-top-color: #FF4757; /* Cambio de border-left a border-top */
+            background: linear-gradient(135deg, rgba(255, 71, 87, 0.05) 0%, rgba(255, 255, 255, 1) 100%);
+        }
+        .legend-item:nth-child(2) {
+            border-top-color: #FFA502; /* Cambio de border-left a border-top */
+            background: linear-gradient(135deg, rgba(255, 165, 2, 0.05) 0%, rgba(255, 255, 255, 1) 100%);
+        }
+        .legend-item:nth-child(3) {
+            border-top-color: #2ED573; /* Cambio de border-left a border-top */
+            background: linear-gradient(135deg, rgba(46, 213, 115, 0.05) 0%, rgba(255, 255, 255, 1) 100%);
         }
         .legend-color {
-            width: 16px;
-            height: 16px;
-            border-radius: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            position: relative;
+            transform: translateZ(0);
+            /* Sin efectos de hover para mantener colores y formas estables */
+        }
+        .legend-color::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            right: 2px;
+            bottom: 2px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, transparent 100%);
+        }
+        .stock-bajo {
+            background: linear-gradient(145deg, #FF4757 0%, #FF3742 50%, #FF6B7D 100%);
+            box-shadow: 
+                0 4px 15px rgba(255, 71, 87, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+        }
+        .stock-medio {
+            background: linear-gradient(145deg, #FFA502 0%, #FF9500 50%, #FFBA3A 100%);
+            box-shadow: 
+                0 4px 15px rgba(255, 165, 2, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+        }
+        .stock-alto {
+            background: linear-gradient(145deg, #2ED573 0%, #26D063 50%, #45E682 100%);
+            box-shadow: 
+                0 4px 15px rgba(46, 213, 115, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.1);
         }
         .legend-text {
-            font-size: 0.9rem;
-            color: #64748b;
+            font-size: 0.95rem;
+            color: #4a5568;
+            font-weight: 600;
+            margin-bottom: 6px;
+            line-height: 1.3;
+            /* Asegurar que el texto no se desborde */
+            word-break: break-word;
+            hyphens: auto;
+            max-width: 100%;
+        }
+        .legend-count {
+            font-size: 0.85rem;
+            color: #718096;
+            font-weight: 600;
+            background: rgba(76, 99, 210, 0.1);
+            padding: 8px 14px;
+            border-radius: 15px;
+            white-space: nowrap;
+            display: inline-block;
+            text-align: center;
+            /* Ajuste para contenido variable */
+            min-width: 90px;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            /* Asegurar que se ajuste al contenedor padre */
+            box-sizing: border-box;
         }
         .chart-container {
-            max-width: 400px;
-            margin: 0 auto;
+            max-width: 380px;
+            height: 380px;
+            margin: 30px auto;
+            position: relative;
+            padding: 25px;
+            background: 
+                linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.9) 100%),
+                radial-gradient(circle at 30% 30%, rgba(102, 126, 234, 0.1) 0%, transparent 50%);
+            border-radius: 24px;
+            box-shadow: 
+                0 20px 40px rgba(0, 0, 0, 0.1),
+                0 35px 70px rgba(0, 0, 0, 0.05),
+                inset 0 2px 0 rgba(255, 255, 255, 0.8),
+                inset 0 -2px 0 rgba(0, 0, 0, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            /* Transición suave solo para el contenedor, no el canvas */
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            transform: translateZ(0); /* Hardware acceleration sin afectar el canvas */
+            /* Optimizaciones para nitidez del contenedor */
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            backface-visibility: hidden;
+            will-change: transform, box-shadow;
+            /* Estado inicial para animación de entrada espectacular */
+            opacity: 0;
+            transform: translateY(100px) translateZ(0) scale(0.8) rotateX(20deg);
+            animation: spectacularEntrance 1.2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+            animation-delay: 0.3s;
+        }
+        .chart-container:hover {
+            /* Efecto 3D profesional y sutil */
+            transform: translateY(-8px) translateZ(0) perspective(1000px) rotateX(2deg);
+            box-shadow: 
+                0 32px 64px rgba(76, 99, 210, 0.15),
+                0 16px 32px rgba(76, 99, 210, 0.1),
+                inset 0 2px 0 rgba(255, 255, 255, 0.9),
+                inset 0 -2px 0 rgba(76, 99, 210, 0.1);
+            border: 2px solid rgba(76, 99, 210, 0.3);
+            /* Efecto de iluminación sutil */
+            background: 
+                linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%),
+                radial-gradient(circle at 30% 30%, rgba(102, 126, 234, 0.15) 0%, transparent 50%);
+        }
+        .chart-container::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            background: linear-gradient(
+                135deg, 
+                rgba(76, 99, 210, 0.4) 0%, 
+                rgba(102, 126, 234, 0.3) 25%,
+                rgba(118, 75, 162, 0.3) 50%,
+                rgba(76, 99, 210, 0.4) 75%,
+                rgba(102, 126, 234, 0.3) 100%
+            );
+            background-size: 200% 200%;
+            border-radius: 28px;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            animation: professionalGradient 6s ease-in-out infinite;
+        }
+        .chart-container:hover::before {
+            opacity: 1;
+        }
+        @keyframes professionalGradient {
+            0%, 100% { 
+                background-position: 0% 50%;
+                transform: scale(1);
+            }
+            25% { 
+                background-position: 100% 0%;
+                transform: scale(1.02);
+            }
+            50% { 
+                background-position: 100% 100%;
+                transform: scale(1);
+            }
+            75% { 
+                background-position: 0% 100%;
+                transform: scale(1.02);
+            }
+        }
+        
+        /* Animación de entrada espectacular 2025 */
+        @keyframes spectacularEntrance {
+            0% {
+                opacity: 0;
+                transform: translateY(100px) translateZ(0) scale(0.8) rotateX(20deg);
+                filter: blur(8px);
+                box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+            }
+            30% {
+                opacity: 0.3;
+                transform: translateY(30px) translateZ(0) scale(0.95) rotateX(10deg);
+                filter: blur(4px);
+                box-shadow: 0 10px 20px rgba(76, 99, 210, 0.1);
+            }
+            60% {
+                opacity: 0.7;
+                transform: translateY(-10px) translateZ(0) scale(1.02) rotateX(-2deg);
+                filter: blur(1px);
+                box-shadow: 0 20px 40px rgba(76, 99, 210, 0.2);
+            }
+            80% {
+                opacity: 0.9;
+                transform: translateY(5px) translateZ(0) scale(0.98) rotateX(1deg);
+                filter: blur(0px);
+                box-shadow: 0 25px 50px rgba(76, 99, 210, 0.15);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) translateZ(0) scale(1) rotateX(0deg);
+                filter: blur(0px);
+                box-shadow: 
+                    0 20px 40px rgba(0, 0, 0, 0.1),
+                    0 35px 70px rgba(0, 0, 0, 0.05),
+                    inset 0 2px 0 rgba(255, 255, 255, 0.8),
+                    inset 0 -2px 0 rgba(0, 0, 0, 0.05);
+            }
+        }
+        
+        /* Animación de entrada del título */
+        @keyframes titleEntrance {
+            0% {
+                opacity: 0;
+                transform: translateY(-30px) scale(0.9);
+                filter: blur(2px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0px);
+            }
+        }
+        
+        /* Animación de entrada de la leyenda */
+        @keyframes legendEntrance {
+            0% {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        /* Animación de entrada de items individuales */
+        @keyframes itemEntrance {
+            0% {
+                opacity: 0;
+                transform: translateY(20px) translateZ(0) scale(0.9) rotateY(-10deg);
+            }
+            60% {
+                opacity: 0.8;
+                transform: translateY(-5px) translateZ(0) scale(1.05) rotateY(2deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) translateZ(0) scale(1) rotateY(0deg);
+            }
+        }
+        
+        /* Animación de entrada del total de productos */
+        @keyframes totalProductsEntrance {
+            0% {
+                opacity: 0;
+                transform: translateY(40px) translateZ(0) scale(0.8);
+                filter: blur(3px);
+            }
+            70% {
+                opacity: 0.9;
+                transform: translateY(-5px) translateZ(0) scale(1.02);
+                filter: blur(0px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) translateZ(0) scale(1);
+                filter: blur(0px);
+            }
+        }
+        @keyframes gradientRotate {
+            0% { background-position: 0% 50%; }
+            25% { background-position: 100% 50%; }
+            50% { background-position: 100% 100%; }
+            75% { background-position: 0% 100%; }
+            100% { background-position: 0% 50%; }
+        }
+        #stockChart {
+            position: relative;
+            z-index: 1;
+            opacity: 1; /* Siempre visible, sin animación de fade */
+            transform: none; /* Eliminar transformaciones que causan blur */
+            transition: none; /* Eliminar todas las transiciones */
+            /* Optimizaciones máximas para renderizado súper nítido */
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
+            /* Configuraciones adicionales para canvas súper nítido */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            backface-visibility: hidden;
+            transform-style: flat;
+            will-change: auto; /* Eliminar will-change para mejor renderizado */
+            /* Configuraciones adicionales anti-blur */
+            filter: none;
+            -webkit-filter: none;
+            perspective: none;
+            -webkit-perspective: none;
         }
         @media (max-width: 768px) {
             .chart-container {
                 max-width: 300px;
+                height: 300px;
+                padding: 15px;
             }
             .legend-container {
+                flex-direction: column;
+                gap: 12px;
+                padding: 20px 15px;
+                max-width: none; /* Remover restricción de ancho en móvil */
+                margin: 20px 10px; /* Márgenes laterales en móvil */
+            }
+            .legend-item {
+                flex-direction: row;
+                align-items: center;
+                justify-content: flex-start;
+                text-align: left;
+                padding: 15px;
+                min-height: auto; /* Remover altura mínima en móvil */
+                border-top: none;
+                border-left: 4px solid transparent;
                 gap: 15px;
             }
-            .legend-text {
-                font-size: 0.85rem;
+            .legend-item:nth-child(1) {
+                border-left-color: #FF4757;
+                border-top-color: transparent;
             }
+            .legend-item:nth-child(2) {
+                border-left-color: #FFA502;
+                border-top-color: transparent;
+            }
+            .legend-item:nth-child(3) {
+                border-left-color: #2ED573;
+                border-top-color: transparent;
+            }
+            .legend-text {
+                font-size: 0.9rem;
+                margin-bottom: 0;
+                flex: 1;
+                word-break: normal; /* Mantener texto normal en móvil */
+            }
+            .legend-count {
+                margin-left: auto;
+                white-space: nowrap;
+                min-width: auto; /* Permitir ancho natural en móvil */
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+            .chart-title h3 {
+                font-size: 1.3rem;
+            }
+            .total-products {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .total-icon {
+                font-size: 1.5rem;
+                padding: 12px;
+            }
+            .total-number {
+                font-size: 2rem;
+            }
+        }
+        
+        /* Media query adicional para tablets */
+        @media (max-width: 992px) and (min-width: 769px) {
+            .legend-container {
+                max-width: 700px;
+                gap: 12px;
+                padding: 20px;
+            }
+            .legend-item {
+                padding: 18px 12px;
+                min-height: 110px;
+            }
+            .legend-text {
+                font-size: 0.9rem;
+            }
+            .legend-count {
+                font-size: 0.8rem;
+                padding: 7px 12px;
+            }
+        }
+        .chart-title {
+            text-align: center;
+            margin-bottom: 25px;
+            position: relative;
+            transition: all 0.3s ease;
+            /* Animación de entrada del título */
+            opacity: 0;
+            transform: translateY(-30px);
+            animation: titleEntrance 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+            animation-delay: 0.1s;
+        }
+        .chart-container:hover .chart-title {
+            transform: translateY(-2px);
+        }
+        .chart-title h3 {
+            color: #4C63D2;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 0;
+            background: linear-gradient(135deg, #4C63D2 0%, #667eea 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+        .chart-container:hover .chart-title h3 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 20px rgba(76, 99, 210, 0.3);
+        }
+        .chart-title h3 i {
+            background: linear-gradient(135deg, #4C63D2 0%, #667eea 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .chart-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(135deg, #4C63D2 0%, #667eea 100%);
+            border-radius: 2px;
+        }
+        .total-products {
+            text-align: center;
+            margin-top: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(76, 99, 210, 0.1) 0%, rgba(102, 126, 234, 0.1) 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(76, 99, 210, 0.2);
+        }
+        .total-products {
+            text-align: center;
+            margin-top: 25px;
+            padding: 25px 20px;
+            background: linear-gradient(135deg, rgba(76, 99, 210, 0.1) 0%, rgba(102, 126, 234, 0.1) 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(76, 99, 210, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            transform: translateZ(0);
+            /* Animación de entrada para total de productos */
+            opacity: 0;
+            transform: translateY(40px) translateZ(0) scale(0.8);
+            animation: totalProductsEntrance 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+            animation-delay: 2.6s;
+        }
+        .chart-container:hover .total-products {
+            background: linear-gradient(135deg, rgba(76, 99, 210, 0.15) 0%, rgba(102, 126, 234, 0.15) 100%);
+            border: 1px solid rgba(76, 99, 210, 0.3);
+            transform: translateY(-2px) translateZ(0);
+            box-shadow: 0 8px 16px rgba(76, 99, 210, 0.2);
+        }
+        .total-icon {
+            font-size: 2rem;
+            color: #4C63D2;
+            background: rgba(76, 99, 210, 0.1);
+            padding: 15px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(76, 99, 210, 0.2);
+            transition: all 0.3s ease;
+            transform: translateZ(0);
+        }
+        .chart-container:hover .total-icon {
+            background: rgba(76, 99, 210, 0.2);
+            transform: translateZ(0) scale(1.1);
+            box-shadow: 0 6px 16px rgba(76, 99, 210, 0.3);
+        }
+        .total-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #4C63D2;
+            margin: 0;
+            line-height: 1;
+        }
+        .total-label {
+            font-size: 0.9rem;
+            color: #8E9AAF;
+            margin: 0;
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .no-data-container {
+            text-align: center;
+            padding: 40px 20px;
+            color: #718096;
+        }
+        .no-data-icon {
+            font-size: 3rem;
+            color: #CBD5E0;
+            margin-bottom: 15px;
+        }
+        .no-data-message {
+            color: #64748b;
+            font-size: 1rem;
+            margin: 0;
         }
         .alert {
             margin-bottom: 20px;
@@ -367,6 +1505,36 @@
         .alert-dismissible .close {
             padding: 0.75rem 1rem;
             color: inherit;
+        }
+        
+        /* Optimizaciones para tooltips nítidos */
+        .chartjs-tooltip {
+            opacity: 1 !important;
+            background: rgba(255, 255, 255, 0.98) !important;
+            border: 1px solid rgba(0, 0, 0, 0.1) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+            font-family: 'Roboto', Arial, sans-serif !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            color: #2d3748 !important;
+            padding: 12px 16px !important;
+            pointer-events: none !important;
+            transform: translateZ(0) !important;
+            -webkit-font-smoothing: antialiased !important;
+            -moz-osx-font-smoothing: grayscale !important;
+            text-rendering: optimizeLegibility !important;
+            backface-visibility: hidden !important;
+        }
+        
+        /* Mejorar el renderizado del canvas y contenido del gráfico */
+        canvas {
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
         }
     </style>
 </head>
@@ -394,19 +1562,19 @@
 
                 <!-- Botón "Informes" (visible para todos) -->
                 <div class="dropdown">
-                    <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fas fa-chart-bar"></i> Informes</a>
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><i class="fas fa-chart-bar"></i> Informes</a>
                     <div class="dropdown-menu">
-                        <a class="dropdown-item" href="{% url 'bincard-buscar' %}">Bincard</a>
+                        <a class="dropdown-item" href="{% url 'bincard-buscar' %}"><i class="fas fa-file-medical"></i> Bincard</a>
                     </div>
                 </div>
 
                 <!-- Botón "Agregar" (visible solo para Administrador y Usuario de Bodega) -->
                 {% if request.user.groups.all.0.name == "Administrador" or request.user.groups.all.0.name == "Usuario de Bodega" %}
                     <div class="dropdown">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fas fa-plus"></i> Agregar</a>
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><i class="fas fa-plus"></i> Agregar</a>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="{% url 'registrar-producto' %}">Registrar Producto</a>
-                            <a class="dropdown-item" href="{% url 'agregar-stock' %}">Agregar Stock</a>
+                            <a class="dropdown-item" href="{% url 'registrar-producto' %}"><i class="fas fa-box-open"></i> Registrar Producto</a>
+                            <a class="dropdown-item" href="{% url 'agregar-stock' %}"><i class="fas fa-plus-circle"></i> Agregar Stock</a>
                         </div>
                     </div>
                 {% endif %}
@@ -414,11 +1582,11 @@
                 <!-- Botón "Gestión de Departamentos" (visible solo para Administrador) -->
                 {% if request.user.groups.all.0.name == "Administrador" %}
                     <div class="dropdown">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fas fa-building"></i> Gestión de Departamentos</a>
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><i class="fas fa-building"></i> Gestión de Departamentos</a>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="{% url 'agregar-departamento' %}">Agregar Departamento</a>
-                            <a class="dropdown-item" href="{% url 'modificar-departamento' %}">Modificar Departamento</a>
-                            <a class="dropdown-item" href="{% url 'eliminar-departamento' %}">Deshabilitar Departamento</a>
+                            <a class="dropdown-item" href="{% url 'agregar-departamento' %}"><i class="fas fa-plus-square"></i> Agregar Departamento</a>
+                            <a class="dropdown-item" href="{% url 'modificar-departamento' %}"><i class="fas fa-edit"></i> Modificar Departamento</a>
+                            <a class="dropdown-item" href="{% url 'eliminar-departamento' %}"><i class="fas fa-ban"></i> Deshabilitar Departamento</a>
                         </div>
                     </div>
                 {% endif %}
@@ -426,13 +1594,18 @@
                 <!-- Botón "Gestión de Categorías" (visible solo para Administrador) -->
                 {% if request.user.groups.all.0.name == "Administrador" %}
                     <div class="dropdown">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fas fa-tags"></i> Gestión de Categorías</a>
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><i class="fas fa-tags"></i> Gestión de Categorías</a>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="{% url 'agregar-categoria' %}">Agregar Categoría</a>
-                            <a class="dropdown-item" href="{% url 'modificar-categoria' %}">Modificar Categoría</a>
-                            <a class="dropdown-item" href="{% url 'eliminar-categoria' %}">Deshabilitar Categoría</a>
+                            <a class="dropdown-item" href="{% url 'agregar-categoria' %}"><i class="fas fa-tag"></i> Agregar Categoría</a>
+                            <a class="dropdown-item" href="{% url 'modificar-categoria' %}"><i class="fas fa-pencil-alt"></i> Modificar Categoría</a>
+                            <a class="dropdown-item" href="{% url 'eliminar-categoria' %}"><i class="fas fa-times-circle"></i> Deshabilitar Categoría</a>
                         </div>
                     </div>
+                {% endif %}
+
+                <!-- Botón "Control de Vencimientos" (visible para Administrador y Usuario de Bodega) -->
+                {% if request.user.groups.all.0.name == "Administrador" or request.user.groups.all.0.name == "Usuario de Bodega" %}
+                    <a href="{% url 'control-vencimientos' %}"><i class="fas fa-clock text-warning"></i> Control de Vencimientos</a>
                 {% endif %}
 
                 <!-- Botón "Gestión de Usuarios y Roles" (visible solo para Administrador) -->
@@ -504,9 +1677,71 @@
                     <p class="subtitle-custom">Rol: {{ user.groups.all.0.name }}</p>
                 </div>
 
+                <!-- Control de Vencimientos -->
+                {% if productos_con_vencimiento %}
+                <div class="form-card mb-4" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                    <div class="chart-title">
+                        <h3><i class="fas fa-clock text-warning"></i> Control de Vencimientos</h3>
+                    </div>
+                    <div class="row vencimiento-stats">
+                        <div class="col-md-3 col-6">
+                            <div class="vencimiento-card vencido">
+                                <div class="vencimiento-icon">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <div class="vencimiento-info">
+                                    <h4>{{ productos_vencidos }}</h4>
+                                    <p>Vencidos</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="vencimiento-card critico">
+                                <div class="vencimiento-icon">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                </div>
+                                <div class="vencimiento-info">
+                                    <h4>{{ productos_criticos }}</h4>
+                                    <p>Críticos (≤7 días)</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="vencimiento-card precaucion">
+                                <div class="vencimiento-icon">
+                                    <i class="fas fa-exclamation"></i>
+                                </div>
+                                <div class="vencimiento-info">
+                                    <h4>{{ productos_precaucion }}</h4>
+                                    <p>Precaución (≤30 días)</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="vencimiento-card total">
+                                <div class="vencimiento-icon">
+                                    <i class="fas fa-calendar-check"></i>
+                                </div>
+                                <div class="vencimiento-info">
+                                    <h4>{{ total_con_vencimiento }}</h4>
+                                    <p>Total con Vencimiento</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="{% url 'control-vencimientos' %}" class="btn btn-primary">
+                            <i class="fas fa-list-ul"></i> Ir a Control de Vencimientos
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Gráfico de Dona y Leyenda -->
                 <div class="form-card">
-                    <h3 class="title-secondary">Distribución de Stock</h3>
+                    <div class="chart-title">
+                        <h3><i class="fas fa-chart-pie"></i> Distribución de Stock - Productos con Stock</h3>
+                    </div>
                     {% if total_productos > 0 %}
                         <div class="chart-container">
                             <canvas id="stockChart" data-chart-data='{{ chart_data_json|safe }}'></canvas>
@@ -514,20 +1749,32 @@
                         <div class="legend-container">
                             <div class="legend-item">
                                 <span class="legend-color stock-bajo"></span>
-                                <span class="legend-text">Stock Bajo (1-10): {{ stock_bajo }} productos ({{ porcentaje_bajo }}%)</span>
+                                <span class="legend-text">Stock Bajo (1-10)</span>
+                                <span class="legend-count">{{ stock_bajo }} productos ({{ porcentaje_bajo }}%)</span>
                             </div>
                             <div class="legend-item">
                                 <span class="legend-color stock-medio"></span>
-                                <span class="legend-text">Stock Medio (11-50): {{ stock_medio }} productos ({{ porcentaje_medio }}%)</span>
+                                <span class="legend-text">Stock Medio (11-50)</span>
+                                <span class="legend-count">{{ stock_medio }} productos ({{ porcentaje_medio }}%)</span>
                             </div>
                             <div class="legend-item">
                                 <span class="legend-color stock-alto"></span>
-                                <span class="legend-text">Stock Alto (>50): {{ stock_alto }} productos ({{ porcentaje_alto }}%)</span>
+                                <span class="legend-text">Stock Alto (51+)</span>
+                                <span class="legend-count">{{ stock_alto }} productos ({{ porcentaje_alto }}%)</span>
                             </div>
                         </div>
-                        <p class="mt-3"><strong>Total Productos:</strong> {{ total_productos }}</p>
+                        <div class="total-products">
+                            <div class="total-icon">
+                                <i class="fas fa-boxes"></i>
+                            </div>
+                            <div class="total-number">{{ total_productos }}</div>
+                            <div class="total-label">Total de Productos con Stock</div>
+                        </div>
                     {% else %}
-                        <p class="no-data-message">No hay productos con stock disponible para mostrar.</p>
+                        <div class="no-data-container">
+                            <i class="fas fa-box-open no-data-icon"></i>
+                            <p class="no-data-message">No hay productos con stock disponible para mostrar.</p>
+                        </div>
                     {% endif %}
                 </div>
             </div>
@@ -581,6 +1828,152 @@
                 $('#adminPassword').val('');
                 $('#errorMessage').hide();
                 $('#successMessage').hide();
+            });
+            
+            // Ocultar cualquier elemento flotante de scroll que aparezca
+            function hideScrollElements() {
+                // Buscar y ocultar elementos que puedan ser flechas de scroll
+                const scrollSelectors = [
+                    '[class*="scroll"]', '[id*="scroll"]',
+                    '[class*="arrow"]', '[id*="arrow"]', 
+                    '[class*="back-to-top"]', '[id*="back-to-top"]',
+                    '.scroll-top', '.scroll-up', '.go-top',
+                    '.scroll-arrow', '.floating-arrow',
+                    '.btn-scroll', '.scroll-btn'
+                ];
+                
+                scrollSelectors.forEach(selector => {
+                    $(selector).hide();
+                });
+            }
+            
+            // Ejecutar al cargar y cada 100ms para capturar elementos dinámicos
+            hideScrollElements();
+            setInterval(hideScrollElements, 100);
+            
+            // JavaScript MEJORADO para dropdowns sin cortes - SOLUCIÓN DEFINITIVA
+            function adjustDropdownPosition(dropdownElement, contentElement) {
+                // Resetear estilos primero
+                contentElement.style.left = '0';
+                contentElement.style.right = 'auto';
+                contentElement.style.top = '100%';
+                contentElement.style.bottom = 'auto';
+                contentElement.style.transform = 'none';
+                contentElement.style.maxHeight = 'none';
+                contentElement.style.overflow = 'visible';
+                
+                // Forzar recálculo después del reset
+                requestAnimationFrame(() => {
+                    const rect = contentElement.getBoundingClientRect();
+                    const windowWidth = window.innerWidth;
+                    const windowHeight = window.innerHeight;
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    
+                    // Ajustar horizontalmente si se sale por la derecha
+                    if (rect.right > windowWidth - 20) {
+                        contentElement.style.left = 'auto';
+                        contentElement.style.right = '0';
+                    }
+                    
+                    // Ajustar verticalmente si se sale por abajo
+                    if (rect.bottom > windowHeight - 20) {
+                        contentElement.style.top = 'auto';
+                        contentElement.style.bottom = '100%';
+                    }
+                    
+                    // Asegurar que siempre sea visible
+                    contentElement.style.visibility = 'visible';
+                    contentElement.style.opacity = '1';
+                    contentElement.style.display = 'block';
+                    contentElement.style.zIndex = '999999';
+                });
+            }
+            
+            // Mejorar comportamiento de dropdowns - SOLUCIÓN COMPLETA
+            $('.dropdown-toggle').off('click').on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const $dropdown = $(this).closest('.dropdown');
+                const $dropdownMenu = $dropdown.find('.dropdown-menu');
+                const isOpen = $dropdown.hasClass('show');
+                
+                // Cerrar TODOS los otros dropdowns primero
+                $('.dropdown').removeClass('show');
+                $('.dropdown-menu').removeClass('show').hide();
+                
+                // Si el dropdown no estaba abierto, abrirlo
+                if (!isOpen) {
+                    $dropdown.addClass('show');
+                    $dropdownMenu.addClass('show').show();
+                    
+                    // Ajustar posición inmediatamente
+                    adjustDropdownPosition($dropdown[0], $dropdownMenu[0]);
+                    
+                    // Forzar visibilidad
+                    $dropdownMenu.css({
+                        'display': 'block',
+                        'visibility': 'visible',
+                        'opacity': '1',
+                        'z-index': '999999'
+                    });
+                }
+            });
+            
+            // Cerrar dropdowns cuando se hace clic fuera
+            $(document).off('click.dropdown').on('click.dropdown', function(e) {
+                if (!$(e.target).closest('.dropdown').length) {
+                    $('.dropdown').removeClass('show');
+                    $('.dropdown-menu').removeClass('show').hide();
+                }
+            });
+            
+            // MEJORAR comportamiento hover
+            $('.dropdown').off('mouseenter mouseleave').hover(
+                function() {
+                    const $dropdown = $(this);
+                    const $dropdownMenu = $dropdown.find('.dropdown-menu');
+                    
+                    // Cerrar otros dropdowns
+                    $('.dropdown').not(this).removeClass('show');
+                    $('.dropdown-menu').not($dropdownMenu).removeClass('show').hide();
+                    
+                    $dropdown.addClass('show');
+                    $dropdownMenu.addClass('show').show();
+                    
+                    // Ajustar posición en hover también
+                    adjustDropdownPosition($dropdown[0], $dropdownMenu[0]);
+                    
+                    // Forzar visibilidad
+                    $dropdownMenu.css({
+                        'display': 'block',
+                        'visibility': 'visible',
+                        'opacity': '1',
+                        'z-index': '999999'
+                    });
+                },
+                function() {
+                    const self = this;
+                    const $dropdown = $(this);
+                    const $dropdownMenu = $dropdown.find('.dropdown-menu');
+                    
+                    // Delay para evitar cierre accidental
+                    setTimeout(function() {
+                        if (!$(self).is(':hover') && !$dropdownMenu.is(':hover')) {
+                            $dropdown.removeClass('show');
+                            $dropdownMenu.removeClass('show').hide();
+                        }
+                    }, 150);
+                }
+            );
+            
+            // Ajustar al redimensionar ventana
+            $(window).off('resize.dropdown').on('resize.dropdown', function() {
+                $('.dropdown.show').each(function() {
+                    const $dropdown = $(this);
+                    const $dropdownMenu = $dropdown.find('.dropdown-menu');
+                    adjustDropdownPosition($dropdown[0], $dropdownMenu[0]);
+                });
             });
         });
     </script>

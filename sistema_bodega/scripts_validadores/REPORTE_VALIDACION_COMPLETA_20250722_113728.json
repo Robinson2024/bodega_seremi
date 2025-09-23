@@ -1,0 +1,47 @@
+{
+  "timestamp": "2025-07-22T11:37:27.327738",
+  "pruebas": [],
+  "errores": [
+    "Error probando funcionalidad web: Manager isn't available; 'auth.User' has been swapped for 'accounts.CustomUser'"
+  ],
+  "exitos": [
+    "Productos en sistema: 52",
+    "Transacciones en sistema: 355",
+    "Lotes en sistema: 48",
+    "Categorías en sistema: 15",
+    "No hay productos con stock negativo",
+    "Todos los productos tienen movimientos registrados",
+    "Producto de prueba creado: VALIDACION52189",
+    "Creadas 3 transacciones de entrada",
+    "Creados 3 lotes de prueba",
+    "Transacción de salida creada",
+    "Consulta productos: 20 registros",
+    "Consulta transacciones: 50 registros",
+    "Consulta lotes críticos: 23 registros",
+    "Consulta agregada: {'total_stock': 7693, 'total_productos': 53}",
+    "Rendimiento excelente: 0.001s promedio",
+    "Lógica FIFO funcionando correctamente",
+    "Página principal accesible: 302",
+    "Datos de prueba eliminados correctamente"
+  ],
+  "metricas": {
+    "Consulta productos con stock": 0.0014967918395996094,
+    "Consulta transacciones recientes": 0.002197742462158203,
+    "Consulta lotes críticos": 0.0011487007141113281,
+    "Consulta agregada": 0.0008945465087890625
+  },
+  "estadisticas": {
+    "productos": 52,
+    "transacciones": 355,
+    "lotes": 48,
+    "categorias": 15
+  },
+  "estado_final": "🟡 BUENO",
+  "mensaje_final": "Sistema con errores menores",
+  "resumen": {
+    "total_exitos": 18,
+    "total_errores": 1,
+    "total_pruebas": 19,
+    "porcentaje_exito": 94.73684210526315
+  }
+}

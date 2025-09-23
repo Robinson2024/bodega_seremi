@@ -87,13 +87,30 @@
         </div>
     </div>
 
-    <!-- Contenedor para el mensaje de éxito personalizado -->
-    <div id="custom-success-message" class="custom-success-message" style="display: none;">
-        <div class="success-content">
-            <i class="fas fa-check-circle success-icon"></i>
-            <div class="success-text">
-                <h4 id="success-title"></h4>
-                <button type="button" class="btn btn-primary-custom btn-sm mt-2" id="accept-button">Aceptar</button>
+    <!-- Modal de éxito mejorado -->
+    <div id="success-modal" class="success-modal-overlay" style="display: none;">
+        <div class="success-modal">
+            <div class="success-modal-header">
+                <div class="success-icon-container">
+                    <i class="fas fa-check-circle success-icon"></i>
+                </div>
+                <h3 class="success-modal-title">¡Acta Generada Exitosamente!</h3>
+            </div>
+            <div class="success-modal-body">
+                <div class="success-details">
+                    <div class="success-info">
+                        <i class="fas fa-file-pdf text-danger"></i>
+                        <span id="success-acta-info">Acta de entrega generada correctamente</span>
+                    </div>
+                    <div class="success-description">
+                        El documento PDF ha sido creado y está listo para su descarga o visualización.
+                    </div>
+                </div>
+            </div>
+            <div class="success-modal-footer">
+                <button type="button" class="btn btn-success btn-success-custom" id="accept-button">
+                    <i class="fas fa-check"></i> Aceptar
+                </button>
             </div>
         </div>
     </div>
@@ -107,8 +124,8 @@
         const form = document.getElementById('acta-form');
         const generateButton = document.getElementById('generateButton');
         const cancelButton = document.getElementById('cancelButton');
-        const successMessage = document.getElementById('custom-success-message');
-        const successTitle = document.getElementById('success-title');
+        const successModal = document.getElementById('success-modal');
+        const successActaInfo = document.getElementById('success-acta-info');
         const acceptButton = document.getElementById('accept-button');
 
         // Función para mostrar el indicador de carga
@@ -123,12 +140,22 @@
             responsableSelect.disabled = false;
         }
 
-        // Función para mostrar el mensaje de éxito personalizado
+        // Función para mostrar el modal de éxito mejorado
         function showSuccessMessage(message, numeroActa) {
-            successTitle.textContent = `Acta de entrega N°${numeroActa} generada correctamente`;
-            successMessage.style.display = 'block';
-            successMessage.classList.remove('fade-out');
-            successMessage.classList.add('fade-in');
+            successActaInfo.textContent = `Acta de entrega N°${numeroActa} generada correctamente`;
+            successModal.style.display = 'flex';
+            successModal.classList.add('fade-in');
+            
+            // Añadir animación de entrada
+            const modal = successModal.querySelector('.success-modal');
+            modal.style.transform = 'scale(0.7) translateY(-50px)';
+            modal.style.opacity = '0';
+            
+            setTimeout(() => {
+                modal.style.transition = 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                modal.style.transform = 'scale(1) translateY(0)';
+                modal.style.opacity = '1';
+            }, 10);
         }
 
         // Cargar responsables dinámicamente
@@ -237,14 +264,21 @@
             });
         });
 
-        // Manejar el botón "Aceptar" para cerrar el mensaje y redirigir
+        // Manejar el botón "Aceptar" para cerrar el modal y redirigir
         acceptButton.addEventListener('click', function() {
-            successMessage.classList.remove('fade-in');
-            successMessage.classList.add('fade-out');
+            const modal = successModal.querySelector('.success-modal');
+            
+            // Animación de salida
+            modal.style.transition = 'all 0.3s ease-out';
+            modal.style.transform = 'scale(0.8) translateY(50px)';
+            modal.style.opacity = '0';
+            successModal.classList.remove('fade-in');
+            successModal.classList.add('fade-out');
+            
             setTimeout(() => {
-                successMessage.style.display = 'none';
+                successModal.style.display = 'none';
                 window.location.href = "{% url 'home' %}";
-            }, 500); // Esperar a que termine la animación de desvanecimiento
+            }, 300); // Animación más rápida y suave
         });
 
         // Forzar la carga inicial de responsables si hay un departamento seleccionado
@@ -410,61 +444,199 @@
         }
     }
 
-    /* Estilos para el mensaje de éxito personalizado */
-    .custom-success-message {
-        position: absolute;
-        top: 120px; /* Ajustado para estar entre "Cerrar Sesión" y "Salida de Productos" */
-        left: 50%;
-        transform: translateX(-50%);
+    /* Estilos para el modal de éxito mejorado */
+    .success-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
         width: 100%;
-        max-width: 350px;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(3px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
         z-index: 1050;
         opacity: 0;
-        transition: opacity 0.5s ease-in-out;
+        transition: opacity 0.3s ease;
     }
 
-    .success-content {
-        background-color: #e6ffe6;
-        border: 1px solid #c3e6cb;
-        border-radius: 5px;
-        padding: 10px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: #155724;
-        text-align: center;
-    }
-
-    .success-icon {
-        font-size: 1.5rem;
-        color: #28a745;
-    }
-
-    .success-text {
-        flex: 1;
-    }
-
-    .success-text h4 {
-        margin: 0;
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: #1a3c5e;
-    }
-
-    .success-text p {
-        margin: 5px 0 0;
-        font-size: 0.85rem;
-        color: #155724;
-        display: none; /* Quitamos el temporizador */
-    }
-
-    .fade-in {
+    .success-modal-overlay.fade-in {
         opacity: 1;
     }
 
-    .fade-out {
+    .success-modal-overlay.fade-out {
         opacity: 0;
+    }
+
+    .success-modal {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1), 0 8px 20px rgba(0, 0, 0, 0.06);
+        max-width: 480px;
+        width: 90%;
+        overflow: hidden;
+        transform: scale(0.9);
+        transition: transform 0.3s ease;
+    }
+
+    .success-modal-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 30px 25px 25px;
+        text-align: center;
+        position: relative;
+    }
+
+    .success-modal-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<%3Csvg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Ccircle cx="3" cy="3" r="3"/%3E%3Ccircle cx="13" cy="13" r="3"/%3E%3C/g%3E%3C/svg%3E') repeat;
+    }
+
+    .success-icon-container {
+        position: relative;
+        z-index: 1;
+        margin-bottom: 15px;
+    }
+
+    .success-icon {
+        font-size: 3.5rem;
+        color: #ffffff;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        animation: checkPulse 0.6s ease-out;
+    }
+
+    @keyframes checkPulse {
+        0% { transform: scale(0.5); opacity: 0; }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    .success-modal-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin: 0;
+        color: #ffffff;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        position: relative;
+        z-index: 1;
+    }
+
+    .success-modal-body {
+        padding: 30px 25px;
+    }
+
+    .success-details {
+        text-align: center;
+    }
+
+    .success-info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+
+    .success-info:hover {
+        background: #e8f5e8;
+        border-color: #28a745;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.15);
+    }
+
+    .success-info i {
+        font-size: 1.5rem;
+        color: #dc3545;
+    }
+
+    .success-info span {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1a3c5e;
+        flex: 1;
+        text-align: left;
+    }
+
+    .success-description {
+        color: #6c757d;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin-bottom: 0;
+    }
+
+    .success-modal-footer {
+        background: #f8f9fa;
+        padding: 20px 25px;
+        text-align: center;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .btn-success-custom {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        color: white;
+        padding: 12px 30px;
+        font-size: 1rem;
+        font-weight: 600;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        min-width: 120px;
+    }
+
+    .btn-success-custom:hover {
+        background: linear-gradient(135deg, #218838 0%, #1ba085 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        color: white;
+    }
+
+    .btn-success-custom:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+    }
+
+    .btn-success-custom i {
+        margin-right: 8px;
+    }
+
+    /* Responsive design */
+    @media (max-width: 576px) {
+        .success-modal {
+            margin: 20px;
+            width: calc(100% - 40px);
+        }
+        
+        .success-modal-header {
+            padding: 25px 20px 20px;
+        }
+        
+        .success-modal-title {
+            font-size: 1.2rem;
+        }
+        
+        .success-icon {
+            font-size: 3rem;
+        }
+        
+        .success-modal-body {
+            padding: 25px 20px;
+        }
+        
+        .success-info span {
+            font-size: 1rem;
+        }
     }
 </style>
 {% endblock %}

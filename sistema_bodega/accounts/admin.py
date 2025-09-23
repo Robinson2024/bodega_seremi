@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Producto, Transaccion, ActaEntrega, Funcionario, Categoria
+from .models import Producto, Transaccion, ActaEntrega, Funcionario, Categoria, LoteProducto
 
 # Personalizar la vista de Producto en el panel de administración
 class ProductoAdmin(admin.ModelAdmin):
@@ -74,9 +74,47 @@ class CategoriaAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return request.user.has_perm('accounts.can_manage_categories') or super().has_delete_permission(request, obj)
 
+# Personalizar la vista de LoteProducto
+class LoteProductoAdmin(admin.ModelAdmin):
+    # Define los campos que se mostrarán en la lista de lotes
+    list_display = ('producto', 'numero_lote', 'stock', 'fecha_vencimiento', 'fecha_ingreso', 'get_estado_vencimiento')
+    # Permite filtrar lotes por producto y estado de vencimiento
+    list_filter = ('producto__categoria', 'fecha_vencimiento', 'fecha_ingreso')
+    # Habilita la búsqueda por descripción del producto y número de lote
+    search_fields = ('producto__descripcion', 'producto__codigo_barra', 'numero_lote')
+    # Ordena los lotes por fecha de vencimiento (próximos a vencer primero)
+    ordering = ('fecha_vencimiento',)
+    # Campos de solo lectura
+    readonly_fields = ('fecha_ingreso', 'get_estado_vencimiento', 'get_dias_para_vencer')
+    
+    def get_estado_vencimiento(self, obj):
+        """Muestra el estado de vencimiento del lote con color."""
+        estado = obj.get_estado_vencimiento()
+        color = obj.get_color_estado_vencimiento()
+        return f'<span style="color: {color}; font-weight: bold;">{estado}</span>'
+    get_estado_vencimiento.short_description = 'Estado de Vencimiento'
+    get_estado_vencimiento.allow_tags = True
+    
+    def get_dias_para_vencer(self, obj):
+        """Muestra los días restantes para el vencimiento."""
+        dias = obj.get_dias_para_vencer()
+        if dias is not None:
+            if dias < 0:
+                return f'<span style="color: #dc3545; font-weight: bold;">{dias} días (vencido)</span>'
+            elif dias == 0:
+                return f'<span style="color: #ffc107; font-weight: bold;">Vence hoy</span>'
+            elif dias <= 7:
+                return f'<span style="color: #fd7e14; font-weight: bold;">{dias} días (crítico)</span>'
+            else:
+                return f'{dias} días'
+        return 'N/A'
+    get_dias_para_vencer.short_description = 'Días para Vencer'
+    get_dias_para_vencer.allow_tags = True
+
 # Registrar los modelos con sus configuraciones personalizadas en el panel de administración de Django
 admin.site.register(Producto, ProductoAdmin)
 admin.site.register(Transaccion, TransaccionAdmin)
 admin.site.register(ActaEntrega, ActaEntregaAdmin)
 admin.site.register(Funcionario, FuncionarioAdmin)
 admin.site.register(Categoria, CategoriaAdmin)
+admin.site.register(LoteProducto, LoteProductoAdmin)

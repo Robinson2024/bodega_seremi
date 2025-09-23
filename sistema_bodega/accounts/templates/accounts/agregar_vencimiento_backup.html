@@ -1,0 +1,390 @@
+{% extends 'accounts/home.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="text-primary" style="color: #1a3c5e; font-weight: 600;">
+                    <i class="fas fa-calendar-alt text-warning"></i> Gestión de Vencimientos
+                </h2>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'control-vencimientos' %}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-arrow-left"></i> Volver al Control
+                    </a>
+                    <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-home"></i> Inicio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensajes -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Estadísticas rápidas -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h4><i class="fas fa-list"></i> {{ total_productos }}</h4>
+                    <p class="mb-0">Total Productos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h4><i class="fas fa-exclamation-triangle"></i> {{ productos_sin_vencimiento }}</h4>
+                    <p class="mb-0">Sin Vencimiento</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h4><i class="fas fa-check-circle"></i> {{ productos_con_vencimiento }}</h4>
+                    <p class="mb-0">Con Vencimiento</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros de búsqueda -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros de Búsqueda</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" id="filter-form">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="codigo_barra" class="form-label">Código de Barra</label>
+                        <input type="text" class="form-control" id="codigo_barra" name="codigo_barra" value="{{ query_codigo }}" placeholder="Buscar por código...">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="descripcion" class="form-label">Descripción</label>
+                        <input type="text" class="form-control" id="descripcion" name="descripcion" value="{{ query_descripcion }}" placeholder="Buscar por descripción...">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="categoria" class="form-label">Categoría</label>
+                        <select class="form-control" id="categoria" name="categoria">
+                            <option value="">Todas las categorías</option>
+                            {% for cat in categorias %}
+                                <option value="{{ cat.nombre }}" {% if query_categoria == cat.nombre %}selected{% endif %}>
+                                    {{ cat.nombre }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="tipo" class="form-label">Tipo de Producto</label>
+                        <select class="form-control" id="tipo" name="tipo">
+                            <option value="todos" {% if tipo_filtro == 'todos' %}selected{% endif %}>Todos</option>
+                            <option value="sin_vencimiento" {% if tipo_filtro == 'sin_vencimiento' %}selected{% endif %}>Sin Vencimiento</option>
+                            <option value="con_vencimiento" {% if tipo_filtro == 'con_vencimiento' %}selected{% endif %}>Con Vencimiento</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="limpiar-filtros">
+                            <i class="fas fa-times"></i> Limpiar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de productos -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-boxes"></i> Productos para Gestión de Vencimientos</h5>
+        </div>
+        <div class="card-body">
+            {% if page_obj %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Categoría</th>
+                                <th>Stock</th>
+                                <th>Estado Vencimiento</th>
+                                <th>Fecha Vencimiento</th>
+                                <th>Lotes</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in page_obj %}
+                            <tr id="producto-{{ item.producto.codigo_barra }}">
+                                <td><code>{{ item.producto.codigo_barra }}</code></td>
+                                <td>{{ item.producto.descripcion }}</td>
+                                <td>
+                                    {% if item.producto.categoria %}
+                                        <span class="badge badge-info">{{ item.producto.categoria.nombre }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Sin categoría</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge badge-{% if item.producto.stock == 0 %}danger{% elif item.producto.stock <= 10 %}warning{% else %}success{% endif %}">
+                                        {{ item.producto.stock }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if item.producto.tiene_vencimiento %}
+                                        <span class="badge estado-{{ item.estado_vencimiento|lower }}">
+                                            {{ item.estado_vencimiento }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge badge-secondary">Sin Vencimiento</span>
+                                    {% endif %}
+                                </td>
+                                <td id="fecha-{{ item.producto.codigo_barra }}">
+                                    {% if item.producto.tiene_vencimiento %}
+                                        {% if item.proximo_vencimiento %}
+                                            {{ item.proximo_vencimiento|date:"d/m/Y" }}
+                                        {% else %}
+                                            <span class="text-muted">Sin fecha</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td id="lotes-{{ item.producto.codigo_barra }}">
+                                    {% if item.producto.tiene_vencimiento %}
+                                        <span class="badge badge-primary">{{ item.total_lotes }} lote{{ item.total_lotes|pluralize:"s" }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        {% if not item.producto.tiene_vencimiento %}
+                                            <!-- Botón para agregar vencimiento -->                            <button type="button" class="btn btn-success btn-sm" 
+                                    onclick="abrirModalAgregarVencimiento('{{ item.producto.codigo_barra }}', '{{ item.producto.descripcion|escapejs }}')">
+                                <i class="fas fa-plus"></i> Agregar
+                            </button>
+                        {% else %}
+                            <!-- Botón para modificar vencimiento del producto -->
+                            <button type="button" class="btn btn-warning btn-sm" 
+                                    onclick="abrirModalModificarProducto('{{ item.producto.codigo_barra }}', '{{ item.producto.descripcion|escapejs }}', '{{ item.producto.fecha_vencimiento|date:"Y-m-d" }}')">
+                                <i class="fas fa-edit"></i> Modificar
+                            </button>
+                            <!-- Botón para gestionar lotes -->
+                            {% if item.total_lotes > 0 %}
+                                <button type="button" class="btn btn-info btn-sm" 
+                                        onclick="abrirModalGestionarLotes('{{ item.producto.codigo_barra }}', '{{ item.producto.descripcion|escapejs }}')">
+                                    <i class="fas fa-layer-group"></i> Lotes ({{ item.total_lotes }})
+                                </button>
+                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Paginación -->
+                {% if page_obj.has_other_pages %}
+                    <nav aria-label="Paginación" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
+                                        &laquo; Primera
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
+                                        &lsaquo; Anterior
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
+                                            {{ num }}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
+                                        Siguiente &rsaquo;
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
+                                        Última &raquo;
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No se encontraron productos</h5>
+                    <p class="text-muted">Intenta ajustar los filtros de búsqueda.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.numero_lote.id_for_label }}" class="form-label">
+                                <i class="fas fa-tag"></i> {{ form.numero_lote.label }}
+                            </label>
+                            {{ form.numero_lote|add_class:"form-control" }}
+                            {% if form.numero_lote.errors %}
+                                <div class="text-danger small">{{ form.numero_lote.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                Número de lote opcional para identificar este producto.
+                            </small>
+                        </div>
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'control-vencimientos' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Volver
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i> Agregar Vencimiento
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .card-header {
+        background: linear-gradient(135deg, #1a3c5e 0%, #2a4d73 100%);
+        color: white;
+        border-bottom: none;
+        border-radius: 10px 10px 0 0;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #1a3c5e;
+        margin-bottom: 8px;
+    }
+    
+    .form-control {
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        padding: 10px 12px;
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .form-control:focus {
+        border-color: #1a3c5e;
+        box-shadow: 0 0 0 0.2rem rgba(26, 60, 94, 0.25);
+    }
+    
+    .btn {
+        border-radius: 6px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-success {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+    
+    .btn-success:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+        transform: translateY(-1px);
+    }
+    
+    .btn-secondary {
+        background-color: #6c757d;
+        border-color: #6c757d;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #545b62;
+        border-color: #4e555b;
+        transform: translateY(-1px);
+    }
+    
+    .alert {
+        border-radius: 6px;
+        margin-bottom: 20px;
+    }
+    
+    .text-danger {
+        font-size: 0.875rem;
+        margin-top: 5px;
+    }
+    
+    .form-text {
+        font-size: 0.875rem;
+        margin-top: 5px;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Establecer fecha mínima como mañana
+        const fechaInput = document.getElementById('{{ form.fecha_vencimiento.id_for_label }}');
+        if (fechaInput) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const minDate = tomorrow.toISOString().split('T')[0];
+            fechaInput.min = minDate;
+        }
+    });
+</script>
+{% endblock %}

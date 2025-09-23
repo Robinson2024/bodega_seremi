@@ -15,28 +15,58 @@
             </div>
         {% endfor %}
     {% endif %}
+    
     <div class="card form-card shadow-sm">
         <div class="card-body">
             <!-- Información del producto -->
-            <div class="mb-3">
-                <h5 style="color: #1a3c5e;">Producto: {{ producto.descripcion }} (Código: {{ producto.codigo_barra }})</h5>
-                <p style="color: #64748b;">Stock actual: {{ producto.stock }}</p>
+            <div class="mb-4 p-3" style="background-color: #f8f9fa; border-radius: 8px;">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5 style="color: #1a3c5e; margin-bottom: 10px;">
+                            <i class="fas fa-box"></i> {{ producto.descripcion }}
+                        </h5>
+                        <p style="color: #64748b; margin: 0;">
+                            <strong>Código:</strong> {{ producto.codigo_barra }} | 
+                            <strong>Stock actual:</strong> {{ producto.stock }} | 
+                            <strong>Categoría:</strong> {{ producto.categoria.nombre|default:"Sin categoría" }}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-right">
+                        {% if tiene_vencimiento_actual %}
+                            <span class="badge badge-warning">
+                                <i class="fas fa-clock"></i> Con Vencimiento
+                            </span>
+                            <br>
+                            <small class="text-muted">
+                                Vence: {{ producto.fecha_vencimiento|date:"d/m/Y" }}
+                            </small>
+                        {% else %}
+                            <span class="badge badge-secondary">
+                                <i class="fas fa-infinite"></i> Sin Vencimiento
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
+
             <!-- Formulario para agregar stock -->
             <form method="post" class="needs-validation" novalidate id="stock-form">
                 {% csrf_token %}
+                
+                <!-- Campos básicos -->
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <div class="input-group input-group-sm">
                             {{ form.cantidad|add_class:"form-control cantidad-input" }}
                             <div class="input-group-append">
-                                <span class="input-group-text">Cantidad</span>
+                                <span class="input-group-text">Cantidad a Agregar</span>
                             </div>
                         </div>
-                        <div class="invalid-feedback" id="cantidad-error"></div>
                         {% if form.cantidad.errors %}
                             <div class="text-danger small">{{ form.cantidad.errors }}</div>
                         {% endif %}
+                        <!-- Mensaje de error para validación en tiempo real -->
+                        <div id="cantidad-error" class="text-danger small"></div>
                     </div>
                     <div class="col-md-6 mb-3">
                         <div class="input-group input-group-sm">
@@ -45,12 +75,14 @@
                                 <span class="input-group-text">RUT Proveedor</span>
                             </div>
                         </div>
-                        <div class="invalid-feedback" id="rut-error"></div>
+                        <small class="text-muted">Ingrese el RUT con o sin guión (ej: 12345678-9)</small>
                         {% if form.rut_proveedor.errors %}
                             <div class="text-danger small">{{ form.rut_proveedor.errors }}</div>
                         {% endif %}
+                        <div id="rut-feedback" class="text-danger small"></div>
                     </div>
                 </div>
+
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <div class="input-group input-group-sm">
@@ -75,6 +107,7 @@
                         {% endif %}
                     </div>
                 </div>
+
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <div class="input-group input-group-sm">
@@ -88,9 +121,123 @@
                         {% endif %}
                     </div>
                 </div>
-                <div class="text-center">
-                    <button type="submit" id="submit-btn" class="btn btn-primary btn-sm mr-2">Agregar Stock</button>
-                    <a href="{% url 'agregar-stock' %}" class="btn btn-secondary btn-sm">Cancelar</a>
+
+                <!-- Sección de Control de Vencimiento -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
+                            <div class="card-header" style="background-color: #e9ecef;">
+                                <h6 class="mb-0 text-primary" style="color: #1a3c5e;">
+                                    <i class="fas fa-calendar-alt"></i> 
+                                    {% if tiene_vencimiento_actual %}
+                                        Fecha de Vencimiento (Obligatorio)
+                                    {% else %}
+                                        Control de Vencimiento para Nuevo Stock
+                                    {% endif %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                {% if tiene_vencimiento_actual %}
+                                    <!-- Producto ya tiene vencimiento: mostrar directamente el campo de fecha -->
+                                    <div class="alert alert-info mb-3">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Este producto requiere fecha de vencimiento. Todos los nuevos lotes deben especificar su fecha de vencimiento.
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="input-group input-group-sm">
+                                                {{ form.fecha_vencimiento|add_class:"form-control" }}
+                                                <div class="input-group-append">
+                                                    <span class="input-group-text">
+                                                        <i class="fas fa-calendar"></i> Fecha de Vencimiento
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {% if form.fecha_vencimiento.errors %}
+                                                <div class="text-danger small">{{ form.fecha_vencimiento.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="input-group input-group-sm">
+                                                {{ form.numero_lote|add_class:"form-control" }}
+                                                <div class="input-group-append">
+                                                    <span class="input-group-text">
+                                                        <i class="fas fa-magic"></i> Lote Automático
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <small class="form-text text-success">
+                                                <i class="fas fa-check"></i> Número de lote generado automáticamente
+                                            </small>
+                                            {% if form.numero_lote.errors %}
+                                                <div class="text-danger small">{{ form.numero_lote.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <!-- Campo oculto para productos que ya tienen vencimiento -->
+                                    {{ form.tiene_vencimiento_nuevo|add_class:"form-check-input" }}
+                                {% else %}
+                                    <!-- Producto sin vencimiento: mostrar checkbox para activar -->
+                                    <div class="form-check mb-3">
+                                        {{ form.tiene_vencimiento_nuevo|add_class:"form-check-input" }}
+                                        <label class="form-check-label" for="id_tiene_vencimiento_nuevo">
+                                            <strong>{{ form.tiene_vencimiento_nuevo.label }}</strong>
+                                        </label>
+                                        <small class="form-text text-muted d-block">
+                                            Marque esta opción si el nuevo stock tiene una fecha de vencimiento diferente o si es el primer lote con vencimiento.
+                                        </small>
+                                    </div>
+                                    
+                                    <div id="fecha-vencimiento-nuevo-container" style="display: none;">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="input-group input-group-sm">
+                                                    {{ form.fecha_vencimiento|add_class:"form-control" }}
+                                                    <div class="input-group-append">
+                                                        <span class="input-group-text">
+                                                            <i class="fas fa-calendar"></i> Fecha de Vencimiento
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                {% if form.fecha_vencimiento.errors %}
+                                                    <div class="text-danger small">{{ form.fecha_vencimiento.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="input-group input-group-sm">
+                                                    {{ form.numero_lote|add_class:"form-control" }}
+                                                    <div class="input-group-append">
+                                                        <span class="input-group-text">
+                                                            <i class="fas fa-magic"></i> Lote Automático
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <small class="form-text text-success">
+                                                    <i class="fas fa-check"></i> Número de lote generado automáticamente
+                                                </small>
+                                                {% if form.numero_lote.errors %}
+                                                    <div class="text-danger small">{{ form.numero_lote.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if form.non_field_errors %}
+                                    <div class="text-danger small mt-2">{{ form.non_field_errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button type="submit" id="submit-btn" class="btn btn-primary btn-sm mr-2">
+                        <i class="fas fa-plus"></i> Agregar Stock
+                    </button>
+                    <a href="{% url 'agregar-stock' %}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-times"></i> Cancelar
+                    </a>
                 </div>
             </form>
         </div>
@@ -193,13 +340,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return dv == dvEsperado;
     }
 
-    // Función para formatear el RUT con puntos y guion
+    // Función para formatear el RUT con puntos y guion - Versión mejorada
     function formatearRut(rut) {
+        // Limpiar el RUT de puntos y guiones
         rut = rut.replace(/\./g, '').replace(/\-/g, '').toUpperCase();
+        
+        if (rut.length < 2) return rut;
+        
         var rutLimpio = rut.slice(0, -1);
         var dv = rut.slice(-1);
         var rutFormateado = '';
 
+        // Formatear con puntos cada tres dígitos
         for (var i = rutLimpio.length - 1; i >= 0; i--) {
             rutFormateado = rutLimpio.charAt(i) + rutFormateado;
             if (i > 0 && (rutLimpio.length - i) % 3 === 0) {
@@ -210,18 +362,81 @@ document.addEventListener('DOMContentLoaded', function() {
         return rutFormateado + '-' + dv;
     }
 
-    // Función para limpiar el RUT (quitar puntos) antes de enviarlo
-    function cleanRut(rut) {
-        return rut.replace(/[^0-9K-]/g, '').toUpperCase();
+    // Función para formatear RUT en tiempo real de forma más intuitiva
+    function formatearRutEnTiempoReal(valor) {
+        // Limpiar valor manteniendo solo números y K
+        let valorLimpio = valor.replace(/[^0-9K]/gi, '');
+        
+        if (valorLimpio.length === 0) return '';
+        
+        // Solo formatear cuando tenga 8 o 9 caracteres (RUT completo)
+        // RUT chileno: 7-8 dígitos + 1 dígito verificador = 8-9 caracteres totales
+        if (valorLimpio.length < 8) return valorLimpio;
+        
+        // Si tiene 8 o 9 caracteres, formatear automáticamente
+        let cuerpo = valorLimpio.slice(0, -1);
+        let dv = valorLimpio.slice(-1);
+        
+        // Formatear cuerpo con puntos
+        let cuerpoFormateado = '';
+        for (let i = cuerpo.length - 1; i >= 0; i--) {
+            cuerpoFormateado = cuerpo[i] + cuerpoFormateado;
+            if (i > 0 && (cuerpo.length - i) % 3 === 0) {
+                cuerpoFormateado = '.' + cuerpoFormateado;
+            }
+        }
+        
+        // Retornar con guión automático
+        return cuerpoFormateado + '-' + dv.toUpperCase();
     }
 
-    // Validación de la cantidad en tiempo real
+    // Función para limpiar el RUT (quitar puntos) antes de enviarlo
+    function cleanRut(rut) {
+        let cleaned = rut.replace(/[^0-9K-]/g, '').toUpperCase();
+        console.log('cleanRut - Input:', rut, 'Output:', cleaned);
+        return cleaned;
+    }
+
+    // Validación de la cantidad en tiempo real - Prevenir números negativos y cero
     if (cantidadInput) {
+        // Prevenir entrada de caracteres no permitidos
+        cantidadInput.addEventListener('keydown', function(e) {
+            // Permitir teclas de control (backspace, delete, arrow keys, etc.)
+            if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Tab') {
+                return;
+            }
+            
+            // Prevenir signos negativos y cero al inicio
+            if (e.key === '-' || e.key === '+' || (e.key === '0' && this.value === '')) {
+                e.preventDefault();
+                return;
+            }
+            
+            // Solo permitir números
+            if (!/^\d$/.test(e.key)) {
+                e.preventDefault();
+            }
+        });
+        
+        // Validación y limpieza en tiempo real
         cantidadInput.addEventListener('input', function() {
-            const value = this.value.trim();
-            if (!/^\d+$/.test(value)) {
+            let value = this.value.trim();
+            
+            // Eliminar caracteres no numéricos
+            value = value.replace(/[^0-9]/g, '');
+            
+            // Prevenir cero al inicio
+            if (value === '0') {
+                value = '';
+            }
+            
+            // Actualizar el valor del campo
+            this.value = value;
+            
+            // Validaciones
+            if (value === '') {
                 this.classList.add('is-invalid');
-                cantidadError.textContent = 'La cantidad debe ser un número entero.';
+                cantidadError.textContent = 'La cantidad es requerida.';
             } else if (parseInt(value) <= 0) {
                 this.classList.add('is-invalid');
                 cantidadError.textContent = 'La cantidad debe ser mayor que 0.';
@@ -230,77 +445,173 @@ document.addEventListener('DOMContentLoaded', function() {
                 cantidadError.textContent = '';
             }
         });
+        
+        // Validación al perder el foco
+        cantidadInput.addEventListener('blur', function() {
+            const value = this.value.trim();
+            if (value === '' || parseInt(value) <= 0) {
+                this.classList.add('is-invalid');
+                cantidadError.textContent = 'La cantidad debe ser mayor que 0.';
+            }
+        });
     }
 
-    // Validación y formateo del RUT
+    // Validación y formateo del RUT - Versión mejorada
     if (rutInput) {
+        // Configuración inicial del campo RUT
+        rutInput.placeholder = "Ej: 12345678-9 o 123456789";
+        const rutFeedback = document.getElementById('rut-feedback');
+
+        // Evento oninput mejorado para mejor experiencia de usuario
         rutInput.oninput = function(e) {
-            let value = this.value;
-            // Permitir números, guion y K
-            let cleanedValue = value.replace(/[^0-9-K]/gi, '');
-            let parts = cleanedValue.split('-');
-            let body = parts[0] || '';
-            let dv = parts[1] || '';
-
-            // Limitar cuerpo a 8 dígitos
-            body = body.replace(/[^0-9]/g, '').slice(0, 8);
-
-            // Permitir guion y dígito verificador (0-9 o K)
-            if (parts.length > 1) {
-                dv = dv.replace(/[^0-9K]/gi, '').slice(0, 1);
-            } else if (value.includes('-')) {
-                dv = ''; // Mantener el guion si no hay dígito verificador aún
+            let valor = this.value;
+            
+            // Permitir solo números, guión y K
+            let valorLimpio = valor.replace(/[^0-9-K]/gi, '');
+            
+            // Limitar a máximo 12 caracteres formateados (XX.XXX.XXX-X)
+            // Pero permitir hasta 9 caracteres sin formateo
+            let soloNumeros = valorLimpio.replace(/[.-]/g, '');
+            if (soloNumeros.length > 9) {
+                soloNumeros = soloNumeros.slice(0, 9);
+                valorLimpio = soloNumeros;
             }
-
-            // Reconstruir el valor
-            let formattedValue = body;
-            if (body) {
-                // Formatear el cuerpo con puntos
-                let tempBody = '';
-                for (let i = body.length - 1; i >= 0; i--) {
-                    tempBody = body[i] + tempBody;
-                    if (i > 0 && (body.length - i) % 3 === 0) {
-                        tempBody = '.' + tempBody;
+            
+            // Si el usuario ingresa RUT sin guión, formatear automáticamente solo cuando tenga 9 caracteres
+            if (valorLimpio.length === 9 && !valorLimpio.includes('-')) {
+                let rutFormateado = formatearRutEnTiempoReal(valorLimpio);
+                this.value = rutFormateado;
+            } else if (valorLimpio.includes('-')) {
+                // Si ya tiene guión, mantener el formateo manual
+                let parts = valorLimpio.split('-');
+                let cuerpo = parts[0].replace(/[^0-9]/g, '').slice(0, 8);
+                let dv = parts[1] ? parts[1].replace(/[^0-9K]/gi, '').slice(0, 1) : '';
+                
+                // Formatear cuerpo con puntos
+                let cuerpoFormateado = '';
+                for (let i = cuerpo.length - 1; i >= 0; i--) {
+                    cuerpoFormateado = cuerpo[i] + cuerpoFormateado;
+                    if (i > 0 && (cuerpo.length - i) % 3 === 0) {
+                        cuerpoFormateado = '.' + cuerpoFormateado;
                     }
                 }
-                formattedValue = tempBody;
-
-                // Agregar el guion y el dígito verificador si existe
-                if (value.includes('-')) {
-                    formattedValue += '-';
-                    if (dv) {
-                        formattedValue += dv.toUpperCase();
-                    }
-                }
+                
+                this.value = cuerpoFormateado + (dv || parts.length > 1 ? '-' + dv.toUpperCase() : '');
+            } else {
+                // Permitir escribir hasta 9 caracteres sin formateo
+                this.value = valorLimpio.slice(0, 9);
             }
-
-            this.value = formattedValue;
+            
+            // Limpiar estilos de error mientras se escribe
             this.classList.remove('is-invalid');
+            rutFeedback.textContent = '';
             rutError.textContent = '';
         };
 
-        // Validación al perder el foco
+        // Validación mejorada al perder el foco
         rutInput.addEventListener('blur', function() {
-            let value = this.value;
-            if (!value) return;
+            let valor = this.value.trim();
+            if (!valor) return;
 
-            let cleanedValue = cleanRut(value);
-            if (validarRut(cleanedValue)) {
-                this.value = formatearRut(cleanedValue);
+            // Contar solo números y K (sin puntos ni guiones)
+            let soloDigitos = valor.replace(/[^0-9K]/gi, '');
+            console.log('Solo dígitos:', soloDigitos, 'Longitud:', soloDigitos.length);
+            
+            // Para el formato, no validar matemáticamente, solo formatear
+            if (soloDigitos.length >= 8 && soloDigitos.length <= 9) {
+                let valorLimpio = cleanRut(valor);
+                this.value = formatearRut(valorLimpio);
                 this.classList.remove('is-invalid');
+                rutFeedback.textContent = '';
                 rutError.textContent = '';
+            } else if (soloDigitos.length < 8) {
+                this.classList.add('is-invalid');
+                rutFeedback.textContent = 'RUT debe tener al menos 8 dígitos (incluyendo dígito verificador).';
+                rutError.textContent = 'RUT incompleto.';
             } else {
                 this.classList.add('is-invalid');
-                rutError.textContent = 'El RUT ingresado no es válido.';
-                this.value = '';
+                rutFeedback.textContent = 'RUT no puede tener más de 9 dígitos.';
+                rutError.textContent = 'RUT muy largo.';
             }
         });
+    }
 
-        // Limpiar el RUT antes de enviar al backend
+    // Control de vencimiento - Variables del DOM
+    const tieneVencimientoNuevoCheckbox = document.getElementById('id_tiene_vencimiento_nuevo');
+    const fechaVencimientoNuevoContainer = document.getElementById('fecha-vencimiento-nuevo-container');
+    const fechaVencimientoNuevoInput = document.getElementById('id_fecha_vencimiento');
+    
+    // Detectar si el producto tiene vencimiento revisando la interfaz
+    const alertInfo = document.querySelector('.alert-info');
+    const productoTieneVencimiento = alertInfo !== null;
+
+    // Función para mostrar u ocultar el campo de fecha y actualizar número de lote
+    function toggleFechaVencimientoNuevo() {
+        if (productoTieneVencimiento) {
+            return;
+        }
+        
+        if (tieneVencimientoNuevoCheckbox && tieneVencimientoNuevoCheckbox.checked) {
+            fechaVencimientoNuevoContainer.style.display = 'block';
+            fechaVencimientoNuevoInput.required = true;
+            
+            // Actualizar el campo de lote automático
+            const numeroLoteInput = document.getElementById('id_numero_lote');
+            if (numeroLoteInput) {
+                numeroLoteInput.value = 'Lote #1';
+                numeroLoteInput.style.display = 'block';
+            }
+            
+            // Animación suave
+            fechaVencimientoNuevoContainer.style.opacity = '0';
+            fechaVencimientoNuevoContainer.style.transform = 'translateY(-10px)';
+            setTimeout(function() {
+                fechaVencimientoNuevoContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                fechaVencimientoNuevoContainer.style.opacity = '1';
+                fechaVencimientoNuevoContainer.style.transform = 'translateY(0)';
+            }, 10);
+        } else {
+            fechaVencimientoNuevoContainer.style.display = 'none';
+            fechaVencimientoNuevoInput.required = false;
+            fechaVencimientoNuevoInput.value = '';
+            
+            // Ocultar el campo de lote cuando no tiene vencimiento
+            const numeroLoteInput = document.getElementById('id_numero_lote');
+            if (numeroLoteInput) {
+                numeroLoteInput.value = '';
+                numeroLoteInput.style.display = 'none';
+            }
+        }
+    }
+
+    // Inicializar estado al cargar la página
+    if (tieneVencimientoNuevoCheckbox && fechaVencimientoNuevoContainer) {
+        // Si el producto ya tiene vencimiento, hacer requerido el campo de fecha
+        if (productoTieneVencimiento) {
+            fechaVencimientoNuevoInput.required = true;
+        } else {
+            toggleFechaVencimientoNuevo();
+            // Escuchar cambios en el checkbox solo si el producto no tiene vencimiento
+            tieneVencimientoNuevoCheckbox.addEventListener('change', toggleFechaVencimientoNuevo);
+        }
+
+        // Establecer fecha mínima como mañana
+        if (fechaVencimientoNuevoInput) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const minDate = tomorrow.toISOString().split('T')[0];
+            fechaVencimientoNuevoInput.min = minDate;
+        }
+    }
+
+    // Limpiar el RUT antes de enviar al backend
+    if (form) {
         form.addEventListener('submit', function(e) {
-            let rawValue = rutInput.value;
-            let cleanValue = cleanRut(rawValue);
-            rutInput.value = cleanValue;
+            if (rutInput && rutInput.value) {
+                let rawValue = rutInput.value;
+                let cleanValue = cleanRut(rawValue);
+                rutInput.value = cleanValue;
+            }
         });
     }
 
@@ -309,14 +620,14 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.addEventListener('click', function() {
             const formIsValid = form.checkValidity();
             if (formIsValid) {
-                this.disabled = true; // Deshabilitar el botón
-                this.innerText = 'Procesando...'; // Cambiar el texto para feedback visual
-                form.submit(); // Enviar el formulario
+                this.disabled = true;
+                this.innerText = 'Procesando...';
+                form.submit();
             } else {
-                form.reportValidity(); // Mostrar mensajes de validación
+                form.reportValidity();
             }
         });
     }
-});
+}); // Fin del DOMContentLoaded
 </script>
 {% endblock %}

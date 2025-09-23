@@ -42,6 +42,19 @@ urlpatterns = [
     path('modificar-categoria/', views.modificar_categoria, name='modificar-categoria'),  # Modificar una categoría existente
     path('eliminar-categoria/', views.eliminar_categoria, name='eliminar-categoria'),  # Eliminar una categoría
 
+    # Rutas de Control de Vencimientos
+    path('control-vencimientos/', views.control_vencimientos, name='control-vencimientos'),  # Vista principal de control de vencimientos
+    path('control-vencimientos/exportar/', views.exportar_vencimientos_excel, name='exportar-vencimientos-excel'),  # Exportar control de vencimientos a Excel
+    path('detalle-lotes/<str:codigo_barra>/', views.detalle_lotes_producto, name='detalle-lotes-producto'),  # Ver detalle de lotes de un producto
+    path('agregar-vencimiento/', views.agregar_vencimiento_producto, name='agregar-vencimiento'),  # Gestión de vencimientos de productos y lotes
+    
+    # Rutas AJAX para gestión de vencimientos
+    path('ajax/agregar-vencimiento/', views.agregar_vencimiento_ajax, name='agregar-vencimiento-ajax'),  # AJAX para agregar vencimiento
+    path('ajax/modificar-vencimiento-producto/', views.modificar_vencimiento_producto_ajax, name='modificar-vencimiento-producto-ajax'),  # AJAX para modificar vencimiento del producto
+    path('ajax/modificar-vencimiento-lote/', views.modificar_vencimiento_lote_ajax, name='modificar-vencimiento-lote-ajax'),  # AJAX para modificar vencimiento de lote
+    path('ajax/obtener-lotes-producto/', views.obtener_lotes_producto_ajax, name='obtener-lotes-producto-ajax'),  # AJAX para obtener lotes de un producto
+    path('ajax/obtener-datos-producto/', views.obtener_datos_producto_ajax, name='obtener-datos-producto-ajax'),  # AJAX para obtener datos actualizados de producto
+
     # Rutas de Gestión de Usuarios
     path('listar-usuarios/', views.listar_usuarios, name='listar-usuarios'),  # Listar todos los usuarios
     path('agregar-usuario/', views.agregar_usuario, name='agregar-usuario'),  # Agregar un nuevo usuario

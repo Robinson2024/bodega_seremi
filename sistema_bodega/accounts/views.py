@@ -23,6 +23,8 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db import models
+from django.db.models import Q
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.safestring import mark_safe
@@ -31,10 +33,12 @@ from django.utils.text import slugify
 # Módulos locales del proyecto
 from .forms import (
     ActaEntregaForm,
+    AgregarStockConVencimientoForm,
     CustomUserCreationForm,
     CustomUserEditForm,
     DepartamentoForm,
     EliminarDepartamentoForm,
+    LoteProductoForm,
     ModificarDepartamentoForm,
     ProductoForm,
     SearchUserForm,
@@ -48,6 +52,7 @@ from .models import (
     CustomUser,
     Departamento,
     Funcionario,
+    LoteProducto,
     Producto,
     Responsable,
     Transaccion,
@@ -78,6 +83,58 @@ def paginar_resultados(request, objetos, items_por_pagina=20):
         page_obj = paginator.page(paginator.num_pages)
     return page_obj
 
+def paginar_resultados_dinamico(request, objetos, items_por_pagina=20):
+    """
+    Aplica paginación con numeración dinámica limitada
+    Solo muestra un rango limitado de páginas para evitar sobrecarga visual
+    """
+    from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+    
+    paginator = Paginator(objetos, items_por_pagina)
+    page = request.GET.get('page')
+    
+    try:
+        page_obj = paginator.page(page)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+    
+    # Crear rango de páginas dinámico
+    current_page = page_obj.number
+    total_pages = paginator.num_pages
+    
+    # Configuración de la paginación dinámica
+    max_pages_to_show = 10  # Máximo de páginas a mostrar
+    side_pages = 2  # Páginas a mostrar a cada lado de la actual
+    
+    if total_pages <= max_pages_to_show:
+        # Si hay pocas páginas, mostrar todas
+        page_range = list(range(1, total_pages + 1))
+        show_first_last = False
+    else:
+        # Lógica para páginas limitadas
+        start_page = max(1, current_page - side_pages)
+        end_page = min(total_pages, current_page + side_pages)
+        
+        # Ajustar para mantener siempre el mismo número de páginas visibles
+        if end_page - start_page < 2 * side_pages:
+            if start_page == 1:
+                end_page = min(total_pages, start_page + 2 * side_pages)
+            elif end_page == total_pages:
+                start_page = max(1, end_page - 2 * side_pages)
+        
+        page_range = list(range(start_page, end_page + 1))
+        show_first_last = start_page > 1 or end_page < total_pages
+    
+    # Agregar información adicional al objeto page
+    page_obj.dynamic_page_range = page_range
+    page_obj.show_first_last = show_first_last
+    page_obj.show_first_ellipsis = page_range[0] > 2 if page_range else False
+    page_obj.show_last_ellipsis = page_range[-1] < total_pages - 1 if page_range else False
+    
+    return page_obj
+
 def generar_pdf_acta(actas, disposition='attachment'):
     """Genera un PDF para un acta de entrega con límite de 100 caracteres y texto ajustado."""
     try:
@@ -92,7 +149,8 @@ def generar_pdf_acta(actas, disposition='attachment'):
                 'descripcion': item.producto.descripcion[:100],  # Límite de 100 caracteres
                 'numero_siscom': str(item.numero_siscom or '')[:100],  # Límite de 100 caracteres
                 'cantidad': item.cantidad,
-                'observacion': str(item.observacion or '')[:100],  # Límite de 100 caracteres
+                # Permitir observaciones largas, sin truncar, y respetar saltos de línea
+                'observacion': str(item.observacion or ''),
             } for item in actas
         ]
         logger.info(f"Productos para el PDF (con límite de 100 caracteres): {productos_salida}")
@@ -117,6 +175,7 @@ def generar_pdf_acta(actas, disposition='attachment'):
         }
 
         elements = []
+        # --- Encabezado profesional con logo y textos ---
         logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images', 'seremi_logo.png')
         logger.info(f"Ruta del logo: {logo_path}")
         if os.path.exists(logo_path):
@@ -126,6 +185,22 @@ def generar_pdf_acta(actas, disposition='attachment'):
             logger.warning("Logo no encontrado, usando texto alternativo.")
             logo = Paragraph("Logo no encontrado", custom_styles['NormalCustom'])
         logo.hAlign = 'LEFT'
+
+        encabezado_seremi = Paragraph("<b>SEREMI DE SALUD</b>", ParagraphStyle(name='EncabezadoSeremi', fontName='Helvetica-Bold', fontSize=16, alignment=0, textColor=colors.HexColor('#1a3c5e'), spaceAfter=0, leading=18))
+        encabezado_region = Paragraph("REGIÓN DE LA ARAUCANÍA", ParagraphStyle(name='EncabezadoRegion', fontName='Helvetica', fontSize=13, alignment=0, textColor=colors.HexColor('#1a3c5e'), spaceAfter=10, leading=15))
+
+        encabezado_tabla = Table(
+            [
+                [logo, Table([[encabezado_seremi], [encabezado_region]], colWidths=[10*cm])]
+            ],
+            colWidths=[3*cm, 13.5*cm], hAlign='LEFT'
+        )
+        encabezado_tabla.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+            ('LEFTPADDING', (1, 0), (1, 0), 10),
+        ]))
 
         acta_number = Paragraph(f"N° {acta.numero_acta}", custom_styles['ActaNumber'])
         acta_number_table = Table([[acta_number]], colWidths=[1.5*inch], rowHeights=[0.5*inch])
@@ -140,7 +215,7 @@ def generar_pdf_acta(actas, disposition='attachment'):
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
         ]))
 
-        header_table = Table([[logo, acta_number_table]], colWidths=[3*inch, 4.5*inch])
+        header_table = Table([[encabezado_tabla, acta_number_table]], colWidths=[13.5*cm, 4.5*cm])
         header_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
@@ -174,12 +249,13 @@ def generar_pdf_acta(actas, disposition='attachment'):
         for item in productos_salida:
             descripcion_text = item['descripcion'].encode('utf-8').decode('utf-8')
             numero_siscom_text = item['numero_siscom'].encode('utf-8').decode('utf-8')
+            # Permitir observaciones largas y saltos de línea reales
             observacion_text = (item['observacion'] or '-').replace('\n', '<br/>').encode('utf-8').decode('utf-8')
             data.append([
                 Paragraph(descripcion_text, custom_styles['TableCell']),
                 Paragraph(numero_siscom_text, custom_styles['TableCell']),
                 Paragraph(str(item['cantidad']), custom_styles['TableCell']),
-                Paragraph(observacion_text, custom_styles['TableCell'])
+                Paragraph(observacion_text, ParagraphStyle(name='ObsCell', fontName='Helvetica', fontSize=9, leading=11, wordWrap='CJK', alignment=0, allowWidows=1, allowOrphans=1))
             ])
             logger.info(f"Fila de la tabla: {descripcion_text}, {numero_siscom_text}, {item['cantidad']}, {observacion_text}")
 
@@ -209,21 +285,56 @@ def generar_pdf_acta(actas, disposition='attachment'):
                 else "JEFE DEL DEPARTAMENTO" if 'jefe' in responsable_lower or 'jefatura' in responsable_lower 
                 else "RESPONSABLE DEL DEPARTAMENTO")
 
+        # Pie de firmas profesional y alineado
         firma_table = Table([
-            [Paragraph(f"{generador_text}", custom_styles['Signature']), Paragraph(f"Sr./Sra. {responsable_text}", custom_styles['Signature'])],
-            [Paragraph("ENCARGADO BODEGA", custom_styles['SignatureTitle']), Paragraph("RECEPCIONA CONFORME", custom_styles['SignatureTitle'])],
-            ['', Paragraph(cargo, custom_styles['SignatureCargo'])],
-            [Paragraph("_____________________________", custom_styles['Signature']), Paragraph("_____________________________", custom_styles['Signature'])],
-        ], colWidths=[3*inch, 3*inch])
+            [
+                Paragraph('<b>' + generador_text + '</b>', ParagraphStyle(name='FirmaNombre', fontName='Helvetica-Bold', fontSize=11, alignment=1, textColor=colors.HexColor('#1a3c5e'))),
+                Paragraph('<b>' + responsable_text + '</b>', ParagraphStyle(name='FirmaNombre', fontName='Helvetica-Bold', fontSize=11, alignment=1, textColor=colors.HexColor('#1a3c5e')))
+            ],
+            [
+                Paragraph('<b>ENCARGADO DE BODEGA</b>', ParagraphStyle(name='FirmaTitulo', fontName='Helvetica-Bold', fontSize=10, alignment=1, textColor=colors.HexColor('#1a3c5e'))),
+                Paragraph('<b>RECEPCIONA CONFORME</b>', ParagraphStyle(name='FirmaTitulo', fontName='Helvetica-Bold', fontSize=10, alignment=1, textColor=colors.HexColor('#1a3c5e')))
+            ],
+            [
+                Paragraph('SEREMI DE SALUD ARAUCANÍA', ParagraphStyle(name='FirmaSub', fontName='Helvetica', fontSize=9, alignment=1, textColor=colors.HexColor('#64748b'))),
+                Paragraph(cargo, ParagraphStyle(name='FirmaSub', fontName='Helvetica', fontSize=9, alignment=1, textColor=colors.HexColor('#64748b')))
+            ],
+            [
+                Paragraph('<u>_____________________________</u>', ParagraphStyle(name='FirmaLinea', fontName='Helvetica', fontSize=12, alignment=1, textColor=colors.black)),
+                Paragraph('<u>_____________________________</u>', ParagraphStyle(name='FirmaLinea', fontName='Helvetica', fontSize=12, alignment=1, textColor=colors.black))
+            ]
+        ], colWidths=[8*cm, 8*cm], hAlign='CENTER')
         firma_table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('LEADING', (0, 0), (-1, -1), 12)
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ]))
 
-        elements.extend([table, Spacer(1, 4*inch), firma_table])
+        from reportlab.platypus import KeepTogether
+        
+        # Estrategia simple y efectiva: spacer adaptativo según cantidad de productos
+        num_productos = len(productos_salida)
+        
+        # Calcular spacer inteligente que empuje las firmas hacia abajo
+        # pero sin crear páginas innecesarias
+        if num_productos <= 3:
+            # Pocos productos: usar spacer grande para empujar hacia abajo
+            spacer_firmas = Spacer(1, 6*cm)
+        elif num_productos <= 8:
+            # Productos medios: spacer moderado  
+            spacer_firmas = Spacer(1, 3*cm)
+        else:
+            # Muchos productos: spacer mínimo para evitar nueva página
+            spacer_firmas = Spacer(1, 0.8*cm)
+        
+        # KeepTogether asegura que las firmas no se corten
+        firmas_completas = KeepTogether([
+            spacer_firmas,
+            firma_table
+        ])
+        
+        elements.extend([table, firmas_completas])
         logger.info("Construyendo el PDF...")
         doc.build(elements)
         logger.info("PDF generado correctamente.")
@@ -310,14 +421,62 @@ def home(request):
         suma_porcentajes = porcentaje_bajo + porcentaje_medio + porcentaje_alto
         if suma_porcentajes != 100.0:
             if porcentaje_bajo >= porcentaje_medio and porcentaje_bajo >= porcentaje_alto:
-                porcentaje_bajo = porcentaje_bajo + (100.0 - suma_porcentajes)
+                porcentaje_bajo = round(porcentaje_bajo + (100.0 - suma_porcentajes), 2)
             elif porcentaje_medio >= porcentaje_bajo and porcentaje_medio >= porcentaje_alto:
-                porcentaje_medio = porcentaje_medio + (100.0 - suma_porcentajes)
+                porcentaje_medio = round(porcentaje_medio + (100.0 - suma_porcentajes), 2)
             else:
-                porcentaje_alto = porcentaje_alto + (100.0 - suma_porcentajes)
+                porcentaje_alto = round(porcentaje_alto + (100.0 - suma_porcentajes), 2)
     else:
         stock_bajo = stock_medio = stock_alto = 0
         porcentaje_bajo = porcentaje_medio = porcentaje_alto = 0
+
+    # Calcular métricas de vencimiento usando el sistema de lotes
+    from datetime import date, timedelta
+    hoy = date.today()
+    
+    # Productos con vencimiento que tienen stock
+    productos_con_vencimiento = Producto.objects.filter(
+        tiene_vencimiento=True,
+        stock__gt=0
+    ).prefetch_related('lotes')
+    
+    # Contar productos por estado de vencimiento usando el estado completo de lotes
+    vencidos = criticos = precaucion = normal = 0
+    for producto in productos_con_vencimiento:
+        estado = producto.get_estado_vencimiento_completo()
+        if estado == 'Vencido':
+            vencidos += 1
+        elif estado in ['Vence Hoy', 'Crítico']:
+            criticos += 1
+        elif estado == 'Precaución':
+            precaucion += 1
+        else:
+            normal += 1
+    
+    total_con_vencimiento = productos_con_vencimiento.count()
+    
+    # Obtener productos más críticos para mostrar en el dashboard
+    productos_criticos_list = []
+    for producto in productos_con_vencimiento:
+        estado = producto.get_estado_vencimiento_completo()
+        if estado in ['Vencido', 'Vence Hoy', 'Crítico']:
+            proximo_vencimiento = producto.get_proximo_vencimiento()
+            dias_restantes = (proximo_vencimiento - hoy).days if proximo_vencimiento else None
+            productos_criticos_list.append({
+                'producto': producto,
+                'estado': estado,
+                'dias_restantes': dias_restantes,
+                'fecha_vencimiento': proximo_vencimiento
+            })
+    
+    # Ordenar por criticidad (vencidos primero, luego por días restantes)
+    productos_criticos_list.sort(key=lambda x: (
+        0 if x['dias_restantes'] is None or x['dias_restantes'] < 0 else x['dias_restantes'],
+        x['producto'].descripcion
+    ))
+    
+    # Tomar solo los 5 más críticos para el dashboard
+    productos_criticos_top = productos_criticos_list[:5]
 
     chart_data = {
         'totalProductos': total_productos,
@@ -332,7 +491,15 @@ def home(request):
         'porcentaje_bajo': porcentaje_bajo,
         'porcentaje_medio': porcentaje_medio,
         'porcentaje_alto': porcentaje_alto,
-        'chart_data_json': mark_safe(json.dumps(chart_data))
+        'chart_data_json': mark_safe(json.dumps(chart_data)),
+        # Control de vencimientos con información de lotes
+        'productos_con_vencimiento': total_con_vencimiento > 0,
+        'productos_vencidos': vencidos,
+        'productos_criticos': criticos,
+        'productos_precaucion': precaucion,
+        'productos_normal': normal,
+        'total_con_vencimiento': total_con_vencimiento,
+        'productos_criticos_top': productos_criticos_top,
     }
     return render(request, 'accounts/home.html', context)
 
@@ -446,7 +613,7 @@ def agregar_stock(request):
 
 @login_required
 def agregar_stock_detalle(request, codigo_barra):
-    """Vista para agregar stock a un producto específico"""
+    """Vista para agregar stock a un producto específico con manejo automático de lotes"""
     limpiar_sesion_productos_salida(request)
     if not request.user.has_perm('accounts.can_edit'):
         messages.error(request, 'No tienes permiso para agregar stock.')
@@ -458,30 +625,52 @@ def agregar_stock_detalle(request, codigo_barra):
         return redirect('agregar-stock')
 
     if request.method == 'POST':
-        form = TransaccionForm(request.POST)
+        form = AgregarStockConVencimientoForm(request.POST, producto=producto)
         if form.is_valid():
-            transaccion = form.save(commit=False)
-            transaccion.producto = producto
-            transaccion.tipo = 'entrada'
-            transaccion.rut_proveedor = form.cleaned_data['rut_proveedor'] or ''
-            transaccion.guia_despacho = form.cleaned_data['guia_despacho'] or ''
-            transaccion.numero_factura = form.cleaned_data['numero_factura'] or ''
-            transaccion.orden_compra = form.cleaned_data['orden_compra'] or ''
-            transaccion.save()
-
-            producto.stock += form.cleaned_data['cantidad']
-            producto.rut_proveedor = form.cleaned_data['rut_proveedor'] or ''
-            producto.guia_despacho = form.cleaned_data['guia_despacho'] or ''
-            producto.numero_factura = form.cleaned_data['numero_factura'] or ''
-            producto.orden_compra = form.cleaned_data['orden_compra'] or ''
-            producto.save()
-
-            messages.success(request, f'Stock agregado exitosamente. Nueva cantidad: {producto.stock}')
-            return redirect('agregar-stock')
-        messages.error(request, 'Error al agregar stock. Verifica los datos.')
+            try:
+                # Usar el método del formulario para agregar stock con lotes automáticos
+                lote, transaccion = form.agregar_stock_a_producto(producto)
+                
+                if lote:
+                    messages.success(request, 
+                        f'Stock agregado exitosamente al producto "{producto.descripcion}". '
+                        f'Lote #{lote.numero_lote} - Cantidad: {form.cleaned_data["cantidad"]} unidades. '
+                        f'Vence: {lote.fecha_vencimiento.strftime("%d/%m/%Y")}. '
+                        f'Stock total: {producto.stock} unidades'
+                    )
+                else:
+                    messages.success(request, 
+                        f'Stock agregado exitosamente al producto "{producto.descripcion}". '
+                        f'Cantidad: {form.cleaned_data["cantidad"]} unidades. '
+                        f'Stock total: {producto.stock} unidades'
+                    )
+                
+                return redirect('agregar-stock')
+                
+            except Exception as e:
+                messages.error(request, f'Error al agregar stock: {str(e)}')
+        else:
+            messages.error(request, 'Error al agregar stock. Verifica los datos.')
     else:
-        form = TransaccionForm()
-    return render(request, 'accounts/agregar_stock_detalle.html', {'form': form, 'producto': producto})
+        form = AgregarStockConVencimientoForm(producto=producto)
+    
+    # Obtener información de lotes existentes para mostrar en la vista
+    lotes_existentes = []
+    info_proximo_lote = None
+    
+    if producto.tiene_vencimiento:
+        lotes_existentes = producto.get_lotes_detalle()
+        info_proximo_lote = producto.get_info_proximo_lote()
+    
+    context = {
+        'form': form, 
+        'producto': producto,
+        'tiene_vencimiento_actual': producto.tiene_vencimiento,
+        'lotes_existentes': lotes_existentes,
+        'total_lotes': len(lotes_existentes),
+        'info_proximo_lote': info_proximo_lote
+    }
+    return render(request, 'accounts/agregar_stock_detalle.html', context)
 
 @login_required
 def salida_productos(request):
@@ -758,51 +947,19 @@ def salida_productos_seleccion(request):
             logger.info("Formulario válido. Procesando la salida...")
             logger.info(f"Datos limpiados - Departamento: {form.cleaned_data['departamento']}, Responsable: {form.cleaned_data['responsable']}")
             try:
-                # Validar el stock disponible para cada producto calculando el saldo real
+                # Validar el stock disponible directamente del producto (ya sincronizado)
                 for item in productos_salida:
                     logger.info(f"Validando stock para el producto: {item}")
                     producto = Producto.objects.get(codigo_barra=item['codigo_barra'])
                     cantidad = int(item['cantidad'] or 0)
 
-                    transacciones = Transaccion.objects.filter(producto=producto).order_by('fecha')
-                    actas = ActaEntrega.objects.filter(producto=producto).order_by('fecha')
-
-                    eventos = []
-                    for transaccion in transacciones.filter(tipo='entrada'):
-                        eventos.append({
-                            'tipo': 'entrada',
-                            'fecha': transaccion.fecha,
-                            'entrada': transaccion.cantidad,
-                            'salida': 0,
-                        })
-                    for transaccion in transacciones.filter(tipo='salida'):
-                        if transaccion.acta_entrega:
-                            eventos.append({
-                                'tipo': 'salida',
-                                'fecha': transaccion.fecha,
-                                'entrada': 0,
-                                'salida': transaccion.cantidad,
-                            })
-                    eventos.sort(key=lambda x: x['fecha'])
-
-                    saldo = 0
-                    for evento in eventos:
-                        if evento['tipo'] == 'entrada':
-                            saldo += evento['entrada']
-                        else:
-                            saldo -= evento['salida']
-
-                    if saldo != producto.stock:
-                        logger.warning(f"Stock desincronizado para el producto {producto.descripcion} (Código: {producto.codigo_barra}). Stock actual: {producto.stock}, Saldo calculado: {saldo}.")
-                        messages.warning(request, f'El stock del producto {producto.descripcion} (Código: {producto.codigo_barra}) estaba desincronizado. Stock actual: {producto.stock}, Saldo calculado: {saldo}.')
-                        producto.stock = saldo
-                        producto.save()
-                        messages.info(request, f'El stock del producto {producto.descripcion} ha sido corregido a {saldo}.')
-
-                    logger.info(f"Producto: {producto.descripcion}, Stock actual (corregido): {producto.stock}, Cantidad solicitada: {cantidad}")
-                    if producto.stock - cantidad < 0:
-                        logger.warning(f"No hay suficiente stock para {producto.descripcion} (Código: {producto.codigo_barra}). Stock actual: {producto.stock}, Solicitado: {cantidad}.")
-                        messages.error(request, f'No hay suficiente stock para {producto.descripcion} (Código: {producto.codigo_barra}). Stock actual: {producto.stock}, Solicitado: {cantidad}.')
+                    # Usar stock del producto directamente (ya está sincronizado con lotes)
+                    stock_disponible = producto.stock
+                    
+                    logger.info(f"Producto: {producto.descripcion}, Stock disponible: {stock_disponible}, Cantidad solicitada: {cantidad}")
+                    if stock_disponible < cantidad:
+                        logger.warning(f"No hay suficiente stock para {producto.descripcion} (Código: {producto.codigo_barra}). Stock disponible: {stock_disponible}, Solicitado: {cantidad}.")
+                        messages.error(request, f'No hay suficiente stock para {producto.descripcion} (Código: {producto.codigo_barra}). Stock disponible: {stock_disponible}, Solicitado: {cantidad}.')
                         return redirect('salida-productos-seleccion')
 
                 ultimo_acta = ActaEntrega.objects.order_by('-numero_acta').first()
@@ -838,9 +995,19 @@ def salida_productos_seleccion(request):
                     )
                     logger.info(f"Transacción creada: Tipo: salida, Cantidad: {cantidad}")
 
-                    producto.stock -= cantidad
-                    producto.save()
-                    logger.info(f"Stock actualizado: {producto.descripcion}, Nuevo stock: {producto.stock}")
+                    # Usar sistema FIFO automático para reducir stock
+                    if producto.tiene_vencimiento:
+                        exito = producto.reducir_stock_fifo(cantidad)
+                        if not exito:
+                            logger.error(f"Error al reducir stock FIFO para {producto.descripcion}")
+                            messages.error(request, f'Error al reducir stock para {producto.descripcion}')
+                            return JsonResponse({'success': False, 'error': f'Error al reducir stock para {producto.descripcion}'})
+                        logger.info(f"Stock reducido usando FIFO: {producto.descripcion}, Nuevo stock: {producto.stock}")
+                    else:
+                        # Para productos sin vencimiento, reducir del stock principal
+                        producto.stock -= cantidad
+                        producto.save()
+                        logger.info(f"Stock reducido directamente: {producto.descripcion}, Nuevo stock: {producto.stock}")
 
                 actas = ActaEntrega.objects.filter(numero_acta=numero_acta)
                 logger.info(f"Actas para el PDF: {list(actas)}")
@@ -1042,11 +1209,30 @@ def bincard_historial(request, codigo_barra):
     total_entradas = sum(m['entrada'] for m in movimientos)
     total_salidas = sum(m['salida'] for m in movimientos)
 
-    if saldo != producto.stock:
-        messages.warning(request, f'Advertencia: El saldo calculado ({saldo}) no coincide con el stock actual del producto ({producto.stock}).')
-        producto.stock = saldo
-        producto.save()
-        messages.info(request, f'El stock del producto ha sido corregido a {saldo} para que coincida con el saldo calculado.')
+    # CORRECCIÓN DEFINITIVA: Manejo diferenciado para productos con/sin vencimiento
+    if producto.tiene_vencimiento:
+        # Para productos con vencimiento: Los lotes son la fuente de verdad
+        # CRÍTICO: NO limpiar lotes vacíos - preservar trazabilidad para Bincard
+        stock_real_lotes = producto.lotes.aggregate(total=models.Sum('stock'))['total'] or 0
+        
+        # Sincronizar stock del producto con la suma de lotes (fuente de verdad)
+        if stock_real_lotes != producto.stock:
+            producto.stock = stock_real_lotes
+            producto.save()
+            messages.info(request, f'Stock sincronizado: {stock_real_lotes} unidades (desde lotes activos).')
+        
+        # Para productos con vencimiento, no validamos contra el saldo histórico
+        # porque las operaciones FIFO pueden generar diferencias legítimas
+        if abs(saldo - stock_real_lotes) > 0:
+            messages.info(request, f'El saldo histórico ({saldo}) puede diferir del stock real ({stock_real_lotes}) debido al manejo FIFO de lotes con vencimiento.')
+            
+    else:
+        # Para productos sin vencimiento: El historial lineal es la fuente de verdad
+        if saldo != producto.stock:
+            messages.warning(request, f'Advertencia: El saldo calculado ({saldo}) no coincide con el stock actual del producto ({producto.stock}).')
+            producto.stock = saldo
+            producto.save()
+            messages.info(request, f'El stock del producto ha sido corregido a {saldo} para que coincida con el saldo calculado.')
 
     if request.method == 'POST' and 'exportar_excel' in request.POST:
         columnas = ['Fecha', 'Guía o Factura', 'N° Acta', 'Proveedor (RUT)', 'Programa/Departamento', 'Entrada', 'Salida', 'Saldo']
@@ -1078,6 +1264,49 @@ def agregar_departamento(request):
     else:
         form = DepartamentoForm()
     return render(request, 'accounts/agregar_departamento.html', {'form': form})
+
+@login_required
+def detalle_lotes_producto(request, codigo_barra):
+    """Vista para ver el detalle de todos los lotes de un producto específico."""
+    try:
+        producto = Producto.objects.get(codigo_barra=codigo_barra)
+    except Producto.DoesNotExist:
+        messages.error(request, 'Producto no encontrado.')
+        return redirect('control-vencimientos')
+    
+    if not producto.tiene_vencimiento:
+        messages.info(request, 'Este producto no maneja lotes porque no tiene fecha de vencimiento.')
+        return redirect('control-vencimientos')
+    
+    # Obtener todos los lotes (con y sin stock) para historial completo
+    lotes_con_stock = producto.lotes.filter(stock__gt=0).order_by('fecha_vencimiento')
+    lotes_sin_stock = producto.lotes.filter(stock=0).order_by('-fecha_ingreso')[:10]  # Últimos 10 lotes vacíos
+    
+    # Información detallada de lotes
+    lotes_detalle = producto.get_lotes_detalle()
+    
+    # Calcular estadísticas de lotes
+    total_lotes = producto.lotes.count()
+    lotes_activos = lotes_con_stock.count()
+    proximo_vencimiento = producto.get_proximo_vencimiento()
+    estado_general = producto.get_estado_vencimiento_completo()
+    
+    from datetime import date
+    hoy = date.today()
+    
+    context = {
+        'producto': producto,
+        'lotes_con_stock': lotes_con_stock,
+        'lotes_sin_stock': lotes_sin_stock,
+        'lotes_detalle': lotes_detalle,
+        'total_lotes': total_lotes,
+        'lotes_activos': lotes_activos,
+        'proximo_vencimiento': proximo_vencimiento,
+        'estado_general': estado_general,
+        'hoy': hoy,
+    }
+    
+    return render(request, 'accounts/detalle_lotes_producto.html', context)
 
 @login_required
 def modificar_departamento(request):
@@ -1354,6 +1583,7 @@ def agregar_categoria(request):
     """Vista para agregar una nueva categoría"""
     limpiar_sesion_productos_salida(request)
     if not request.user.has_perm('accounts.can_edit'):
+
         messages.error(request, 'No tienes permiso para agregar categorías.')
         return redirect('home')
 
@@ -1432,3 +1662,549 @@ def eliminar_categoria(request):
         form = EliminarCategoriaForm()
 
     return render(request, 'accounts/eliminar_categoria.html', {'form': form})
+
+@login_required
+def control_vencimientos(request):
+    """Vista para el control de vencimientos de productos con información de lotes."""
+    from datetime import date, timedelta
+    hoy = date.today()
+    
+    # Obtener productos con vencimiento que tienen stock > 0 Y que tienen lotes activos
+    productos_base = Producto.objects.filter(
+        tiene_vencimiento=True,
+        stock__gt=0
+    ).select_related('categoria').prefetch_related('lotes')
+    
+    # FILTRO ADICIONAL: Solo incluir productos que tienen al menos un lote con stock > 0
+    productos_con_lotes_activos = []
+    for producto in productos_base:
+        if producto.get_total_lotes_activos() > 0:  # Solo productos con lotes activos
+            productos_con_lotes_activos.append(producto)
+    
+    productos_base = productos_con_lotes_activos
+    
+    # Filtrado por estado
+    estado_filtro = request.GET.get('estado', 'todos')
+    busqueda = request.GET.get('busqueda', '')
+    
+    # Crear lista de productos con información de lotes para filtrado
+    productos_info = []
+    for producto in productos_base:
+        # Usar el estado de vencimiento completo que considera todos los lotes
+        estado_vencimiento = producto.get_estado_vencimiento_completo()
+        proximo_vencimiento = producto.get_proximo_vencimiento()
+        lotes_detalle = producto.get_lotes_activos_detalle()  # Solo lotes activos para el control
+        
+        # Calcular días restantes del lote más próximo a vencer
+        dias_restantes = None
+        if proximo_vencimiento:
+            dias_restantes = (proximo_vencimiento - hoy).days
+        
+        productos_info.append({
+            'producto': producto,
+            'estado_vencimiento': estado_vencimiento,
+            'proximo_vencimiento': proximo_vencimiento,
+            'dias_restantes': dias_restantes,
+            'lotes_detalle': lotes_detalle,
+            'total_lotes': len(lotes_detalle)
+        })
+    
+    # Filtrar por estado
+    if estado_filtro == 'vencidos':
+        productos_info = [p for p in productos_info if p['estado_vencimiento'] == 'Vencido']
+    elif estado_filtro == 'criticos':
+        productos_info = [p for p in productos_info if p['estado_vencimiento'] in ['Vence Hoy', 'Crítico']]
+    elif estado_filtro == 'precaucion':
+        productos_info = [p for p in productos_info if p['estado_vencimiento'] == 'Precaución']
+    
+    # Búsqueda por código o descripción
+    if busqueda:
+        productos_info = [
+            p for p in productos_info 
+            if (busqueda.lower() in p['producto'].codigo_barra.lower() or 
+                busqueda.lower() in p['producto'].descripcion.lower())
+        ]
+    
+    # Ordenar por días restantes (más críticos primero)
+    productos_info.sort(key=lambda x: (
+        0 if x['dias_restantes'] is None or x['dias_restantes'] < 0 else x['dias_restantes'],
+        x['producto'].descripcion
+    ))
+    
+    # Paginación con numeración dinámica
+    productos_paginados = paginar_resultados_dinamico(request, productos_info, 10)
+    
+    # Calcular estadísticas usando el estado completo de lotes
+    estadisticas = {'vencidos': 0, 'criticos': 0, 'precaucion': 0, 'normal': 0}
+    for producto in productos_base:
+        estado = producto.get_estado_vencimiento_completo()
+        if estado == 'Vencido':
+            estadisticas['vencidos'] += 1
+        elif estado in ['Vence Hoy', 'Crítico']:
+            estadisticas['criticos'] += 1
+        elif estado == 'Precaución':
+            estadisticas['precaucion'] += 1
+        else:
+            estadisticas['normal'] += 1
+    
+    context = {
+        'productos': productos_paginados,
+        'estado_filtro': estado_filtro,
+        'busqueda': busqueda,
+        'productos_vencidos': estadisticas['vencidos'],
+        'productos_criticos': estadisticas['criticos'],
+        'productos_precaucion': estadisticas['precaucion'],
+        'productos_normal': estadisticas['normal'],
+        'total_con_vencimiento': len(productos_info),
+        'hoy': hoy,
+        'mostrar_lotes': True,  # Flag para mostrar información de lotes en template
+    }
+    
+    return render(request, 'accounts/control_vencimientos.html', context)
+
+@login_required
+def exportar_vencimientos_excel(request):
+    """Exporta el control de vencimientos a Excel."""
+    from datetime import date, timedelta
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from django.http import HttpResponse
+    
+    hoy = date.today()
+    # Obtener productos con vencimiento y stock > 0
+    productos = Producto.objects.filter(
+        tiene_vencimiento=True
+    ).select_related('categoria').prefetch_related('lotes').order_by('descripcion')
+
+    # Crear libro de Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Control de Vencimientos"
+
+    # Encabezados principales
+    headers = [
+        'Código de Barra', 'Descripción', 'Categoría', 'Stock Total',
+        'N° Lote', 'Stock Lote', 'Fecha Vencimiento Lote', 'Días Restantes', 'Estado Lote', 'Estado Producto'
+    ]
+
+    # Estilo para encabezados
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='1a3c5e', end_color='1a3c5e', fill_type='solid')
+    center_alignment = Alignment(horizontal='center', vertical='center')
+
+    # Escribir encabezados
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_alignment
+
+    row = 2
+    for producto in productos:
+        lotes = list(producto.lotes.filter(stock__gt=0).order_by('fecha_vencimiento'))
+        estado_producto = producto.get_estado_vencimiento_completo()
+        # Si tiene lotes con stock, mostrar cada lote
+        if lotes:
+            for lote in lotes:
+                ws.cell(row=row, column=1, value=producto.codigo_barra)
+                ws.cell(row=row, column=2, value=producto.descripcion)
+                ws.cell(row=row, column=3, value=producto.categoria.nombre if producto.categoria else 'Sin categoría')
+                ws.cell(row=row, column=4, value=producto.stock)
+                ws.cell(row=row, column=5, value=lote.numero_lote)
+                ws.cell(row=row, column=6, value=lote.stock)
+                ws.cell(row=row, column=7, value=lote.fecha_vencimiento.strftime('%d/%m/%Y'))
+                ws.cell(row=row, column=8, value=lote.get_dias_para_vencer())
+                ws.cell(row=row, column=9, value=lote.get_estado_vencimiento())
+                ws.cell(row=row, column=10, value=estado_producto)
+                # Colorear según el estado del lote
+                color_fill = None
+                estado_lote = lote.get_estado_vencimiento()
+                if estado_lote == 'Vencido':
+                    color_fill = PatternFill(start_color='ffebee', end_color='ffebee', fill_type='solid')
+                elif estado_lote in ['Vence Hoy', 'Crítico']:
+                    color_fill = PatternFill(start_color='fff3e0', end_color='fff3e0', fill_type='solid')
+                elif estado_lote == 'Precaución':
+                    color_fill = PatternFill(start_color='e8f5e8', end_color='e8f5e8', fill_type='solid')
+                if color_fill:
+                    for col in range(1, 11):
+                        ws.cell(row=row, column=col).fill = color_fill
+                row += 1
+        else:
+            # Producto sin lotes activos pero con vencimiento
+            ws.cell(row=row, column=1, value=producto.codigo_barra)
+            ws.cell(row=row, column=2, value=producto.descripcion)
+            ws.cell(row=row, column=3, value=producto.categoria.nombre if producto.categoria else 'Sin categoría')
+            ws.cell(row=row, column=4, value=producto.stock)
+            ws.cell(row=row, column=5, value='-')
+            ws.cell(row=row, column=6, value='-')
+            fecha_venc = producto.fecha_vencimiento.strftime('%d/%m/%Y') if producto.fecha_vencimiento else '-'
+            ws.cell(row=row, column=7, value=fecha_venc)
+            dias_rest = producto.get_dias_para_vencer() if producto.fecha_vencimiento else '-'
+            ws.cell(row=row, column=8, value=dias_rest)
+            ws.cell(row=row, column=9, value=producto.get_estado_vencimiento())
+            ws.cell(row=row, column=10, value=estado_producto)
+            # Colorear según el estado del producto
+            color_fill = None
+            estado = producto.get_estado_vencimiento()
+            if estado == 'Vencido':
+                color_fill = PatternFill(start_color='ffebee', end_color='ffebee', fill_type='solid')
+            elif estado in ['Vence Hoy', 'Crítico']:
+                color_fill = PatternFill(start_color='fff3e0', end_color='fff3e0', fill_type='solid')
+            elif estado == 'Precaución':
+                color_fill = PatternFill(start_color='e8f5e8', end_color='e8f5e8', fill_type='solid')
+            if color_fill:
+                for col in range(1, 11):
+                    ws.cell(row=row, column=col).fill = color_fill
+            row += 1
+
+    # Ajustar ancho de columnas
+    column_widths = [15, 40, 20, 12, 10, 12, 18, 15, 15, 15]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+
+    # Respuesta HTTP
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="control_vencimientos_{hoy.strftime('%Y%m%d')}.xlsx"'
+
+    wb.save(response)
+    return response
+
+@login_required 
+def agregar_vencimiento_producto(request):
+    """Vista para agregar y modificar fechas de vencimiento de productos y lotes."""
+    if not request.user.has_perm('accounts.can_edit'):
+        messages.error(request, 'No tienes permiso para agregar o modificar vencimientos.')
+        return redirect('home')
+    
+    # Obtener todos los productos para mostrar en la vista
+    productos = Producto.objects.all().select_related('categoria').prefetch_related('lotes').order_by('descripcion')
+    
+    # Filtros
+    query_codigo = request.GET.get('codigo_barra', '').strip()
+    query_descripcion = request.GET.get('descripcion', '').strip()
+    query_categoria = request.GET.get('categoria', '').strip()
+    tipo_filtro = request.GET.get('tipo', 'todos')  # todos, sin_vencimiento, con_vencimiento
+    
+    # Aplicar filtros
+    if query_codigo:
+        productos = productos.filter(codigo_barra__icontains=query_codigo)
+    if query_descripcion:
+        productos = productos.filter(descripcion__icontains=query_descripcion)
+    if query_categoria:
+        productos = productos.filter(categoria__nombre__icontains=query_categoria)
+    
+    # Filtrar por tipo de vencimiento
+    if tipo_filtro == 'sin_vencimiento':
+        productos = productos.filter(tiene_vencimiento=False)
+    elif tipo_filtro == 'con_vencimiento':
+        productos = productos.filter(tiene_vencimiento=True)
+    
+    # Preparar información adicional para cada producto
+    productos_info = []
+    for producto in productos:
+        info = {
+            'producto': producto,
+            'lotes_detalle': [],
+            'total_lotes': 0,
+            'proximo_vencimiento': None,
+            'estado_vencimiento': 'Sin Vencimiento'
+        }
+        
+        if producto.tiene_vencimiento:
+            info['lotes_detalle'] = producto.get_lotes_activos_detalle()  # Solo lotes activos para gestión
+            info['total_lotes'] = len(info['lotes_detalle'])  # Solo contar lotes activos
+            info['proximo_vencimiento'] = producto.get_proximo_vencimiento()
+            info['estado_vencimiento'] = producto.get_estado_vencimiento_completo()
+        
+        productos_info.append(info)
+    
+    # Paginación
+    page_obj = paginar_resultados(request, productos_info, 20)
+    
+    # Obtener categorías para el filtro
+    from .models import Categoria
+    categorias = Categoria.objects.filter(activo=True).order_by('nombre')
+    
+    context = {
+        'page_obj': page_obj,
+        'query_codigo': query_codigo,
+        'query_descripcion': query_descripcion,
+        'query_categoria': query_categoria,
+        'tipo_filtro': tipo_filtro,
+        'categorias': categorias,
+        'total_productos': productos.count(),
+        'productos_sin_vencimiento': productos.filter(tiene_vencimiento=False).count(),
+        'productos_con_vencimiento': productos.filter(tiene_vencimiento=True).count(),
+    }
+    
+    return render(request, 'accounts/agregar_vencimiento.html', context)
+
+@login_required
+def agregar_vencimiento_ajax(request):
+    """Vista AJAX para agregar vencimiento a un producto sin fecha de vencimiento."""
+    if not request.user.has_perm('accounts.can_edit'):
+        return JsonResponse({'success': False, 'error': 'No tienes permiso para realizar esta acción.'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'})
+    
+    try:
+        codigo_barra = request.POST.get('codigo_barra')
+        fecha_vencimiento = request.POST.get('fecha_vencimiento')
+        
+        if not codigo_barra or not fecha_vencimiento:
+            return JsonResponse({'success': False, 'error': 'Faltan datos requeridos.'})
+        
+        # Validar el producto
+        try:
+            producto = Producto.objects.get(codigo_barra=codigo_barra)
+        except Producto.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
+        
+        if producto.tiene_vencimiento:
+            return JsonResponse({'success': False, 'error': 'Este producto ya tiene fecha de vencimiento.'})
+        
+        # Validar la fecha
+        from datetime import datetime, date
+        try:
+            fecha_obj = datetime.strptime(fecha_vencimiento, '%Y-%m-%d').date()
+            if fecha_obj <= date.today():
+                return JsonResponse({'success': False, 'error': 'La fecha de vencimiento debe ser posterior a hoy.'})
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Formato de fecha inválido.'})
+        
+        # Activar vencimiento en el producto
+        producto.tiene_vencimiento = True
+        producto.fecha_vencimiento = fecha_obj
+        producto.save()
+        
+        # Si el producto tiene stock, crear un lote inicial
+        if producto.stock > 0:
+            stock_inicial = producto.stock  # Guardar el stock actual
+            lote = LoteProducto.objects.create(
+                producto=producto,
+                numero_lote=producto.get_proximo_numero_lote(),
+                fecha_vencimiento=fecha_obj,
+                stock=stock_inicial
+            )
+            # No cambiar el stock del producto, ya está correcto
+            # Solo sincronizar para asegurar consistencia
+            producto.sincronizar_stock_con_lotes()
+            
+            return JsonResponse({
+                'success': True, 
+                'message': f'Vencimiento agregado exitosamente. Se creó el Lote #{lote.numero_lote} con {lote.stock} unidades.',
+                'lote_creado': True,
+                'numero_lote': lote.numero_lote
+            })
+        else:
+            return JsonResponse({
+                'success': True, 
+                'message': 'Vencimiento agregado exitosamente. El producto ahora puede recibir lotes con fechas de vencimiento.',
+                'lote_creado': False
+            })
+            
+    except Exception as e:
+        logger.error(f"Error al agregar vencimiento: {str(e)}")
+        return JsonResponse({'success': False, 'error': f'Error interno: {str(e)}'})
+
+@login_required
+def modificar_vencimiento_producto_ajax(request):
+    """Vista AJAX para modificar la fecha de vencimiento principal de un producto."""
+    if not request.user.has_perm('accounts.can_edit'):
+        return JsonResponse({'success': False, 'error': 'No tienes permiso para realizar esta acción.'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'})
+    
+    try:
+        codigo_barra = request.POST.get('codigo_barra')
+        nueva_fecha = request.POST.get('nueva_fecha')
+        
+        if not codigo_barra or not nueva_fecha:
+            return JsonResponse({'success': False, 'error': 'Faltan datos requeridos.'})
+        
+        # Validar el producto
+        try:
+            producto = Producto.objects.get(codigo_barra=codigo_barra)
+        except Producto.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
+        
+        if not producto.tiene_vencimiento:
+            return JsonResponse({'success': False, 'error': 'Este producto no tiene fecha de vencimiento.'})
+        
+        # Validar la fecha
+        from datetime import datetime, date
+        try:
+            fecha_obj = datetime.strptime(nueva_fecha, '%Y-%m-%d').date()
+            if fecha_obj <= date.today():
+                return JsonResponse({'success': False, 'error': 'La fecha de vencimiento debe ser posterior a hoy.'})
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Formato de fecha inválido.'})
+        
+        # Actualizar la fecha principal del producto
+        fecha_anterior = producto.fecha_vencimiento
+        producto.fecha_vencimiento = fecha_obj
+        producto.save()
+        
+        # CORRECCIÓN: También actualizar TODOS los lotes del producto
+        lotes_actualizados = 0
+        if producto.lotes.exists():
+            lotes_actualizados = producto.lotes.update(fecha_vencimiento=fecha_obj)
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Fecha de vencimiento actualizada de {fecha_anterior.strftime("%d/%m/%Y") if fecha_anterior else "Sin fecha"} a {fecha_obj.strftime("%d/%m/%Y")}. {lotes_actualizados} lotes actualizados.',
+            'nueva_fecha': fecha_obj.strftime("%Y-%m-%d"),
+            'lotes_actualizados': lotes_actualizados
+        })
+            
+    except Exception as e:
+        logger.error(f"Error al modificar vencimiento del producto: {str(e)}")
+        return JsonResponse({'success': False, 'error': f'Error interno: {str(e)}'})
+
+@login_required
+def modificar_vencimiento_lote_ajax(request):
+    """Vista AJAX para modificar la fecha de vencimiento de un lote específico."""
+    if not request.user.has_perm('accounts.can_edit'):
+        return JsonResponse({'success': False, 'error': 'No tienes permiso para realizar esta acción.'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'})
+    
+    try:
+        codigo_barra = request.POST.get('codigo_barra')
+        numero_lote = request.POST.get('numero_lote')
+        nueva_fecha = request.POST.get('nueva_fecha')
+        
+        if not codigo_barra or not numero_lote or not nueva_fecha:
+            return JsonResponse({'success': False, 'error': 'Faltan datos requeridos.'})
+        
+        # Validar el producto
+        try:
+            producto = Producto.objects.get(codigo_barra=codigo_barra)
+        except Producto.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
+        
+        # Validar el lote
+        try:
+            lote = LoteProducto.objects.get(producto=producto, numero_lote=int(numero_lote))
+        except (LoteProducto.DoesNotExist, ValueError):
+            return JsonResponse({'success': False, 'error': 'Lote no encontrado.'})
+        
+        # Validar la fecha
+        from datetime import datetime, date
+        try:
+            fecha_obj = datetime.strptime(nueva_fecha, '%Y-%m-%d').date()
+            if fecha_obj <= date.today():
+                return JsonResponse({'success': False, 'error': 'La fecha de vencimiento debe ser posterior a hoy.'})
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Formato de fecha inválido.'})
+        
+        # Actualizar la fecha del lote
+        fecha_anterior = lote.fecha_vencimiento
+        lote.fecha_vencimiento = fecha_obj
+        lote.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Fecha del Lote #{lote.numero_lote} actualizada de {fecha_anterior.strftime("%d/%m/%Y")} a {fecha_obj.strftime("%d/%m/%Y")}.',
+            'nuevo_estado': lote.get_estado_vencimiento(),
+            'nuevos_dias': lote.get_dias_para_vencer(),
+            'nuevo_color': lote.get_color_estado_vencimiento()
+        })
+            
+    except Exception as e:
+        logger.error(f"Error al modificar vencimiento del lote: {str(e)}")
+        return JsonResponse({'success': False, 'error': f'Error interno: {str(e)}'})
+
+@login_required
+def obtener_lotes_producto_ajax(request):
+    """Vista AJAX para obtener los lotes de un producto."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'})
+    
+    try:
+        codigo_barra = request.GET.get('codigo_barra')
+        
+        if not codigo_barra:
+            return JsonResponse({'success': False, 'error': 'Código de barra requerido.'})
+        
+        # Validar el producto
+        try:
+            producto = Producto.objects.get(codigo_barra=codigo_barra)
+        except Producto.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
+        
+        if not producto.tiene_vencimiento:
+            return JsonResponse({'success': False, 'error': 'Este producto no maneja lotes.'})
+        
+        # Obtener solo lotes activos (con stock > 0) para gestión
+        lotes_detalle = producto.get_lotes_activos_detalle()
+        
+        lotes_data = []
+        for lote in lotes_detalle:
+            lotes_data.append({
+                'numero_lote': lote['numero_lote'],
+                'fecha_vencimiento': lote['fecha_vencimiento'].strftime('%Y-%m-%d'),
+                'fecha_vencimiento_display': lote['fecha_vencimiento'].strftime('%d/%m/%Y'),
+                'stock': lote['stock'],
+                'dias_restantes': lote['dias_restantes'],
+                'estado': lote['estado'],
+                'color': lote['color']
+            })
+        
+        return JsonResponse({
+            'success': True, 
+            'lotes': lotes_data,
+            'total_lotes': len(lotes_data),
+            'producto': {
+                'descripcion': producto.descripcion,
+                'fecha_vencimiento': producto.fecha_vencimiento.strftime('%Y-%m-%d') if producto.fecha_vencimiento else '',
+                'fecha_vencimiento_display': producto.fecha_vencimiento.strftime('%d/%m/%Y') if producto.fecha_vencimiento else 'Sin fecha'
+            }
+        })
+            
+    except Exception as e:
+        logger.error(f"Error al obtener lotes del producto: {str(e)}")
+        return JsonResponse({'success': False, 'error': f'Error interno: {str(e)}'})
+
+@login_required
+def obtener_datos_producto_ajax(request):
+    """Vista AJAX para obtener datos actualizados de un producto."""
+    if request.method == 'GET':
+        try:
+            codigo_barra = request.GET.get('codigo_barra')
+            if not codigo_barra:
+                return JsonResponse({'success': False, 'error': 'Código de barra requerido.'})
+            
+            producto = Producto.objects.get(codigo_barra=codigo_barra)
+            
+            # Calcular datos actualizados
+            estado_vencimiento = producto.get_estado_vencimiento_completo()
+            proximo_vencimiento = producto.get_proximo_vencimiento()
+            total_lotes = producto.lotes.filter(stock__gt=0).count()
+            
+            data = {
+                'success': True,
+                'producto': {
+                    'codigo_barra': producto.codigo_barra,
+                    'descripcion': producto.descripcion,
+                    'estado_vencimiento': estado_vencimiento,
+                    'proximo_vencimiento': proximo_vencimiento.strftime('%Y-%m-%d') if proximo_vencimiento else None,
+                    'proximo_vencimiento_display': proximo_vencimiento.strftime('%d/%m/%Y') if proximo_vencimiento else None,
+                    'total_lotes': total_lotes,
+                    'tiene_vencimiento': producto.tiene_vencimiento
+                }
+            }
+            
+            return JsonResponse(data)
+            
+        except Producto.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Producto no encontrado.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Error interno: {str(e)}'})
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido.'})

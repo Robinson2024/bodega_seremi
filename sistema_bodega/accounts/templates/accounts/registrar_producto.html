@@ -27,6 +27,7 @@
                                 <span class="input-group-text">Código de Barra</span>
                             </div>
                         </div>
+                        <small class="form-text text-muted">El código de barra se asigna automáticamente y no es editable.</small>
                         {% if form.codigo_barra.errors %}
                             <div class="text-danger small">{{ form.codigo_barra.errors }}</div>
                         {% endif %}
@@ -75,9 +76,11 @@
                                 <span class="input-group-text">RUT Proveedor</span>
                             </div>
                         </div>
+                        <small class="text-muted">Ingrese el RUT con o sin guión (ej: 12345678-9)</small>
                         {% if form.rut_proveedor.errors %}
                             <div class="text-danger small">{{ form.rut_proveedor.errors }}</div>
                         {% endif %}
+                        <div id="rut-feedback" class="text-danger small"></div>
                     </div>
                     <div class="col-md-6 mb-3">
                         <div class="input-group input-group-sm">
@@ -115,7 +118,55 @@
                         {% endif %}
                     </div>
                 </div>
-                <div class="text-center">
+                
+                <!-- Sección de Control de Vencimiento -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
+                            <div class="card-header text-center" style="background-color: #e9ecef;">
+                                <h6 class="mb-0 text-primary" style="color: #1a3c5e;">
+                                    <i class="fas fa-calendar-alt"></i> Control de Vencimiento
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row justify-content-center">
+                                    <div class="col-md-8">
+                                        <div class="form-check mb-3 text-center">
+                                            {{ form.tiene_vencimiento|add_class:"form-check-input" }}
+                                            <label class="form-check-label" for="id_tiene_vencimiento">
+                                                <strong>{{ form.tiene_vencimiento.label }}</strong>
+                                            </label>
+                                        </div>
+                                        
+                                        <div id="fecha-vencimiento-container" class="text-center" style="display: none;">
+                                            <div class="row justify-content-center">
+                                                <div class="col-md-8">
+                                                    <div class="input-group input-group-sm">
+                                                        {{ form.fecha_vencimiento|add_class:"form-control text-center" }}
+                                                        <div class="input-group-append">
+                                                            <span class="input-group-text">
+                                                                <i class="fas fa-calendar"></i> Fecha de Vencimiento
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    {% if form.fecha_vencimiento.errors %}
+                                                        <div class="text-danger small mt-2">{{ form.fecha_vencimiento.errors }}</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {% if form.non_field_errors %}
+                                    <div class="text-danger small mt-2 text-center">{{ form.non_field_errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
                     <button type="submit" class="btn btn-primary btn-sm mr-2">Guardar</button>
                     <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">Cancelar</a>
                 </div>
@@ -178,6 +229,49 @@
         border-color: #dc3545;
         background-color: #fff3f3;
     }
+    /* Estilos específicos para la sección de Control de Vencimiento */
+    .card-header.text-center h6 {
+        font-size: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+    
+    .form-check.text-center {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        padding: 15px 0;
+    }
+    
+    .form-check.text-center .form-check-input {
+        position: relative;
+        margin: 0;
+        transform: scale(1.2);
+    }
+    
+    .form-check.text-center .form-check-label {
+        margin: 0;
+        font-size: 1rem;
+        color: #495057;
+    }
+    
+    #fecha-vencimiento-container {
+        padding: 15px 0;
+        background-color: rgba(255, 255, 255, 0.7);
+        border-radius: 8px;
+        margin-top: 10px;
+    }
+    
+    #fecha-vencimiento-container .input-group {
+        max-width: 350px;
+        margin: 0 auto;
+    }
+    
+    .text-center .form-control {
+        text-align: center;
+    }
+
     @media (max-width: 768px) {
         .col-md-6 {
             flex: 0 0 100%;
@@ -188,6 +282,60 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const rutInput = document.querySelector('.rut-input');
+        const stockInput = document.querySelector('#id_stock');
+
+        // Validación para el campo de stock - Solo números positivos
+        if (stockInput) {
+            stockInput.addEventListener('input', function(e) {
+                let value = this.value;
+                
+                // Remover cualquier carácter que no sea número
+                value = value.replace(/[^0-9]/g, '');
+                
+                // Si el valor es 0, no permitir
+                if (value === '0' || value === '') {
+                    this.value = '';
+                } else {
+                    // Convertir a número y asegurar que sea positivo
+                    let numValue = parseInt(value);
+                    if (numValue > 0) {
+                        this.value = numValue.toString();
+                    } else {
+                        this.value = '';
+                    }
+                }
+            });
+
+            // Prevenir teclas que no sean números o teclas especiales
+            stockInput.addEventListener('keydown', function(e) {
+                // Permitir: backspace, delete, tab, escape, enter
+                if ([8, 9, 27, 13, 46].indexOf(e.keyCode) !== -1 ||
+                    // Permitir: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                    (e.keyCode === 65 && e.ctrlKey === true) ||
+                    (e.keyCode === 67 && e.ctrlKey === true) ||
+                    (e.keyCode === 86 && e.ctrlKey === true) ||
+                    (e.keyCode === 88 && e.ctrlKey === true) ||
+                    // Permitir: home, end, left, right, down, up
+                    (e.keyCode >= 35 && e.keyCode <= 40)) {
+                    return;
+                }
+                // Asegurar que sea un número (0-9)
+                if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+                    e.preventDefault();
+                }
+                // Prevenir que se pueda escribir 0 al inicio
+                if (e.keyCode === 48 && this.value === '') {
+                    e.preventDefault();
+                }
+            });
+
+            // Validar al perder el foco
+            stockInput.addEventListener('blur', function() {
+                if (this.value === '' || this.value === '0' || parseInt(this.value) <= 0) {
+                    this.value = '';
+                }
+            });
+        }
 
         // Función para validar el RUT
         function validarRut(rut) {
@@ -212,13 +360,18 @@
             return dv == dvEsperado;
         }
 
-        // Función para formatear el RUT con puntos y guion
+        // Función para formatear el RUT con puntos y guion - Versión mejorada
         function formatearRut(rut) {
+            // Limpiar el RUT de puntos y guiones
             rut = rut.replace(/\./g, '').replace(/\-/g, '').toUpperCase();
+            
+            if (rut.length < 2) return rut;
+            
             var rutLimpio = rut.slice(0, -1);
             var dv = rut.slice(-1);
             var rutFormateado = '';
 
+            // Formatear con puntos cada tres dígitos
             for (var i = rutLimpio.length - 1; i >= 0; i--) {
                 rutFormateado = rutLimpio.charAt(i) + rutFormateado;
                 if (i > 0 && (rutLimpio.length - i) % 3 === 0) {
@@ -229,70 +382,115 @@
             return rutFormateado + '-' + dv;
         }
 
-        // Función para limpiar el RUT (quitar puntos) antes de enviarlo
-        function cleanRut(rut) {
-            return rut.replace(/[^0-9K-]/g, '').toUpperCase();
+        // Función para formatear RUT en tiempo real de forma más intuitiva
+        function formatearRutEnTiempoReal(valor) {
+            // Limpiar valor manteniendo solo números y K
+            let valorLimpio = valor.replace(/[^0-9K]/gi, '');
+            
+            if (valorLimpio.length === 0) return '';
+            
+            // Solo formatear cuando tenga 8 o 9 caracteres (RUT completo)
+            // RUT chileno: 7-8 dígitos + 1 dígito verificador = 8-9 caracteres totales
+            if (valorLimpio.length < 8) return valorLimpio;
+            
+            // Si tiene 8 o 9 caracteres, formatear automáticamente
+            let cuerpo = valorLimpio.slice(0, -1);
+            let dv = valorLimpio.slice(-1);
+            
+            // Formatear cuerpo con puntos
+            let cuerpoFormateado = '';
+            for (let i = cuerpo.length - 1; i >= 0; i--) {
+                cuerpoFormateado = cuerpo[i] + cuerpoFormateado;
+                if (i > 0 && (cuerpo.length - i) % 3 === 0) {
+                    cuerpoFormateado = '.' + cuerpoFormateado;
+                }
+            }
+            
+            // Retornar con guión automático
+            return cuerpoFormateado + '-' + dv.toUpperCase();
         }
 
-        // Evento oninput para permitir entrada en tiempo real
+        // Función para limpiar el RUT (quitar puntos) antes de enviarlo
+        function cleanRut(rut) {
+            let cleaned = rut.replace(/[^0-9K-]/g, '').toUpperCase();
+            console.log('cleanRut - Input:', rut, 'Output:', cleaned);
+            return cleaned;
+        }
+
+        // Configuración inicial del campo RUT
+        rutInput.placeholder = "Ej: 12345678-9 o 123456789";
+        const rutFeedback = document.getElementById('rut-feedback');
+
+        // Evento oninput mejorado para mejor experiencia de usuario
         rutInput.oninput = function(e) {
-            let value = this.value;
-            console.log('Valor antes de procesar:', value);
-
-            // Permitir números, guion y K
-            let cleanedValue = value.replace(/[^0-9-K]/gi, '');
-            let parts = cleanedValue.split('-');
-            let body = parts[0] || '';
-            let dv = parts[1] || '';
-
-            // Limitar cuerpo a 8 dígitos
-            body = body.replace(/[^0-9]/g, '').slice(0, 8);
-
-            // Permitir guion y dígito verificador (0-9 o K)
-            if (parts.length > 1) {
-                dv = dv.replace(/[^0-9K]/gi, '').slice(0, 1);
-            } else if (value.includes('-')) {
-                dv = ''; // Mantener el guion si no hay dígito verificador aún
+            let valor = this.value;
+            
+            // Permitir solo números, guión y K
+            let valorLimpio = valor.replace(/[^0-9-K]/gi, '');
+            
+            // Limitar a máximo 12 caracteres formateados (XX.XXX.XXX-X)
+            // Pero permitir hasta 9 caracteres sin formateo
+            let soloNumeros = valorLimpio.replace(/[.-]/g, '');
+            if (soloNumeros.length > 9) {
+                soloNumeros = soloNumeros.slice(0, 9);
+                valorLimpio = soloNumeros;
             }
-
-            // Reconstruir el valor
-            let formattedValue = body;
-            if (body) {
-                // Formatear el cuerpo con puntos
-                let tempBody = '';
-                for (let i = body.length - 1; i >= 0; i--) {
-                    tempBody = body[i] + tempBody;
-                    if (i > 0 && (body.length - i) % 3 === 0) {
-                        tempBody = '.' + tempBody;
+            
+            // Si el usuario ingresa RUT sin guión, formatear automáticamente solo cuando tenga 9 caracteres
+            if (valorLimpio.length === 9 && !valorLimpio.includes('-')) {
+                let rutFormateado = formatearRutEnTiempoReal(valorLimpio);
+                this.value = rutFormateado;
+            } else if (valorLimpio.includes('-')) {
+                // Si ya tiene guión, mantener el formateo manual
+                let parts = valorLimpio.split('-');
+                let cuerpo = parts[0].replace(/[^0-9]/g, '').slice(0, 8);
+                let dv = parts[1] ? parts[1].replace(/[^0-9K]/gi, '').slice(0, 1) : '';
+                
+                // Formatear cuerpo con puntos
+                let cuerpoFormateado = '';
+                for (let i = cuerpo.length - 1; i >= 0; i--) {
+                    cuerpoFormateado = cuerpo[i] + cuerpoFormateado;
+                    if (i > 0 && (cuerpo.length - i) % 3 === 0) {
+                        cuerpoFormateado = '.' + cuerpoFormateado;
                     }
                 }
-                formattedValue = tempBody;
-
-                // Agregar el guion y el dígito verificador si existe
-                if (value.includes('-')) {
-                    formattedValue += '-';
-                    if (dv) {
-                        formattedValue += dv.toUpperCase();
-                    }
-                }
+                
+                this.value = cuerpoFormateado + (dv || parts.length > 1 ? '-' + dv.toUpperCase() : '');
+            } else {
+                // Permitir escribir hasta 9 caracteres sin formateo
+                this.value = valorLimpio.slice(0, 9);
             }
-
-            this.value = formattedValue;
-            console.log('Valor después de procesar:', formattedValue);
+            
+            // Limpiar estilos de error mientras se escribe
+            this.classList.remove('is-invalid');
+            rutFeedback.textContent = '';
             this.setCustomValidity('');
         };
 
-        // Validación y formateo al perder el foco
+        // Validación y formateo mejorado al perder el foco
         rutInput.addEventListener('blur', function() {
-            let value = this.value;
-            if (!value) return;
+            let valor = this.value.trim();
+            if (!valor) return;
 
-            let cleanedValue = cleanRut(value);
-            if (validarRut(cleanedValue)) {
-                this.value = formatearRut(cleanedValue);
+            // Contar solo números y K (sin puntos ni guiones)
+            let soloDigitos = valor.replace(/[^0-9K]/gi, '');
+            console.log('Solo dígitos:', soloDigitos, 'Longitud:', soloDigitos.length);
+            
+            // Para el formato, no validar matemáticamente, solo formatear
+            if (soloDigitos.length >= 8 && soloDigitos.length <= 9) {
+                let valorLimpio = cleanRut(valor);
+                this.value = formatearRut(valorLimpio);
+                this.classList.remove('is-invalid');
+                rutFeedback.textContent = '';
+                this.setCustomValidity('');
+            } else if (soloDigitos.length < 8) {
+                this.classList.add('is-invalid');
+                rutFeedback.textContent = 'RUT debe tener al menos 8 dígitos (incluyendo dígito verificador).';
+                this.setCustomValidity('RUT incompleto');
             } else {
-                console.log('El RUT ingresado no es válido');
-                this.value = '';
+                this.classList.add('is-invalid');
+                rutFeedback.textContent = 'RUT no puede tener más de 9 dígitos.';
+                this.setCustomValidity('RUT muy largo');
             }
         });
 
@@ -303,6 +501,43 @@
             console.log('Valor enviado al backend:', cleanValue);
             rutInput.value = cleanValue;
         });
+
+        // Control de vencimiento - Mostrar/Ocultar fecha de vencimiento
+        const tieneVencimientoCheckbox = document.getElementById('id_tiene_vencimiento');
+        const fechaVencimientoContainer = document.getElementById('fecha-vencimiento-container');
+        const fechaVencimientoInput = document.getElementById('id_fecha_vencimiento');
+
+        // Función para mostrar/ocultar el campo de fecha
+        function toggleFechaVencimiento() {
+            if (tieneVencimientoCheckbox.checked) {
+                fechaVencimientoContainer.style.display = 'block';
+                fechaVencimientoInput.required = true;
+                // Añadir animación suave
+                fechaVencimientoContainer.style.opacity = '0';
+                fechaVencimientoContainer.style.transform = 'translateY(-10px)';
+                setTimeout(() => {
+                    fechaVencimientoContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    fechaVencimientoContainer.style.opacity = '1';
+                    fechaVencimientoContainer.style.transform = 'translateY(0)';
+                }, 10);
+            } else {
+                fechaVencimientoContainer.style.display = 'none';
+                fechaVencimientoInput.required = false;
+                fechaVencimientoInput.value = '';
+            }
+        }
+
+        // Inicializar estado al cargar la página
+        toggleFechaVencimiento();
+
+        // Escuchar cambios en el checkbox
+        tieneVencimientoCheckbox.addEventListener('change', toggleFechaVencimiento);
+
+        // Establecer fecha mínima como mañana
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const minDate = tomorrow.toISOString().split('T')[0];
+        fechaVencimientoInput.min = minDate;
     });
 </script>
 {% endblock %}

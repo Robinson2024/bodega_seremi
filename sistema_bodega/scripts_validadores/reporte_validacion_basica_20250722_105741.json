@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-07-22T10:57:40.156492",
+  "pruebas": [],
+  "errores": [
+    "Error creando lote: LoteProducto() got unexpected keyword arguments: 'cantidad_inicial', 'cantidad_disponible'",
+    "Status inesperado: 400"
+  ],
+  "exitos": [
+    "Acceso a modelo Producto exitoso: 52 registros",
+    "Acceso a modelo Transaccion exitoso: 355 registros",
+    "Acceso a modelo LoteProducto exitoso: 48 registros",
+    "No hay productos con stock negativo",
+    "Producto de prueba creado: VALIDACION6297",
+    "Transacción de prueba creada: ID 923",
+    "Consulta eficiente: 0.000s",
+    "Limpieza exitosa: 1 productos eliminados"
+  ],
+  "estado_final": "CON_OBSERVACIONES",
+  "resumen": {
+    "total_exitos": 8,
+    "total_errores": 2,
+    "total_pruebas": 10
+  }
+}

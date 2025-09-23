@@ -1,0 +1,739 @@
+{% extends 'accounts/home.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="text-primary" style="color: #1a3c5e; font-weight: 600;">
+                    <i class="fas fa-calendar-alt text-warning"></i> Gestión de Vencimientos
+                </h2>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'control-vencimientos' %}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-arrow-left"></i> Volver al Control
+                    </a>
+                    <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-home"></i> Inicio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensajes -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Estadísticas rápidas -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h4><i class="fas fa-list"></i> {{ total_productos }}</h4>
+                    <p class="mb-0">Total Productos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h4><i class="fas fa-exclamation-triangle"></i> {{ productos_sin_vencimiento }}</h4>
+                    <p class="mb-0">Sin Vencimiento</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h4><i class="fas fa-check-circle"></i> {{ productos_con_vencimiento }}</h4>
+                    <p class="mb-0">Con Vencimiento</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros de búsqueda -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros de Búsqueda</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" id="filter-form">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="codigo_barra" class="form-label">Código de Barra</label>
+                        <input type="text" class="form-control" id="codigo_barra" name="codigo_barra" value="{{ query_codigo }}" placeholder="Buscar por código...">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="descripcion" class="form-label">Descripción</label>
+                        <input type="text" class="form-control" id="descripcion" name="descripcion" value="{{ query_descripcion }}" placeholder="Buscar por descripción...">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="categoria" class="form-label">Categoría</label>
+                        <select class="form-control" id="categoria" name="categoria">
+                            <option value="">Todas las categorías</option>
+                            {% for cat in categorias %}
+                                <option value="{{ cat.nombre }}" {% if query_categoria == cat.nombre %}selected{% endif %}>
+                                    {{ cat.nombre }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="tipo" class="form-label">Tipo de Producto</label>
+                        <select class="form-control" id="tipo" name="tipo">
+                            <option value="todos" {% if tipo_filtro == 'todos' %}selected{% endif %}>Todos</option>
+                            <option value="sin_vencimiento" {% if tipo_filtro == 'sin_vencimiento' %}selected{% endif %}>Sin Vencimiento</option>
+                            <option value="con_vencimiento" {% if tipo_filtro == 'con_vencimiento' %}selected{% endif %}>Con Vencimiento</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="limpiar-filtros">
+                            <i class="fas fa-times"></i> Limpiar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de productos -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-boxes"></i> Productos para Gestión de Vencimientos</h5>
+        </div>
+        <div class="card-body">
+            {% if page_obj %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Categoría</th>
+                                <th>Stock</th>
+                                <th>Estado Vencimiento</th>
+                                <th>Fecha Vencimiento</th>
+                                <th>Lotes</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in page_obj %}
+                            <tr id="producto-{{ item.producto.codigo_barra }}">
+                                <td><code>{{ item.producto.codigo_barra }}</code></td>
+                                <td>{{ item.producto.descripcion }}</td>
+                                <td>
+                                    {% if item.producto.categoria %}
+                                        <span class="badge badge-info">{{ item.producto.categoria.nombre }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Sin categoría</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge badge-{% if item.producto.stock == 0 %}danger{% elif item.producto.stock <= 10 %}warning{% else %}success{% endif %}">
+                                        {{ item.producto.stock }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if item.producto.tiene_vencimiento %}
+                                        <span class="badge estado-{{ item.estado_vencimiento|lower }}">
+                                            {{ item.estado_vencimiento }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge badge-secondary">Sin Vencimiento</span>
+                                    {% endif %}
+                                </td>
+                                <td id="fecha-{{ item.producto.codigo_barra }}">
+                                    {% if item.producto.tiene_vencimiento %}
+                                        {% if item.proximo_vencimiento %}
+                                            {{ item.proximo_vencimiento|date:"d/m/Y" }}
+                                        {% else %}
+                                            <span class="text-muted">Sin fecha</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td id="lotes-{{ item.producto.codigo_barra }}">
+                                    {% if item.producto.tiene_vencimiento %}
+                                        <span class="badge badge-primary">{{ item.total_lotes }} lote{{ item.total_lotes|pluralize:"s" }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        {% if not item.producto.tiene_vencimiento %}
+                                            <!-- Botón para agregar vencimiento -->
+                                            <button type="button" class="btn btn-success btn-sm" 
+                                                    data-toggle="modal" data-target="#modalAgregarVencimiento"
+                                                    data-codigo="{{ item.producto.codigo_barra }}"
+                                                    data-descripcion="{{ item.producto.descripcion }}">
+                                                <i class="fas fa-plus"></i> Agregar
+                                            </button>
+                                        {% else %}
+                                            <!-- Botón para modificar vencimiento del producto -->
+                                            <button type="button" class="btn btn-warning btn-sm" 
+                                                    data-toggle="modal" data-target="#modalModificarProducto"
+                                                    data-codigo="{{ item.producto.codigo_barra }}"
+                                                    data-descripcion="{{ item.producto.descripcion }}"
+                                                    data-fecha="{{ item.producto.fecha_vencimiento|date:'Y-m-d' }}">
+                                                <i class="fas fa-edit"></i> Modificar
+                                            </button>
+                                            <!-- Botón para gestionar lotes -->
+                                            {% if item.total_lotes > 0 %}
+                                                <button type="button" class="btn btn-info btn-sm" 
+                                                        data-toggle="modal" data-target="#modalGestionarLotes"
+                                                        data-codigo="{{ item.producto.codigo_barra }}"
+                                                        data-descripcion="{{ item.producto.descripcion }}">
+                                                    <i class="fas fa-layer-group"></i> Lotes ({{ item.total_lotes }})
+                                                </button>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Paginación -->
+                {% if page_obj.has_other_pages %}
+                    <nav aria-label="Paginación" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
+                                        &laquo; Primera
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
+                                        &lsaquo; Anterior
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
+                                            {{ num }}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
+                                        Siguiente &rsaquo;
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query_codigo %}&codigo_barra={{ query_codigo }}{% endif %}{% if query_descripcion %}&descripcion={{ query_descripcion }}{% endif %}{% if query_categoria %}&categoria={{ query_categoria }}{% endif %}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}">
+                                        Última &raquo;
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No se encontraron productos</h5>
+                    <p class="text-muted">Intenta ajustar los filtros de búsqueda.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modales -->
+
+<!-- Modal para Agregar Vencimiento -->
+<div class="modal fade" id="modalAgregarVencimiento" tabindex="-1" role="dialog" aria-labelledby="modalAgregarVencimientoLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAgregarVencimientoLabel">
+                    <i class="fas fa-plus-circle text-success"></i> Agregar Vencimiento
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="formAgregarVencimiento">
+                    <div class="mb-3">
+                        <label class="form-label">Producto:</label>
+                        <p id="productoAgregar" class="form-control-static font-weight-bold"></p>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fechaVencimientoAgregar" class="form-label">Fecha de Vencimiento:</label>
+                        <input type="date" class="form-control" id="fechaVencimientoAgregar" required>
+                        <small class="form-text text-muted">La fecha debe ser posterior a hoy.</small>
+                    </div>
+                    <input type="hidden" id="codigoBarraAgregar">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnAgregarVencimiento">
+                    <i class="fas fa-save"></i> Agregar Vencimiento
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Modificar Vencimiento del Producto -->
+<div class="modal fade" id="modalModificarProducto" tabindex="-1" role="dialog" aria-labelledby="modalModificarProductoLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalModificarProductoLabel">
+                    <i class="fas fa-edit text-warning"></i> Modificar Vencimiento del Producto
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="formModificarProducto">
+                    <div class="mb-3">
+                        <label class="form-label">Producto:</label>
+                        <p id="productoModificar" class="form-control-static font-weight-bold"></p>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fechaVencimientoModificar" class="form-label">Nueva Fecha de Vencimiento:</label>
+                        <input type="date" class="form-control" id="fechaVencimientoModificar" required>
+                        <small class="form-text text-muted">La fecha debe ser posterior a hoy.</small>
+                    </div>
+                    <input type="hidden" id="codigoBarraModificar">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="btnModificarProducto">
+                    <i class="fas fa-save"></i> Modificar Vencimiento
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Gestionar Lotes -->
+<div class="modal fade" id="modalGestionarLotes" tabindex="-1" role="dialog" aria-labelledby="modalGestionarLotesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalGestionarLotesLabel">
+                    <i class="fas fa-layer-group text-info"></i> Gestionar Lotes
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Producto:</label>
+                    <p id="productoLotes" class="form-control-static font-weight-bold"></p>
+                </div>
+                <div id="listaLotes">
+                    <!-- Los lotes se cargarán aquí dinámicamente -->
+                </div>
+                <input type="hidden" id="codigoBarraLotes">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Modificar Vencimiento de Lote -->
+<div class="modal fade" id="modalModificarLote" tabindex="-1" role="dialog" aria-labelledby="modalModificarLoteLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalModificarLoteLabel">
+                    <i class="fas fa-edit text-info"></i> Modificar Vencimiento del Lote
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="formModificarLote">
+                    <div class="mb-3">
+                        <label class="form-label">Lote:</label>
+                        <p id="loteModificar" class="form-control-static font-weight-bold"></p>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fechaVencimientoLote" class="form-label">Nueva Fecha de Vencimiento:</label>
+                        <input type="date" class="form-control" id="fechaVencimientoLote" required>
+                        <small class="form-text text-muted">La fecha debe ser posterior a hoy.</small>
+                    </div>
+                    <input type="hidden" id="codigoBarraLote">
+                    <input type="hidden" id="numeroLoteModificar">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-info" id="btnModificarLote">
+                    <i class="fas fa-save"></i> Modificar Lote
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estilos CSS -->
+<style>
+    .card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+    
+    .card-header {
+        background: linear-gradient(135deg, #1a3c5e 0%, #2a4d73 100%);
+        color: white;
+        border-bottom: none;
+        border-radius: 10px 10px 0 0;
+        font-weight: 600;
+    }
+    
+    .table {
+        margin-bottom: 0;
+    }
+    
+    .table-dark th {
+        background-color: #1a3c5e;
+        border-color: #2a4d73;
+    }
+    
+    .badge {
+        font-size: 0.85em;
+    }
+    
+    .estado-vencido {
+        background-color: #dc3545;
+    }
+    
+    .estado-critico {
+        background-color: #fd7e14;
+    }
+    
+    .estado-proximo {
+        background-color: #ffc107;
+        color: #212529;
+    }
+    
+    .estado-bueno {
+        background-color: #28a745;
+    }
+    
+    .btn {
+        border-radius: 6px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn:hover {
+        transform: translateY(-1px);
+    }
+    
+    .form-control {
+        border-radius: 6px;
+        border: 1px solid #ced4da;
+        transition: border-color 0.3s ease;
+    }
+    
+    .form-control:focus {
+        border-color: #1a3c5e;
+        box-shadow: 0 0 0 0.2rem rgba(26, 60, 94, 0.25);
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #1a3c5e 0%, #2a4d73 100%);
+        color: white;
+        border-bottom: none;
+    }
+    
+    .modal-header .close {
+        color: white;
+        opacity: 0.8;
+    }
+    
+    .modal-header .close:hover {
+        opacity: 1;
+    }
+</style>
+
+<!-- JavaScript -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configurar fecha mínima como mañana
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const minDate = tomorrow.toISOString().split('T')[0];
+        
+        const fechaInputs = ['fechaVencimientoAgregar', 'fechaVencimientoModificar', 'fechaVencimientoLote'];
+        fechaInputs.forEach(id => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.min = minDate;
+            }
+        });
+
+        // Limpiar filtros
+        document.getElementById('limpiar-filtros').addEventListener('click', function() {
+            document.getElementById('codigo_barra').value = '';
+            document.getElementById('descripcion').value = '';
+            document.getElementById('categoria').value = '';
+            document.getElementById('tipo').value = 'todos';
+            document.getElementById('filter-form').submit();
+        });
+
+        // Modal Agregar Vencimiento
+        $('#modalAgregarVencimiento').on('show.bs.modal', function(event) {
+            const button = $(event.relatedTarget);
+            const codigo = button.data('codigo');
+            const descripcion = button.data('descripcion');
+            
+            $('#codigoBarraAgregar').val(codigo);
+            $('#productoAgregar').text(codigo + ' - ' + descripcion);
+            $('#fechaVencimientoAgregar').val('');
+        });
+
+        // Modal Modificar Producto
+        $('#modalModificarProducto').on('show.bs.modal', function(event) {
+            const button = $(event.relatedTarget);
+            const codigo = button.data('codigo');
+            const descripcion = button.data('descripcion');
+            const fecha = button.data('fecha');
+            
+            $('#codigoBarraModificar').val(codigo);
+            $('#productoModificar').text(codigo + ' - ' + descripcion);
+            $('#fechaVencimientoModificar').val(fecha);
+        });
+
+        // Modal Gestionar Lotes
+        $('#modalGestionarLotes').on('show.bs.modal', function(event) {
+            const button = $(event.relatedTarget);
+            const codigo = button.data('codigo');
+            const descripcion = button.data('descripcion');
+            
+            $('#codigoBarraLotes').val(codigo);
+            $('#productoLotes').text(codigo + ' - ' + descripcion);
+            cargarLotes(codigo);
+        });
+
+        // Botón Agregar Vencimiento
+        document.getElementById('btnAgregarVencimiento').addEventListener('click', function() {
+            const codigo = document.getElementById('codigoBarraAgregar').value;
+            const fecha = document.getElementById('fechaVencimientoAgregar').value;
+            
+            if (!fecha) {
+                Swal.fire('Error', 'Por favor selecciona una fecha de vencimiento.', 'error');
+                return;
+            }
+            
+            agregarVencimiento(codigo, fecha);
+        });
+
+        // Botón Modificar Producto
+        document.getElementById('btnModificarProducto').addEventListener('click', function() {
+            const codigo = document.getElementById('codigoBarraModificar').value;
+            const fecha = document.getElementById('fechaVencimientoModificar').value;
+            
+            if (!fecha) {
+                Swal.fire('Error', 'Por favor selecciona una fecha de vencimiento.', 'error');
+                return;
+            }
+            
+            modificarVencimientoProducto(codigo, fecha);
+        });
+
+        // Botón Modificar Lote
+        document.getElementById('btnModificarLote').addEventListener('click', function() {
+            const codigo = document.getElementById('codigoBarraLote').value;
+            const numeroLote = document.getElementById('numeroLoteModificar').value;
+            const fecha = document.getElementById('fechaVencimientoLote').value;
+            
+            if (!fecha) {
+                Swal.fire('Error', 'Por favor selecciona una fecha de vencimiento.', 'error');
+                return;
+            }
+            
+            modificarVencimientoLote(codigo, numeroLote, fecha);
+        });
+    });
+
+    // Función para agregar vencimiento
+    function agregarVencimiento(codigo, fecha) {
+        fetch('{% url "agregar-vencimiento-ajax" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: `codigo_barra=${codigo}&fecha_vencimiento=${fecha}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire('Éxito', data.message, 'success').then(() => {
+                    location.reload();
+                });
+            } else {
+                Swal.fire('Error', data.error, 'error');
+            }
+        })
+        .catch(error => {
+            Swal.fire('Error', 'Error de conexión: ' + error.message, 'error');
+        });
+    }
+
+    // Función para modificar vencimiento del producto
+    function modificarVencimientoProducto(codigo, fecha) {
+        fetch('{% url "modificar-vencimiento-producto-ajax" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: `codigo_barra=${codigo}&nueva_fecha=${fecha}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire('Éxito', data.message, 'success').then(() => {
+                    location.reload();
+                });
+            } else {
+                Swal.fire('Error', data.error, 'error');
+            }
+        })
+        .catch(error => {
+            Swal.fire('Error', 'Error de conexión: ' + error.message, 'error');
+        });
+    }
+
+    // Función para modificar vencimiento del lote
+    function modificarVencimientoLote(codigo, numeroLote, fecha) {
+        fetch('{% url "modificar-vencimiento-lote-ajax" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: `codigo_barra=${codigo}&numero_lote=${numeroLote}&nueva_fecha=${fecha}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire('Éxito', data.message, 'success').then(() => {
+                    $('#modalModificarLote').modal('hide');
+                    cargarLotes(codigo); // Recargar los lotes
+                });
+            } else {
+                Swal.fire('Error', data.error, 'error');
+            }
+        })
+        .catch(error => {
+            Swal.fire('Error', 'Error de conexión: ' + error.message, 'error');
+        });
+    }
+
+    // Función para cargar lotes
+    function cargarLotes(codigo) {
+        fetch('{% url "obtener-lotes-producto-ajax" %}?codigo_barra=' + codigo)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const listaLotes = document.getElementById('listaLotes');
+                if (data.lotes.length === 0) {
+                    listaLotes.innerHTML = '<p class="text-muted">No hay lotes para este producto.</p>';
+                } else {
+                    let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Lote #</th><th>Stock</th><th>Fecha Vencimiento</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
+                    
+                    data.lotes.forEach(lote => {
+                        html += `
+                            <tr>
+                                <td><strong>#${lote.numero_lote}</strong></td>
+                                <td><span class="badge badge-${lote.stock === 0 ? 'danger' : (lote.stock <= 10 ? 'warning' : 'success')}">${lote.stock}</span></td>
+                                <td>${lote.fecha_vencimiento}</td>
+                                <td><span class="badge estado-${lote.estado_vencimiento.toLowerCase()}">${lote.estado_vencimiento}</span></td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="abrirModalModificarLote('${codigo}', '${lote.numero_lote}', '${lote.fecha_vencimiento_raw}')">
+                                        <i class="fas fa-edit"></i> Modificar
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    listaLotes.innerHTML = html;
+                }
+            } else {
+                document.getElementById('listaLotes').innerHTML = '<p class="text-danger">Error al cargar los lotes.</p>';
+            }
+        })
+        .catch(error => {
+            document.getElementById('listaLotes').innerHTML = '<p class="text-danger">Error de conexión.</p>';
+        });
+    }
+
+    // Función para abrir modal modificar lote
+    function abrirModalModificarLote(codigo, numeroLote, fechaActual) {
+        $('#codigoBarraLote').val(codigo);
+        $('#numeroLoteModificar').val(numeroLote);
+        $('#loteModificar').text('Lote #' + numeroLote);
+        $('#fechaVencimientoLote').val(fechaActual);
+        $('#modalModificarLote').modal('show');
+    }
+
+    // Función para obtener cookie CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}

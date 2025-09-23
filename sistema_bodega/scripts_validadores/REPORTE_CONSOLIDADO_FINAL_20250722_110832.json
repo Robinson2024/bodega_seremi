@@ -1,0 +1,307 @@
+{
+  "timestamp": "2025-07-22T11:08:27.819955",
+  "validaciones": {
+    "validacion_completa_final.py": {
+      "descripcion": "Validación Funcional Completa",
+      "codigo_salida": 0,
+      "salida": null,
+      "errores": "",
+      "exitoso": true,
+      "timestamp": "2025-07-22T11:08:29.517349",
+      "reporte_json": {
+        "timestamp": "2025-07-22T11:08:28.597039",
+        "pruebas": [],
+        "errores": [
+          "Error probando funcionalidad web: Manager isn't available; 'auth.User' has been swapped for 'accounts.CustomUser'"
+        ],
+        "exitos": [
+          "Productos en sistema: 52",
+          "Transacciones en sistema: 355",
+          "Lotes en sistema: 48",
+          "Categorías en sistema: 15",
+          "No hay productos con stock negativo",
+          "Todos los productos tienen movimientos registrados",
+          "Producto de prueba creado: VALIDACION74497",
+          "Creadas 3 transacciones de entrada",
+          "Creados 3 lotes de prueba",
+          "Transacción de salida creada",
+          "Consulta productos: 20 registros",
+          "Consulta transacciones: 50 registros",
+          "Consulta lotes críticos: 23 registros",
+          "Consulta agregada: {'total_stock': 7693, 'total_productos': 53}",
+          "Rendimiento excelente: 0.002s promedio",
+          "Lógica FIFO funcionando correctamente",
+          "Página principal accesible: 302",
+          "Datos de prueba eliminados correctamente"
+        ],
+        "metricas": {
+          "Consulta productos con stock": 0.002023935317993164,
+          "Consulta transacciones recientes": 0.0026540756225585938,
+          "Consulta lotes críticos": 0.0012118816375732422,
+          "Consulta agregada": 0.0009264945983886719
+        },
+        "estadisticas": {
+          "productos": 52,
+          "transacciones": 355,
+          "lotes": 48,
+          "categorias": 15
+        },
+        "estado_final": "🟡 BUENO",
+        "mensaje_final": "Sistema con errores menores",
+        "resumen": {
+          "total_exitos": 18,
+          "total_errores": 1,
+          "total_pruebas": 19,
+          "porcentaje_exito": 94.73684210526315
+        }
+      }
+    },
+    "validacion_seguridad.py": {
+      "descripcion": "Auditoría de Seguridad",
+      "codigo_salida": 0,
+      "salida": null,
+      "errores": "",
+      "exitoso": true,
+      "timestamp": "2025-07-22T11:08:30.759627",
+      "reporte_json": {
+        "timestamp": "2025-07-22T11:08:30.480174",
+        "nivel_seguridad": "🔴 CRÍTICO",
+        "mensaje": "Vulnerabilidades críticas encontradas",
+        "resumen": {
+          "vulnerabilidades": 3,
+          "advertencias": 5,
+          "buenas_practicas": 6,
+          "vulnerabilidades_criticas": 1,
+          "vulnerabilidades_altas": 1
+        },
+        "vulnerabilidades": [
+          {
+            "mensaje": "DEBUG=True en producción expone información sensible",
+            "nivel": "ALTA",
+            "timestamp": "2025-07-22T11:08:30.409290"
+          },
+          {
+            "mensaje": "Usando SECRET_KEY de desarrollo",
+            "nivel": "CRÍTICA",
+            "timestamp": "2025-07-22T11:08:30.409345"
+          },
+          {
+            "mensaje": "ALLOWED_HOSTS demasiado permisivo",
+            "nivel": "MEDIA",
+            "timestamp": "2025-07-22T11:08:30.409383"
+          }
+        ],
+        "advertencias": [
+          "HTTPS redirect no configurado",
+          "CSRF cookie no segura",
+          "Session cookie no segura",
+          "Archivo sistema_bodega/settings.py es escribible",
+          "RUTs con formato inválido encontrados: 8"
+        ],
+        "buenas_practicas": [
+          "Número apropiado de superusuarios: 1",
+          "No se encontraron datos sensibles en observaciones",
+          "No se encontraron caracteres sospechosos en códigos",
+          "No se encontró código malicioso en descripciones",
+          "Longitud de descripciones dentro de límites normales",
+          "Longitud de observaciones dentro de límites normales"
+        ]
+      }
+    },
+    "validacion_escalabilidad_simple.py": {
+      "descripcion": "Análisis de Escalabilidad",
+      "codigo_salida": 0,
+      "salida": null,
+      "errores": "C:\\Users\\Robinson Bravo\\Desktop\\bodega_seremi\\.venv\\Lib\\site-packages\\django\\db\\models\\fields\\__init__.py:1659: RuntimeWarning: DateTimeField Transaccion.fecha received a naive datetime (2025-06-22 11:08:31.581432) while time zone support is active.\n  warnings.warn(\n",
+      "exitoso": true,
+      "timestamp": "2025-07-22T11:08:32.075253",
+      "reporte_json": {
+        "timestamp": "2025-07-22T11:08:31.801682",
+        "nivel_escalabilidad": "🟢 EXCELENTE",
+        "mensaje": "Sistema altamente escalable",
+        "metricas": {
+          "base_datos": {
+            "total_registros": 470,
+            "estadisticas": {
+              "productos": 52,
+              "transacciones": 355,
+              "lotes": 48,
+              "categorias": 15
+            },
+            "tiempo_stats_basicas": 0.0054209232330322266,
+            "stock_total": 7618,
+            "tiempo_consultas_promedio": 0.0009891192118326824
+          },
+          "consultas_masivas": {
+            "tiempo_total": 0.014499425888061523,
+            "tiempo_promedio": 0.0028998851776123047,
+            "consultas_exitosas": 4,
+            "total_consultas": 5,
+            "resultados": {
+              "Productos con stock > 0": {
+                "tiempo": 0.0007436275482177734,
+                "cantidad": 49,
+                "exitosa": true
+              },
+              "Transacciones últimos 30 días": {
+                "tiempo": 0.011403799057006836,
+                "cantidad": 140,
+                "exitosa": true
+              },
+              "Lotes próximos a vencer": {
+                "tiempo": 0.0007994174957275391,
+                "cantidad": 37,
+                "exitosa": true
+              },
+              "Productos más vendidos": {
+                "tiempo": 1.2874603271484375e-05,
+                "error": "module 'django.db.transaction' has no attribute 'models'",
+                "exitosa": false
+              },
+              "Stock por categoría": {
+                "tiempo": 0.001552581787109375,
+                "cantidad": 10,
+                "exitosa": true
+              }
+            }
+          },
+          "carga_secuencial": {
+            "operaciones_totales": 100,
+            "exitosas": 100,
+            "errores": 0,
+            "tiempo_total": 0.09946584701538086,
+            "ops_por_segundo": 1005.3702150099475
+          }
+        },
+        "resultados": [
+          {
+            "mensaje": "Estadísticas básicas obtenidas",
+            "tiempo": 0.0054209232330322266,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:08:31.577968"
+          },
+          {
+            "mensaje": "Consulta productos top",
+            "tiempo": 0.0004913806915283203,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:08:31.580594"
+          },
+          {
+            "mensaje": "Consulta por tipo",
+            "tiempo": 0.0006787776947021484,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:08:31.580616"
+          },
+          {
+            "mensaje": "Consulta stock agregado",
+            "tiempo": 0.0017971992492675781,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:08:31.580625"
+          },
+          {
+            "mensaje": "Rendimiento de BD excelente",
+            "tiempo": null,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:08:31.580638"
+          },
+          {
+            "mensaje": "Consultas masivas completadas",
+            "tiempo": 0.014499425888061523,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:08:31.595303"
+          },
+          {
+            "mensaje": "Rendimiento consultas masivas excelente",
+            "tiempo": null,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:08:31.595321"
+          },
+          {
+            "mensaje": "Carga secuencial completada",
+            "tiempo": 0.09946584701538086,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:08:31.694930"
+          },
+          {
+            "mensaje": "Excelente velocidad secuencial: 1005.4 ops/seg",
+            "tiempo": null,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:08:31.694965"
+          },
+          {
+            "mensaje": "Creación de datos de prueba completada",
+            "tiempo": 0.06576704978942871,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:08:31.760860"
+          },
+          {
+            "mensaje": "Proyección de crecimiento completada",
+            "tiempo": null,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:08:31.776249"
+          },
+          {
+            "mensaje": "Limpieza de datos completada",
+            "tiempo": null,
+            "nivel": "INFO",
+            "timestamp": "2025-07-22T11:08:31.801465"
+          }
+        ],
+        "resumen": {
+          "total_pruebas": 12,
+          "exitosas": 12,
+          "warnings": 0,
+          "errores": 0,
+          "porcentaje_exito": 100.0
+        }
+      }
+    }
+  },
+  "resumen_ejecutivo": {
+    "total_validaciones": 3,
+    "validaciones_exitosas": 3,
+    "validaciones_fallidas": 0,
+    "porcentaje_exito": 100.0,
+    "vulnerabilidades_criticas": 1,
+    "vulnerabilidades_altas": 1,
+    "problemas_escalabilidad": 0,
+    "errores_funcionales": 1
+  },
+  "recomendaciones_criticas": [
+    {
+      "prioridad": "CRÍTICA",
+      "categoria": "Seguridad",
+      "descripcion": "Resolver inmediatamente 1 vulnerabilidades críticas",
+      "acciones": [
+        "Deshabilitar DEBUG en producción",
+        "Cambiar SECRET_KEY por una segura",
+        "Configurar ALLOWED_HOSTS apropiadamente",
+        "Implementar HTTPS"
+      ]
+    },
+    {
+      "prioridad": "ALTA",
+      "categoria": "Seguridad",
+      "descripcion": "Resolver 1 vulnerabilidades de alto riesgo",
+      "acciones": [
+        "Configurar cookies seguras",
+        "Validar formatos de RUT",
+        "Proteger archivos de configuración"
+      ]
+    },
+    {
+      "prioridad": "MEDIA",
+      "categoria": "Mantenimiento",
+      "descripcion": "Implementar monitoreo continuo",
+      "acciones": [
+        "Configurar logging detallado",
+        "Implementar alertas automáticas",
+        "Programar validaciones periódicas",
+        "Crear respaldos automáticos"
+      ]
+    }
+  ],
+  "estado_general": "🔴 CRÍTICO",
+  "mensaje_estado": "Vulnerabilidades críticas de seguridad detectadas",
+  "timestamp_final": "2025-07-22T11:08:32.114202"
+}

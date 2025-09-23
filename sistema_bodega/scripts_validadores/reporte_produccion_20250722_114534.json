@@ -1,0 +1,103 @@
+{
+  "timestamp": "2025-07-22T11:45:34.819367",
+  "entorno": "pre-produccion",
+  "destino": "institucion_con_vpn",
+  "resumen": {
+    "total_validaciones": 17,
+    "exitos": 13,
+    "errores": 0,
+    "warnings": 4,
+    "estado_general": "APTO"
+  },
+  "metricas_rendimiento": {
+    "Productos con stock bajo": 0.006742000579833984,
+    "Transacciones del último mes": 0.01980423927307129,
+    "Lotes próximos a vencer": 0.0029315948486328125,
+    "Productos más movidos": 0.002290964126586914,
+    "simulacion_carga": 0.5419621467590332
+  },
+  "validaciones": {
+    "exitos": [
+      {
+        "timestamp": "2025-07-22T11:45:34.051895",
+        "mensaje": "Base de datos operativa con 52 productos"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.055370",
+        "mensaje": "No hay productos con stock negativo"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.118812",
+        "mensaje": "Sincronización de stock correcta en 52 productos"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.130629",
+        "mensaje": "Productos con stock bajo: 0.007s - RÁPIDO"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.150809",
+        "mensaje": "Transacciones del último mes: 0.020s - RÁPIDO"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.154140",
+        "mensaje": "Lotes próximos a vencer: 0.003s - RÁPIDO"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.156886",
+        "mensaje": "Productos más movidos: 0.002s - RÁPIDO"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.203633",
+        "mensaje": "Creados 5 productos de prueba"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.745850",
+        "mensaje": "Creadas 50 transacciones en 0.54s"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.746081",
+        "mensaje": "Rendimiento bajo carga: EXCELENTE"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.816891",
+        "mensaje": "Datos de prueba eliminados correctamente"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.818482",
+        "mensaje": "SECRET_KEY configurada correctamente"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.819163",
+        "mensaje": "STATIC_ROOT configurado"
+      }
+    ],
+    "errores": [],
+    "warnings": [
+      {
+        "timestamp": "2025-07-22T11:45:34.123362",
+        "mensaje": "5 lotes vencidos detectados"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.818250",
+        "mensaje": "DEBUG=True - Cambiar a False en producción"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.818703",
+        "mensaje": "ALLOWED_HOSTS no configurado"
+      },
+      {
+        "timestamp": "2025-07-22T11:45:34.818901",
+        "mensaje": "Usando SQLite - Considerar PostgreSQL/MySQL para producción"
+      }
+    ]
+  },
+  "recomendaciones_produccion": [
+    "✅ Sistema apto para deployment en producción",
+    "⚠️  Revisar warnings antes del deployment",
+    "🔒 Configurar HTTPS en el servidor de producción",
+    "📊 Implementar monitoreo de rendimiento",
+    "💾 Configurar backups automáticos de la BD",
+    "🔐 Revisar permisos de usuarios en producción",
+    "🌐 Verificar conectividad VPN institucional"
+  ]
+}

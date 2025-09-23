@@ -1,0 +1,299 @@
+{% extends 'accounts/home.html' %}
+{% load widget_tweaks %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="text-primary" style="color: #1a3c5e; font-weight: 600;">
+                    <i class="fas fa-boxes text-info"></i> Detalle de Lotes - {{ producto.descripcion }}
+                </h2>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'control-vencimientos' %}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-arrow-left"></i> Volver a Control de Vencimientos
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información general del producto -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-info-circle"></i> Información del Producto</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Código de Barra:</strong> <code>{{ producto.codigo_barra }}</code></p>
+                    <p><strong>Descripción:</strong> {{ producto.descripcion }}</p>
+                    <p><strong>Categoría:</strong> 
+                        {% if producto.categoria %}
+                            <span class="badge badge-info">{{ producto.categoria.nombre }}</span>
+                        {% else %}
+                            <span class="badge badge-secondary">Sin categoría</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Stock Total:</strong> <span class="badge badge-primary">{{ producto.stock }} unidades</span></p>
+                    <p><strong>Estado General:</strong> 
+                        <span class="badge badge-estado estado-{{ estado_general|lower }}">{{ estado_general }}</span>
+                    </p>
+                    <p><strong>Próximo Vencimiento:</strong> 
+                        {% if proximo_vencimiento %}
+                            {{ proximo_vencimiento|date:"d/m/Y" }}
+                        {% else %}
+                            <span class="text-muted">No disponible</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas de lotes -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <div class="stat-icon">
+                        <i class="fas fa-layer-group text-primary"></i>
+                    </div>
+                    <h3 class="stat-number">{{ total_lotes }}</h3>
+                    <p class="stat-label">Total Lotes</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <div class="stat-icon">
+                        <i class="fas fa-check-circle text-success"></i>
+                    </div>
+                    <h3 class="stat-number">{{ lotes_activos }}</h3>
+                    <p class="stat-label">Lotes Activos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <div class="stat-icon">
+                        <i class="fas fa-clock text-warning"></i>
+                    </div>
+                    <h3 class="stat-number">
+                        {% if proximo_vencimiento %}
+                            {% now "Y-m-d" as today %}
+                            {% if proximo_vencimiento > today %}
+                                {{ proximo_vencimiento|timeuntil|truncatewords:1 }}
+                            {% else %}
+                                <span class="text-danger">Vencido</span>
+                            {% endif %}
+                        {% else %}
+                            --
+                        {% endif %}
+                    </h3>
+                    <p class="stat-label">Días al Próximo Vencimiento</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lotes activos -->
+    {% if lotes_con_stock %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-list-alt"></i> Lotes con Stock ({{ lotes_con_stock.count }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Lote #</th>
+                            <th>Stock</th>
+                            <th>Fecha Vencimiento</th>
+                            <th>Días Restantes</th>
+                            <th>Estado</th>
+                            <th>Fecha Ingreso</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lote in lotes_con_stock %}
+                        <tr class="estado-{{ lote.get_estado_vencimiento|lower }}">
+                            <td><strong>Lote #{{ lote.numero_lote }}</strong></td>
+                            <td>
+                                <span class="badge badge-primary">{{ lote.stock }} unidades</span>
+                            </td>
+                            <td>{{ lote.fecha_vencimiento|date:"d/m/Y" }}</td>
+                            <td>
+                                {% with dias=lote.get_dias_para_vencer %}
+                                    {% if dias < 0 %}
+                                        <span class="text-danger font-weight-bold">{{ dias }} días</span>
+                                    {% elif dias == 0 %}
+                                        <span class="text-warning font-weight-bold">Hoy</span>
+                                    {% else %}
+                                        <span class="text-success">{{ dias }} días</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                <span class="badge badge-estado estado-{{ lote.get_estado_vencimiento|lower }}">
+                                    {{ lote.get_estado_vencimiento }}
+                                </span>
+                            </td>
+                            <td>{{ lote.fecha_ingreso|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Historial de lotes vacíos -->
+    {% if lotes_sin_stock %}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-history"></i> Historial de Lotes Vacíos (Últimos 10)</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th>Lote #</th>
+                            <th>Fecha Vencimiento</th>
+                            <th>Fecha Ingreso</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lote in lotes_sin_stock %}
+                        <tr class="text-muted">
+                            <td><strong>Lote #{{ lote.numero_lote }}</strong></td>
+                            <td>{{ lote.fecha_vencimiento|date:"d/m/Y" }}</td>
+                            <td>{{ lote.fecha_ingreso|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <span class="badge badge-secondary">Agotado</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not lotes_con_stock and not lotes_sin_stock %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No hay lotes registrados</h5>
+            <p class="text-muted">Este producto no tiene lotes creados aún.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .stat-card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+        margin-bottom: 20px;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stat-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 0;
+        color: #1a3c5e;
+    }
+    
+    .stat-label {
+        margin: 0;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .badge-estado {
+        color: white !important;
+        font-size: 0.8rem;
+    }
+    
+    .badge-estado.estado-vencido {
+        background-color: #dc3545 !important;
+    }
+    
+    .badge-estado.estado-vence\ hoy {
+        background-color: #fd7e14 !important;
+    }
+    
+    .badge-estado.estado-crítico {
+        background-color: #ffc107 !important;
+        color: #212529 !important;
+    }
+    
+    .badge-estado.estado-precaución {
+        background-color: #28a745 !important;
+    }
+    
+    .badge-estado.estado-normal {
+        background-color: #6c757d !important;
+    }
+    
+    .table-responsive {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .table th {
+        background-color: #1a3c5e;
+        color: white;
+        font-weight: 500;
+        border: none;
+    }
+    
+    .table td {
+        vertical-align: middle;
+    }
+    
+    .estado-vencido {
+        background-color: rgba(220, 53, 69, 0.1);
+    }
+    
+    .estado-crítico {
+        background-color: rgba(255, 193, 7, 0.1);
+    }
+    
+    .estado-precaución {
+        background-color: rgba(253, 126, 20, 0.1);
+    }
+    
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .card-header h5 {
+        color: #1a3c5e;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,44 @@
+{
+  "timestamp": "2025-07-22T11:42:39.380767",
+  "nivel_seguridad": "🔴 CRÍTICO",
+  "mensaje": "Vulnerabilidades críticas encontradas",
+  "resumen": {
+    "vulnerabilidades": 3,
+    "advertencias": 5,
+    "buenas_practicas": 6,
+    "vulnerabilidades_criticas": 1,
+    "vulnerabilidades_altas": 1
+  },
+  "vulnerabilidades": [
+    {
+      "mensaje": "DEBUG=True en producción expone información sensible",
+      "nivel": "ALTA",
+      "timestamp": "2025-07-22T11:42:39.361022"
+    },
+    {
+      "mensaje": "Usando SECRET_KEY de desarrollo",
+      "nivel": "CRÍTICA",
+      "timestamp": "2025-07-22T11:42:39.361047"
+    },
+    {
+      "mensaje": "ALLOWED_HOSTS demasiado permisivo",
+      "nivel": "MEDIA",
+      "timestamp": "2025-07-22T11:42:39.361063"
+    }
+  ],
+  "advertencias": [
+    "HTTPS redirect no configurado",
+    "CSRF cookie no segura",
+    "Session cookie no segura",
+    "Archivo sistema_bodega/settings.py es escribible",
+    "RUTs con formato inválido encontrados: 8"
+  ],
+  "buenas_practicas": [
+    "Número apropiado de superusuarios: 2",
+    "No se encontraron datos sensibles en observaciones",
+    "No se encontraron caracteres sospechosos en códigos",
+    "No se encontró código malicioso en descripciones",
+    "Longitud de descripciones dentro de límites normales",
+    "Longitud de observaciones dentro de límites normales"
+  ]
+}
