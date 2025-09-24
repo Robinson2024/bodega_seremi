@@ -25,8 +25,7 @@ SECRET_KEY = 'django-insecure-9gx9)2++ggc-_oe1ldwk0^q)qeij(d1qrj)+u*qhlsv)n&if5n
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.3.184.17', '10.68.209.210']
 # Application definition
 
 INSTALLED_APPS = [
@@ -76,10 +75,9 @@ WSGI_APPLICATION = 'sistema_bodega.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': '/app/db/db.sqlite3',
     }
 }
-
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
@@ -97,8 +95,9 @@ USE_L10N = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = '/app/staticfiles'
 STATICFILES_DIRS = [
-    BASE_DIR / "static",
+    os.path.join(BASE_DIR, 'static'),  # Apunta a /app/static/ en el contenedor
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 

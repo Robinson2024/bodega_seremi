@@ -1866,8 +1866,8 @@ def exportar_vencimientos_excel(request):
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    response['Content-Disposition'] = f'attachment; filename="control_vencimientos_{hoy.strftime('%Y%m%d')}.xlsx"'
-
+      
+    response['Content-Disposition'] = f'attachment; filename="control_vencimientos_{hoy.strftime("%Y%m%d")}.xlsx"'   
     wb.save(response)
     return response
 

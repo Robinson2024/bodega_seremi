@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  web:
+    build: .
+    image: bodega-produccion
+    ports:
+      - "80:80"
+    volumes:
+      - /home/robinson/db_data:/app/db.sqlite3
+    environment:
+      - DJANGO_SETTINGS_MODULE=sistema_bodega.settings
