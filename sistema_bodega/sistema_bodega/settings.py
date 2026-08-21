@@ -39,7 +39,7 @@ ALLOWED_HOSTS = _csv_env(
 
 CSRF_TRUSTED_ORIGINS = _csv_env(
     'DJANGO_CSRF_TRUSTED_ORIGINS',
-    'http://localhost:8008,http://127.0.0.1:8008,http://10.3.184.27:8008',
+    'http://localhost:8010,http://127.0.0.1:8010,http://10.3.184.27:8010',
 )
 # Application definition
 

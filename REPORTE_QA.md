@@ -2,7 +2,7 @@
 
 **Fecha:** 21 de agosto de 2026  
 **Entorno de pruebas:** suite Django en SQLite en memoria (no toca la base real)  
-**Auditoría de datos reales:** lectura de `data/db/db.sqlite3` (Docker local, puerto 8008)  
+**Auditoría de datos reales:** lectura de `data/db/db.sqlite3` (Docker local; producción en puerto 8010)  
 **Resultado global:** 31/31 pruebas automáticas OK en 20,1 s
 
 ---

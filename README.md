@@ -34,7 +34,7 @@ copy .env.example .env
 docker compose up --build -d
 ```
 
-- URL: http://localhost:8008/
+- URL: http://localhost:8010/
 - Login: **RUT sin puntos ni guiones** + contraseña
 - Base de datos: `data/db/db.sqlite3` (volumen; no va en Git)
 
@@ -53,7 +53,7 @@ Plantilla: `.env.example`.
 | `DJANGO_DEBUG` | En servidor: `False` |
 | `DJANGO_SECRET_KEY` | Clave propia; no usar la de ejemplo |
 | `DJANGO_ALLOWED_HOSTS` | Hosts permitidos (incluir `10.3.184.27` en el servidor) |
-| `DJANGO_CSRF_TRUSTED_ORIGINS` | Orígenes con esquema, p. ej. `http://10.3.184.27:8008` |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | Orígenes con esquema, p. ej. `http://10.3.184.27:8010` |
 | `DJANGO_DB_PATH` | En Docker: `/app/db/db.sqlite3` |
 
 **No suba `.env` ni `*.sqlite3` al repositorio.**
@@ -75,7 +75,7 @@ bodega_seremi/
 ├── docker-compose.yml
 ├── Dockerfile
 ├── entrypoint.sh          # migrate + collectstatic + gunicorn
-├── deploy/nginx.conf      # puerto 8008 → gunicorn
+├── deploy/nginx.conf      # puerto 8010 → gunicorn
 ├── .env.example
 ├── data/db/               # SQLite persistente (solo .gitkeep en Git)
 ├── MANUAL_DE_USUARIO_COMPLETO.md

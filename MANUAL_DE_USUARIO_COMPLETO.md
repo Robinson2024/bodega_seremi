@@ -42,8 +42,8 @@ Funciones principales:
 
 ## 2. Acceso
 
-- **URL local:** http://localhost:8008/
-- **Servidor institucional:** la URL que indique informática (por ejemplo `http://10.3.184.27:8008/`)
+- **URL local:** http://localhost:8010/
+- **Servidor institucional:** `http://10.3.184.27:8010/`
 - **Usuario:** RUT **sin puntos ni guiones** (ejemplo: `12345678K`)
 - **Contraseña:** la asignada por quien gestiona usuarios
 
