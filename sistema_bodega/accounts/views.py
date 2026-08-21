@@ -1,5 +1,5 @@
 # Módulos de la biblioteca estándar de Python
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import os
 import urllib.parse
@@ -23,12 +23,13 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.db import models
+from django.db import models, transaction as db_transaction
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.safestring import mark_safe
 from django.utils.text import slugify
+from django.utils import timezone as dj_timezone
 
 # Módulos locales del proyecto
 from .forms import (
@@ -43,9 +44,10 @@ from .forms import (
     ProductoForm,
     SearchUserForm,
     TransaccionForm,
-    CategoriaForm,  # Añadido para manejar categorías
-    ModificarCategoriaForm,  # Añadido para modificar categorías
-    EliminarCategoriaForm,  # Añadido para deshabilitar categorías
+    CategoriaForm,
+    ModificarCategoriaForm,
+    EliminarCategoriaForm,
+    CorregirIngresoForm,
 )
 from .models import (
     ActaEntrega,
@@ -57,6 +59,9 @@ from .models import (
     Responsable,
     Transaccion,
     Categoria,  # Añadido para manejar categorías dinámicas
+    usuario_es_administrador,
+    usuario_puede_corregir_ingreso,
+    usuario_puede_panel_admin,
 )
 
 # Configurar logging
@@ -82,6 +87,18 @@ def paginar_resultados(request, objetos, items_por_pagina=20):
     except EmptyPage:
         page_obj = paginator.page(paginator.num_pages)
     return page_obj
+
+
+def _sincronizar_productos_pagina(page_obj):
+    """Recalcula stock desde lotes en los productos visibles (sin comandos manuales)."""
+    for producto in getattr(page_obj, 'object_list', []):
+        if getattr(producto, 'tiene_vencimiento', False):
+            producto.sincronizar_stock_con_lotes()
+
+
+def _stock_disponible(producto):
+    """Stock vigente: suma de lotes si el producto tiene vencimiento."""
+    return producto.stock_disponible()
 
 def paginar_resultados_dinamico(request, objetos, items_por_pagina=20):
     """
@@ -380,13 +397,17 @@ def exportar_excel(request, datos, nombre_base, columnas, campos):
             fila.append(valor)
         ws.append(fila)
 
+    if ws.max_row >= 1 and ws.max_column >= 1:
+        ws.auto_filter.ref = ws.dimensions
+        ws.freeze_panes = 'A2'
+
     for col in ws.columns:
-        max_length = max(len(str(cell.value)) for cell in col if cell.value)
+        max_length = max((len(str(cell.value)) for cell in col if cell.value not in (None, '')), default=12)
         column_letter = col[0].column_letter
         if column_letter == 'A':
             ws.column_dimensions[column_letter].width = 20
         else:
-            ws.column_dimensions[column_letter].width = max_length + 2
+            ws.column_dimensions[column_letter].width = min(max_length + 2, 45)
 
     fecha = datetime.now().strftime('%Y-%m-%d')
     filename = f"{nombre_base}_{fecha}.xlsx"
@@ -532,6 +553,13 @@ def registrar_producto(request):
         if form.is_valid():
             producto = form.save()
             if producto.stock > 0:
+                lote_inicial = producto.lotes.order_by('-id').first() if producto.tiene_vencimiento else None
+                observacion = 'Stock inicial al registrar el producto'
+                if lote_inicial:
+                    observacion = (
+                        f'Lote #{lote_inicial.numero_lote} - Vence: {lote_inicial.fecha_vencimiento}. '
+                        f'Stock inicial al registrar el producto'
+                    )
                 Transaccion(
                     producto=producto,
                     tipo='entrada',
@@ -541,7 +569,8 @@ def registrar_producto(request):
                     guia_despacho=producto.guia_despacho or '',
                     numero_factura=producto.numero_factura or '',
                     orden_compra=producto.orden_compra or '',
-                    observacion='Stock inicial al registrar el producto'
+                    observacion=observacion,
+                    lote=lote_inicial,
                 ).save()
             messages.success(request, 'Producto registrado con éxito.')
             return redirect('home')
@@ -579,6 +608,7 @@ def listar_productos(request):
     lista_categorias = [('', 'Todas')] + [(cat.nombre, cat.nombre) for cat in categorias]
 
     page_obj = paginar_resultados(request, productos)
+    _sincronizar_productos_pagina(page_obj)
     context = {
         'page_obj': page_obj,
         'query_codigo': query_codigo,
@@ -605,6 +635,7 @@ def agregar_stock(request):
         productos = productos.filter(descripcion__icontains=query_descripcion)
 
     page_obj = paginar_resultados(request, productos)
+    _sincronizar_productos_pagina(page_obj)
     return render(request, 'accounts/agregar_stock.html', {
         'page_obj': page_obj,
         'query_codigo': query_codigo,
@@ -630,6 +661,7 @@ def agregar_stock_detalle(request, codigo_barra):
             try:
                 # Usar el método del formulario para agregar stock con lotes automáticos
                 lote, transaccion = form.agregar_stock_a_producto(producto)
+                producto.refresh_from_db()
                 
                 if lote:
                     messages.success(request, 
@@ -659,6 +691,7 @@ def agregar_stock_detalle(request, codigo_barra):
     info_proximo_lote = None
     
     if producto.tiene_vencimiento:
+        producto.sincronizar_stock_con_lotes()
         lotes_existentes = producto.get_lotes_detalle()
         info_proximo_lote = producto.get_info_proximo_lote()
     
@@ -699,6 +732,7 @@ def salida_productos(request):
         productos = productos.filter(descripcion__icontains=query_descripcion)
 
     page_obj = paginar_resultados(request, productos)
+    _sincronizar_productos_pagina(page_obj)
 
     # Manejar solicitud AJAX para obtener datos de salida
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and request.GET.get('action') == 'get_salida_data':
@@ -724,14 +758,15 @@ def salida_productos(request):
                     if any(item['codigo_barra'] == codigo_barra for item in productos_salida):
                         logger.warning(f"El producto {codigo_barra} ya está en la lista de salida.")
                         return JsonResponse({'success': False, 'error': 'Este producto ya está en la lista de salida.'})
-                    if producto.stock == 0:
+                    stock_disponible = _stock_disponible(producto)
+                    if stock_disponible == 0:
                         logger.warning(f"No se puede retirar el producto {codigo_barra} porque no tiene stock.")
                         return JsonResponse({'success': False, 'error': 'No se puede retirar este producto porque no tiene stock.'})
 
                     productos_salida.append({
                         'codigo_barra': producto.codigo_barra,
                         'descripcion': producto.descripcion,
-                        'stock': producto.stock,
+                        'stock': stock_disponible,
                         'numero_siscom': '',
                         'cantidad': '',  # Inicialmente vacío
                         'observacion': '',
@@ -770,6 +805,7 @@ def salida_productos(request):
 
                 try:
                     producto = Producto.objects.get(codigo_barra=codigo_barra)
+                    stock_disponible = _stock_disponible(producto)
                     productos_salida = request.session.get('productos_salida', [])  # Recargar desde la sesión
                     logger.info(f"Lista actual de productos_salida antes de actualizar: {productos_salida}")
 
@@ -787,9 +823,9 @@ def salida_productos(request):
                         if cantidad_int <= 0:
                             logger.warning(f"Cantidad no positiva para el producto {codigo_barra}: {cantidad_int}")
                             return JsonResponse({'success': False, 'error': f'La cantidad para el producto {codigo_barra} debe ser mayor que 0.'})
-                        if cantidad_int > producto.stock:
-                            logger.warning(f"Cantidad excede el stock para el producto {codigo_barra}. Cantidad: {cantidad_int}, Stock: {producto.stock}")
-                            return JsonResponse({'success': False, 'error': f'La cantidad para el producto {codigo_barra} no puede superar el stock ({producto.stock}).'})
+                        if cantidad_int > stock_disponible:
+                            logger.warning(f"Cantidad excede el stock para el producto {codigo_barra}. Cantidad: {cantidad_int}, Stock: {stock_disponible}")
+                            return JsonResponse({'success': False, 'error': f'La cantidad para el producto {codigo_barra} no puede superar el stock ({stock_disponible}).'})
 
                     # Actualizar el producto en la lista
                     updated = False
@@ -799,7 +835,7 @@ def salida_productos(request):
                                 'numero_siscom': numero_siscom,
                                 'cantidad': cantidad,  # Mantener el valor de cantidad
                                 'observacion': observacion,
-                                'stock': producto.stock,
+                                'stock': stock_disponible,
                             })
                             updated = True
                             logger.info(f"Datos actualizados para el producto {codigo_barra}: {item}")
@@ -865,11 +901,12 @@ def salida_productos(request):
                     # Validar que la cantidad no supere el stock
                     try:
                         producto = Producto.objects.get(codigo_barra=item['codigo_barra'])
-                        if cantidad > producto.stock:
-                            logger.warning(f"Cantidad excede el stock para el producto {item['codigo_barra']}. Cantidad: {cantidad}, Stock: {producto.stock}")
-                            messages.error(request, f"La cantidad a retirar ({cantidad}) para el producto {item['codigo_barra']} no puede superar el stock actual ({producto.stock}).")
+                        stock_disponible = _stock_disponible(producto)
+                        if cantidad > stock_disponible:
+                            logger.warning(f"Cantidad excede el stock para el producto {item['codigo_barra']}. Cantidad: {cantidad}, Stock: {stock_disponible}")
+                            messages.error(request, f"La cantidad a retirar ({cantidad}) para el producto {item['codigo_barra']} no puede superar el stock actual ({stock_disponible}).")
                             return redirect('salida-productos')
-                        item['stock'] = producto.stock  # Actualizar el stock en la sesión
+                        item['stock'] = stock_disponible  # Actualizar el stock en la sesión
                     except Producto.DoesNotExist:
                         logger.error(f"Producto con código {item['codigo_barra']} no encontrado durante la validación.")
                         messages.error(request, f"El producto con código {item['codigo_barra']} no existe.")
@@ -953,8 +990,7 @@ def salida_productos_seleccion(request):
                     producto = Producto.objects.get(codigo_barra=item['codigo_barra'])
                     cantidad = int(item['cantidad'] or 0)
 
-                    # Usar stock del producto directamente (ya está sincronizado con lotes)
-                    stock_disponible = producto.stock
+                    stock_disponible = _stock_disponible(producto)
                     
                     logger.info(f"Producto: {producto.descripcion}, Stock disponible: {stock_disponible}, Cantidad solicitada: {cantidad}")
                     if stock_disponible < cantidad:
@@ -1110,35 +1146,66 @@ def ver_acta_pdf(request, numero_acta, disposition):
     response.write(pdf_content)
     return response
 
+def _productos_busqueda_bincard(term):
+    """Busca por código de barra o por nombre/descripción."""
+    term = (term or '').strip()
+    if not term:
+        return Producto.objects.none()
+    if term.isdigit():
+        exactos = Producto.objects.filter(codigo_barra=term)
+        if exactos.exists():
+            return exactos
+    return Producto.objects.filter(
+        Q(codigo_barra__icontains=term) | Q(descripcion__icontains=term)
+    ).order_by('codigo_barra')
+
+
 @login_required
 def bincard_buscar(request):
-    """Vista para buscar un producto por código de barra y ver su historial"""
+    """Busca un producto por código o por nombre y muestra coincidencias para elegir."""
     limpiar_sesion_productos_salida(request)
+    coincidencias = None
+    busqueda = ''
     if request.method == 'POST':
-        codigo_barra = request.POST.get('codigo_barra', '').strip()
-        if not codigo_barra:
-            messages.error(request, 'Por favor, ingrese un código de barra.')
-        elif not codigo_barra.isdigit():
-            messages.error(request, 'El código de barra debe contener solo números.')
+        busqueda = (request.POST.get('busqueda') or request.POST.get('codigo_barra') or '').strip()
+        if not busqueda:
+            messages.error(request, 'Ingrese el código de barra o el nombre del producto.')
         else:
-            try:
-                Producto.objects.get(codigo_barra=codigo_barra)
-                return redirect('bincard-historial', codigo_barra=codigo_barra)
-            except Producto.DoesNotExist:
-                messages.error(request, f'No se encontró un producto con el código de barra {codigo_barra}. '
-                                f'Puedes <a href="/accounts/registrar-producto/">registrar un nuevo producto</a>.')
-        return render(request, 'accounts/bincard_buscar.html')
-    return render(request, 'accounts/bincard_buscar.html')
+            productos = list(_productos_busqueda_bincard(busqueda)[:20])
+            if productos:
+                coincidencias = productos
+            else:
+                messages.error(
+                    request,
+                    mark_safe(
+                        f'No se encontró un producto con “{busqueda}”. '
+                        f'Puede <a href="/accounts/registrar-producto/">registrar un nuevo producto</a>.'
+                    )
+                )
+        return render(request, 'accounts/bincard_buscar.html', {
+            'coincidencias': coincidencias,
+            'busqueda': busqueda,
+        })
+    return render(request, 'accounts/bincard_buscar.html', {
+        'coincidencias': coincidencias,
+        'busqueda': busqueda,
+    })
 
 @login_required
 def buscar_codigos_barra(request):
-    """Vista para buscar códigos de barra mediante autocompletado"""
+    """Autocompletado de bincard: código de barra o nombre del producto."""
     term = request.GET.get('term', '').strip()
     if not term:
         return JsonResponse([], safe=False)
-    productos = Producto.objects.filter(codigo_barra__startswith=term).order_by('codigo_barra')[:10]
-    codigos = [{'label': f"{p.codigo_barra} - {p.descripcion}", 'value': p.codigo_barra} for p in productos]
-    return JsonResponse(codigos, safe=False)
+    productos = _productos_busqueda_bincard(term)[:15]
+    sugerencias = [
+        {
+            'label': f"{p.codigo_barra} — {p.descripcion}",
+            'value': p.codigo_barra,
+        }
+        for p in productos
+    ]
+    return JsonResponse(sugerencias, safe=False)
 
 @login_required
 def bincard_historial(request, codigo_barra):
@@ -1167,8 +1234,10 @@ def bincard_historial(request, codigo_barra):
 
         eventos.append({
             'tipo': 'entrada',
+            'transaccion_id': transaccion.id,
             'fecha': transaccion.fecha or datetime.now(pytz.UTC),
             'guia_o_factura': guia_o_factura,
+            'orden_compra': transaccion.orden_compra or '-',
             'numero_acta': None,
             'rut_proveedor': transaccion.rut_proveedor or '-',
             'departamento': None,
@@ -1177,19 +1246,30 @@ def bincard_historial(request, codigo_barra):
         })
 
     for transaccion in transacciones.filter(tipo='salida'):
-        if transaccion.acta_entrega:
-            eventos.append({
-                'tipo': 'salida',
-                'fecha': transaccion.fecha or transaccion.acta_entrega.fecha or datetime.now(pytz.UTC),
-                'guia_o_factura': "-",
-                'numero_acta': transaccion.acta_entrega.numero_acta,
-                'rut_proveedor': None,
-                'departamento': transaccion.acta_entrega.departamento,
-                'entrada': 0,
-                'salida': transaccion.cantidad,
-            })
+        acta = transaccion.acta_entrega
+        eventos.append({
+            'tipo': 'salida',
+            'transaccion_id': transaccion.id,
+            'fecha': transaccion.fecha or (acta.fecha if acta else datetime.now(pytz.UTC)),
+            'guia_o_factura': "-",
+            'orden_compra': '-',
+            'numero_acta': acta.numero_acta if acta else None,
+            'rut_proveedor': None,
+            'departamento': acta.departamento if acta else None,
+            'entrada': 0,
+            'salida': transaccion.cantidad,
+        })
 
-    eventos.sort(key=lambda x: x['fecha'] or datetime.now(pytz.UTC))
+    def _fecha_evento(evento):
+        fecha = evento['fecha']
+        if fecha is None:
+            return datetime(1970, 1, 1, tzinfo=pytz.UTC)
+        if fecha.tzinfo is None:
+            fecha = pytz.UTC.localize(fecha)
+        return fecha
+
+    # Entradas primero si coinciden en el mismo segundo, para no inventar saldo negativo
+    eventos.sort(key=lambda x: (_fecha_evento(x), 0 if x['tipo'] == 'entrada' else 1))
 
     saldo = 0
     movimientos = []
@@ -1198,54 +1278,202 @@ def bincard_historial(request, codigo_barra):
             saldo += evento['entrada']
         else:
             saldo -= evento['salida']
-
-        if saldo < 0:
-            messages.error(request, f'Error: El saldo no puede ser negativo en la fecha {evento["fecha"]}. Contacte al administrador.')
-            return redirect('bincard-buscar')
-
         evento['saldo'] = saldo
         movimientos.append(evento)
 
     total_entradas = sum(m['entrada'] for m in movimientos)
     total_salidas = sum(m['salida'] for m in movimientos)
+    saldo_kardex = saldo
 
-    # CORRECCIÓN DEFINITIVA: Manejo diferenciado para productos con/sin vencimiento
+    # Stock físico: lotes si hay vencimiento. El bincard no pisa esa cifra al consultar.
     if producto.tiene_vencimiento:
-        # Para productos con vencimiento: Los lotes son la fuente de verdad
-        # CRÍTICO: NO limpiar lotes vacíos - preservar trazabilidad para Bincard
-        stock_real_lotes = producto.lotes.aggregate(total=models.Sum('stock'))['total'] or 0
-        
-        # Sincronizar stock del producto con la suma de lotes (fuente de verdad)
-        if stock_real_lotes != producto.stock:
-            producto.stock = stock_real_lotes
-            producto.save()
-            messages.info(request, f'Stock sincronizado: {stock_real_lotes} unidades (desde lotes activos).')
-        
-        # Para productos con vencimiento, no validamos contra el saldo histórico
-        # porque las operaciones FIFO pueden generar diferencias legítimas
-        if abs(saldo - stock_real_lotes) > 0:
-            messages.info(request, f'El saldo histórico ({saldo}) puede diferir del stock real ({stock_real_lotes}) debido al manejo FIFO de lotes con vencimiento.')
-            
-    else:
-        # Para productos sin vencimiento: El historial lineal es la fuente de verdad
-        if saldo != producto.stock:
-            messages.warning(request, f'Advertencia: El saldo calculado ({saldo}) no coincide con el stock actual del producto ({producto.stock}).')
-            producto.stock = saldo
-            producto.save()
-            messages.info(request, f'El stock del producto ha sido corregido a {saldo} para que coincida con el saldo calculado.')
+        producto.sincronizar_stock_con_lotes()
+        producto.refresh_from_db()
 
     if request.method == 'POST' and 'exportar_excel' in request.POST:
-        columnas = ['Fecha', 'Guía o Factura', 'N° Acta', 'Proveedor (RUT)', 'Programa/Departamento', 'Entrada', 'Salida', 'Saldo']
-        campos = ['fecha', 'guia_o_factura', 'numero_acta', 'rut_proveedor', 'departamento', 'entrada', 'salida', 'saldo']
+        columnas = ['Fecha', 'Guía o Factura', 'OC', 'N° Acta', 'Proveedor (RUT)', 'Programa/Departamento', 'Entrada', 'Salida', 'Saldo']
+        campos = ['fecha', 'guia_o_factura', 'orden_compra', 'numero_acta', 'rut_proveedor', 'departamento', 'entrada', 'salida', 'saldo']
         return exportar_excel(request, movimientos, f"Bincard_{producto.codigo_barra}", columnas, campos)
 
     page_obj = paginar_resultados(request, movimientos)
+    filas_pagina = list(page_obj.object_list)
+    saldo_pagina = filas_pagina[-1]['saldo'] if filas_pagina else 0
+    saldo_negativo_en_pagina = any(m.get('saldo', 0) < 0 for m in filas_pagina)
+
     return render(request, 'accounts/bincard_historial.html', {
         'producto': producto,
         'page_obj': page_obj,
         'total_entradas': total_entradas,
         'total_salidas': total_salidas,
+        'saldo_kardex': saldo_kardex,
+        'saldo_pagina': saldo_pagina,
+        'saldo_negativo_en_pagina': saldo_negativo_en_pagina,
+        'es_administrador': usuario_puede_corregir_ingreso(request.user),
     })
+
+
+def _parsear_fecha(valor):
+    if not valor:
+        return None
+    try:
+        return datetime.strptime(valor, '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _queryset_bincard_general(params):
+    """Movimientos vigentes (entradas y salidas). Sin cache: siempre lee Transaccion."""
+    fecha_desde = _parsear_fecha(params.get('fecha_desde'))
+    fecha_hasta = _parsear_fecha(params.get('fecha_hasta'))
+    tipo = (params.get('tipo') or '').strip()
+    guia = (params.get('guia') or '').strip()
+    orden_compra = (params.get('orden_compra') or '').strip()
+    busqueda = (params.get('busqueda') or '').strip()
+
+    transacciones = Transaccion.objects.select_related('producto', 'acta_entrega').order_by('fecha', 'id')
+    if fecha_desde:
+        transacciones = transacciones.filter(fecha__date__gte=fecha_desde)
+    if fecha_hasta:
+        transacciones = transacciones.filter(fecha__date__lte=fecha_hasta)
+    if tipo in ('entrada', 'salida'):
+        transacciones = transacciones.filter(tipo=tipo)
+    if guia:
+        transacciones = transacciones.filter(guia_despacho__icontains=guia)
+    if orden_compra:
+        transacciones = transacciones.filter(orden_compra__icontains=orden_compra)
+    if busqueda:
+        transacciones = transacciones.filter(
+            Q(producto__codigo_barra__icontains=busqueda)
+            | Q(producto__descripcion__icontains=busqueda)
+        )
+    return transacciones, {
+        'fecha_desde': fecha_desde.isoformat() if fecha_desde else '',
+        'fecha_hasta': fecha_hasta.isoformat() if fecha_hasta else '',
+        'tipo': tipo,
+        'guia': guia,
+        'orden_compra': orden_compra,
+        'busqueda': busqueda,
+    }
+
+
+def _filas_excel_bincard_general(transacciones):
+    filas = []
+    for transaccion in transacciones:
+        acta = transaccion.acta_entrega
+        es_entrada = transaccion.tipo == 'entrada'
+        filas.append({
+            'fecha': transaccion.fecha,
+            'codigo_barra': transaccion.producto.codigo_barra,
+            'nombre': transaccion.producto.descripcion,
+            'tipo': 'Entrada' if es_entrada else 'Salida',
+            'guia_despacho': transaccion.guia_despacho or '-',
+            'numero_factura': transaccion.numero_factura or '-',
+            'orden_compra': transaccion.orden_compra or '-',
+            'numero_acta': acta.numero_acta if acta else '-',
+            'rut_proveedor': transaccion.rut_proveedor or '-',
+            'departamento': (acta.departamento if acta else '') or '-',
+            'entrada': transaccion.cantidad if es_entrada else 0,
+            'salida': transaccion.cantidad if not es_entrada else 0,
+        })
+    return filas
+
+
+def _filas_excel_bincard_global(transacciones_filtradas):
+    """Kardex por producto, uno debajo del otro, con saldo. Sin filas de separación."""
+    ids_visibles = set(transacciones_filtradas.values_list('pk', flat=True))
+    if not ids_visibles:
+        return []
+
+    producto_ids = transacciones_filtradas.values_list('producto_id', flat=True).distinct()
+    historial = list(
+        Transaccion.objects.filter(producto_id__in=producto_ids)
+        .select_related('producto', 'acta_entrega')
+    )
+    por_producto = {}
+    for transaccion in historial:
+        por_producto.setdefault(transaccion.producto_id, []).append(transaccion)
+
+    productos_ordenados = sorted(
+        por_producto.values(),
+        key=lambda txs: (txs[0].producto.codigo_barra, txs[0].producto.descripcion),
+    )
+
+    filas = []
+    for txs in productos_ordenados:
+        txs.sort(key=Transaccion._clave_kardex)
+        saldo = 0
+        for transaccion in txs:
+            es_entrada = transaccion.tipo == 'entrada'
+            if es_entrada:
+                saldo += transaccion.cantidad
+            else:
+                saldo -= transaccion.cantidad
+            if transaccion.pk not in ids_visibles:
+                continue
+            acta = transaccion.acta_entrega
+            filas.append({
+                'codigo_barra': transaccion.producto.codigo_barra,
+                'nombre': transaccion.producto.descripcion,
+                'fecha': transaccion.fecha,
+                'numero_ingreso': transaccion.guia_despacho if es_entrada else '',
+                'orden_compra': transaccion.orden_compra if es_entrada else '',
+                'proveedor': transaccion.rut_proveedor if es_entrada else '',
+                'numero_egreso': acta.numero_acta if (not es_entrada and acta) else '',
+                'programa': acta.departamento if (not es_entrada and acta) else '',
+                'entrada': transaccion.cantidad if es_entrada else '',
+                'salida': transaccion.cantidad if not es_entrada else '',
+                'saldo': saldo,
+            })
+    return filas
+
+
+@login_required
+def bincard_general(request):
+    """Informe de movimientos de todos los productos, con filtro de fechas y Excel."""
+    limpiar_sesion_productos_salida(request)
+    params = request.POST if request.method == 'POST' else request.GET
+    if not params:
+        hoy = dj_timezone.localdate()
+        params = {
+            'fecha_desde': (hoy - timedelta(days=30)).isoformat(),
+            'fecha_hasta': hoy.isoformat(),
+        }
+
+    transacciones, filtros = _queryset_bincard_general(params)
+
+    if request.method == 'POST' and 'exportar_excel' in request.POST:
+        filas = _filas_excel_bincard_general(transacciones)
+        columnas = [
+            'Fecha', 'Código', 'Nombre del producto', 'Tipo',
+            'Guía', 'Factura', 'OC', 'N° Acta',
+            'Proveedor (RUT)', 'Programa/Departamento', 'Entrada', 'Salida',
+        ]
+        campos = [
+            'fecha', 'codigo_barra', 'nombre', 'tipo',
+            'guia_despacho', 'numero_factura', 'orden_compra', 'numero_acta',
+            'rut_proveedor', 'departamento', 'entrada', 'salida',
+        ]
+        return exportar_excel(request, filas, "Bincard_general", columnas, campos)
+
+    if request.method == 'POST' and 'exportar_bincard_global' in request.POST:
+        filas = _filas_excel_bincard_global(transacciones)
+        columnas = [
+            'CODIGO', 'PRODUCTO', 'FECHA', 'Nº ING.', 'OC',
+            'PROVEEDOR', 'Nº EGR.', 'PROGRAMA', 'ENTRADA', 'SALIDA', 'SALDO',
+        ]
+        campos = [
+            'codigo_barra', 'nombre', 'fecha', 'numero_ingreso', 'orden_compra',
+            'proveedor', 'numero_egreso', 'programa', 'entrada', 'salida', 'saldo',
+        ]
+        return exportar_excel(request, filas, "Bincard_global", columnas, campos)
+
+    page_obj = paginar_resultados(request, transacciones)
+    return render(request, 'accounts/bincard_general.html', {
+        'page_obj': page_obj,
+        'filtros': filtros,
+        'total_movimientos': page_obj.paginator.count,
+    })
+
 
 @login_required
 def agregar_departamento(request):
@@ -1270,6 +1498,7 @@ def detalle_lotes_producto(request, codigo_barra):
     """Vista para ver el detalle de todos los lotes de un producto específico."""
     try:
         producto = Producto.objects.get(codigo_barra=codigo_barra)
+        producto.sincronizar_stock_con_lotes()
     except Producto.DoesNotExist:
         messages.error(request, 'Producto no encontrado.')
         return redirect('control-vencimientos')
@@ -1413,7 +1642,6 @@ def funcionarios_por_departamento(request):
 
 # Vistas para gestión de usuarios
 @login_required
-@permission_required('accounts.can_access_admin', raise_exception=True)
 @permission_required('accounts.can_manage_users', raise_exception=True)
 def listar_usuarios(request):
     """Vista para listar usuarios con búsqueda y paginación"""
@@ -1461,7 +1689,6 @@ def listar_usuarios(request):
     return render(request, 'accounts/listar_usuarios.html', context)
 
 @login_required
-@permission_required('accounts.can_access_admin', raise_exception=True)
 @permission_required('accounts.can_manage_users', raise_exception=True)
 def agregar_usuario(request):
     """Vista para agregar un nuevo usuario"""
@@ -1480,7 +1707,6 @@ def agregar_usuario(request):
     return render(request, 'accounts/agregar_usuario.html', {'form': form})
 
 @login_required
-@permission_required('accounts.can_access_admin', raise_exception=True)
 @permission_required('accounts.can_manage_users', raise_exception=True)
 def editar_usuario(request, rut):
     """Vista para editar un usuario existente"""
@@ -1506,10 +1732,10 @@ def editar_usuario(request, rut):
                         return render(request, 'accounts/editar_usuario.html', {'form': form, 'usuario': usuario})
                     new_group_id = new_group.id
                     # Comparar si el grupo ha cambiado
-                    if current_group_id != new_group_id:
+                    if current_group_id != new_group_id and not usuario_puede_corregir_ingreso(request.user):
                         error_message = f'El usuario {request.user.rut} intentó cambiar su propio rol de {current_group.name if current_group else "Ninguno"} a {new_group.name}.'
                         logger.info(error_message)
-                        messages.error(request, 'No puedes cambiar tu propio rol. Pide a otro administrador que realice este cambio.')
+                        messages.error(request, 'No puedes cambiar tu propio rol. Pide a un administrador auditor que realice este cambio.')
                         return render(request, 'accounts/editar_usuario.html', {'form': form, 'usuario': usuario})
             
             # Si no hay restricción, proceder con la actualización
@@ -1528,7 +1754,6 @@ def editar_usuario(request, rut):
     return render(request, 'accounts/editar_usuario.html', {'form': form, 'usuario': usuario})
 
 @login_required
-@permission_required('accounts.can_access_admin', raise_exception=True)
 @permission_required('accounts.can_manage_users', raise_exception=True)
 def deshabilitar_usuario(request, rut):
     """Vista para deshabilitar o habilitar un usuario"""
@@ -1553,10 +1778,10 @@ def deshabilitar_usuario(request, rut):
 @permission_required('accounts.can_access_admin', raise_exception=True)
 def verify_password(request):
     """Vista para verificar la contraseña del administrador antes de acceder al panel de administración"""
-    if not request.user.is_staff or not request.user.is_superuser:
+    if not usuario_puede_panel_admin(request.user):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'message': 'No tienes permisos suficientes para acceder al panel de administración.'}, status=403)
-        messages.error(request, 'No tienes permisos suficientes para acceder al panel de administración. Contacta a un administrador.')
+        messages.error(request, 'No tienes permisos suficientes para acceder al panel de administración. Contacta a un administrador auditor.')
         return redirect('home')
 
     if request.method == 'POST':
@@ -1678,6 +1903,7 @@ def control_vencimientos(request):
     # FILTRO ADICIONAL: Solo incluir productos que tienen al menos un lote con stock > 0
     productos_con_lotes_activos = []
     for producto in productos_base:
+        producto.sincronizar_stock_con_lotes()
         if producto.get_total_lotes_activos() > 0:  # Solo productos con lotes activos
             productos_con_lotes_activos.append(producto)
     
@@ -2208,3 +2434,279 @@ def obtener_datos_producto_ajax(request):
             return JsonResponse({'success': False, 'error': f'Error interno: {str(e)}'})
     
     return JsonResponse({'success': False, 'error': 'Método no permitido.'})
+
+
+def _exigir_administrador(request):
+    if not usuario_puede_corregir_ingreso(request.user):
+        messages.error(request, 'Solo un administrador auditor puede corregir ingresos.')
+        return False
+    return True
+
+
+def _aplicar_correccion_ingreso(transaccion, cantidad_nueva, motivo, usuario, lote=None):
+    """Ajusta transacción, lote y stock del producto en una sola operación."""
+    if transaccion.tipo != 'entrada':
+        raise ValueError('Solo se pueden corregir transacciones de entrada.')
+
+    delta = cantidad_nueva - transaccion.cantidad
+    if delta == 0:
+        raise ValueError('La cantidad nueva debe ser distinta a la registrada.')
+
+    if cantidad_nueva == 0:
+        return _aplicar_anulacion_ingreso(transaccion, motivo, usuario, lote=lote)
+
+    producto = transaccion.producto
+    producto.refresh_from_db()
+    lote_obj = lote or transaccion.inferir_lote()
+    if lote_obj is not None:
+        lote_obj.refresh_from_db()
+    Transaccion.validar_correccion_ingreso(transaccion, cantidad_nueva, lote_obj)
+
+    if producto.tiene_vencimiento:
+        if lote_obj is None:
+            raise ValueError('Debe indicar el lote asociado a este ingreso.')
+        stock_lote_nuevo = lote_obj.stock + delta
+        if stock_lote_nuevo < 0:
+            raise ValueError(
+                f'No se puede corregir: el lote #{lote_obj.numero_lote} tiene {lote_obj.stock} unidades '
+                f'disponibles y la corrección dejaría {stock_lote_nuevo}. '
+                'Es posible que parte de ese ingreso ya se haya entregado.'
+            )
+        lote_obj.stock = stock_lote_nuevo
+        lote_obj.save()
+        transaccion.lote = lote_obj
+        producto.sincronizar_stock_con_lotes()
+        producto.refresh_from_db(fields=['stock'])
+        lote_obj.refresh_from_db()
+    else:
+        stock_nuevo = producto.stock + delta
+        if stock_nuevo < 0:
+            raise ValueError(
+                f'No se puede corregir: el stock actual es {producto.stock} y la corrección dejaría {stock_nuevo}.'
+            )
+        producto.stock = stock_nuevo
+        producto.save(update_fields=['stock'])
+
+    transaccion.observacion = Transaccion.armar_observacion_correccion(
+        transaccion.observacion,
+        transaccion.cantidad,
+        cantidad_nueva,
+        motivo,
+        usuario,
+        lote=lote_obj,
+    )
+    transaccion.cantidad = cantidad_nueva
+    transaccion.save()
+    return delta
+
+
+def _aplicar_anulacion_ingreso(transaccion, motivo, usuario, lote=None):
+    """Quita el ingreso del kardex y descuenta el lote, si no deja saldo negativo."""
+    if transaccion.tipo != 'entrada':
+        raise ValueError('Solo se pueden anular transacciones de entrada.')
+    if not (motivo or '').strip() or len(motivo.strip()) < 5:
+        raise ValueError('Indique un motivo de al menos 5 caracteres para anular el ingreso.')
+
+    producto = transaccion.producto
+    producto.refresh_from_db()
+    lote_obj = lote or transaccion.inferir_lote()
+    if lote_obj is not None:
+        lote_obj.refresh_from_db()
+    Transaccion.validar_anulacion_ingreso(transaccion, lote_obj)
+
+    cantidad = transaccion.cantidad
+    if producto.tiene_vencimiento:
+        if lote_obj is None:
+            raise ValueError('Debe indicar el lote asociado a este ingreso.')
+        if lote_obj.stock < cantidad:
+            raise ValueError(
+                f'No se puede anular: el lote #{lote_obj.numero_lote} solo tiene {lote_obj.stock} '
+                f'de las {cantidad} unidades de este ingreso.'
+            )
+        lote_obj.stock -= cantidad
+        lote_obj.save()
+        producto.sincronizar_stock_con_lotes()
+    else:
+        if producto.stock < cantidad:
+            raise ValueError(
+                f'No se puede anular: el stock actual es {producto.stock} y este ingreso es de {cantidad}.'
+            )
+        producto.stock -= cantidad
+        producto.save(update_fields=['stock'])
+
+    transaccion.delete()
+    return cantidad
+
+
+def _payload_limites_correccion(transaccion, lote=None):
+    """Datos de lote y mínimos para la pantalla y el AJAX."""
+    lote = lote or transaccion.inferir_lote()
+    if lote is not None and lote.pk:
+        lote.refresh_from_db()
+    limites = Transaccion.limites_correccion_ingreso(transaccion, lote)
+    fecha = limites.get('fecha_critica')
+    return {
+        'minimo': limites['minimo'],
+        'minimo_fisico': limites.get('minimo_fisico', limites['minimo']),
+        'minimo_kardex': limites.get('minimo_kardex', 0),
+        'puede_reducir': limites['puede_reducir'],
+        'debe_aumentar': limites.get('debe_aumentar', False),
+        'puede_anular': limites['puede_anular'],
+        'puede_cero': limites.get('puede_cero', limites['puede_anular']),
+        'stock_fisico': limites.get('stock_fisico', 0),
+        'saldo_minimo': limites.get('saldo_minimo'),
+        'fecha_critica': fecha.strftime('%d/%m/%Y %H:%M') if fecha else None,
+        'ayuda': Transaccion.texto_ayuda_limites(limites),
+        'ayuda_anular': Transaccion.texto_ayuda_anular(limites),
+        'lote_id': lote.pk if lote else None,
+        'lote_numero': lote.numero_lote if lote else None,
+        'lote_stock': lote.stock if lote else None,
+        'lote_vence': lote.fecha_vencimiento.strftime('%d/%m/%Y') if lote and lote.fecha_vencimiento else None,
+        'cantidad_actual': transaccion.cantidad,
+        'stock_producto': transaccion.producto.stock,
+    }
+
+
+@login_required
+def corregir_ingreso_buscar(request):
+    """Lista productos para que el administrador elija cuál ingreso corregir."""
+    limpiar_sesion_productos_salida(request)
+    if not _exigir_administrador(request):
+        return redirect('home')
+
+    productos = Producto.objects.all().order_by('codigo_barra')
+    query_codigo = request.GET.get('codigo_barra', '')
+    query_descripcion = request.GET.get('descripcion', '')
+    if query_codigo:
+        productos = productos.filter(codigo_barra=query_codigo)
+    if query_descripcion:
+        productos = productos.filter(descripcion__icontains=query_descripcion)
+
+    page_obj = paginar_resultados(request, productos)
+    _sincronizar_productos_pagina(page_obj)
+    return render(request, 'accounts/corregir_ingreso_buscar.html', {
+        'page_obj': page_obj,
+        'query_codigo': query_codigo,
+        'query_descripcion': query_descripcion,
+    })
+
+
+@login_required
+def corregir_ingreso_producto(request, codigo_barra):
+    """Lista las entradas de un producto para corregir una de ellas."""
+    limpiar_sesion_productos_salida(request)
+    if not _exigir_administrador(request):
+        return redirect('home')
+
+    producto = get_object_or_404(Producto, codigo_barra=codigo_barra)
+    producto.sincronizar_stock_con_lotes()
+    entradas = Transaccion.objects.filter(producto=producto, tipo='entrada').order_by('-fecha')
+    entradas_info = []
+    for entrada in entradas:
+        entrada.alinear_lote_con_observacion()
+        lote = entrada.inferir_lote()
+        entradas_info.append({
+            'entrada': entrada,
+            'lote': lote,
+            'observacion_base': Transaccion.observacion_base(entrada.observacion),
+            'ultima_correccion': Transaccion.ultima_correccion_texto(entrada.observacion),
+        })
+
+    lotes_resumen = []
+    if producto.tiene_vencimiento:
+        for lote in producto.lotes.all().order_by('numero_lote'):
+            lotes_resumen.append(lote)
+
+    return render(request, 'accounts/corregir_ingreso_producto.html', {
+        'producto': producto,
+        'entradas_info': entradas_info,
+        'lotes_resumen': lotes_resumen,
+    })
+
+
+@login_required
+def corregir_ingreso_detalle(request, codigo_barra, transaccion_id):
+    """Formulario para corregir una entrada específica."""
+    limpiar_sesion_productos_salida(request)
+    if not _exigir_administrador(request):
+        return redirect('home')
+
+    producto = get_object_or_404(Producto, codigo_barra=codigo_barra)
+    producto.sincronizar_stock_con_lotes()
+    transaccion = get_object_or_404(Transaccion, pk=transaccion_id, producto=producto, tipo='entrada')
+    lote_sugerido = transaccion.inferir_lote()
+    limites = _payload_limites_correccion(transaccion, lote_sugerido)
+
+    if request.method == 'POST' and request.POST.get('accion') == 'anular':
+        form = CorregirIngresoForm(request.POST, transaccion=transaccion)
+        lote_sel = None
+        if producto.tiene_vencimiento:
+            lote_id = request.POST.get('lote')
+            if lote_id:
+                lote_sel = producto.lotes.filter(pk=lote_id).first()
+            lote_sel = lote_sel or lote_sugerido
+        try:
+            motivo = (request.POST.get('motivo') or '').strip()
+            with db_transaction.atomic():
+                _aplicar_anulacion_ingreso(transaccion, motivo, request.user, lote=lote_sel)
+            producto.refresh_from_db()
+            messages.success(
+                request,
+                f'Ingreso anulado. Stock actual de "{producto.descripcion}": {producto.stock} unidades.'
+            )
+            return redirect('corregir-ingreso-producto', codigo_barra=producto.codigo_barra)
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            form = CorregirIngresoForm(transaccion=transaccion)
+    elif request.method == 'POST':
+        form = CorregirIngresoForm(request.POST, transaccion=transaccion)
+        if form.is_valid():
+            try:
+                with db_transaction.atomic():
+                    _aplicar_correccion_ingreso(
+                        transaccion=transaccion,
+                        cantidad_nueva=form.cleaned_data['cantidad_nueva'],
+                        motivo=form.cleaned_data['motivo'],
+                        usuario=request.user,
+                        lote=form.cleaned_data.get('lote'),
+                    )
+                producto.refresh_from_db()
+                messages.success(
+                    request,
+                    f'Ingreso corregido. Stock actual de "{producto.descripcion}": {producto.stock} unidades.'
+                )
+                return redirect('corregir-ingreso-producto', codigo_barra=producto.codigo_barra)
+            except ValueError as exc:
+                messages.error(request, str(exc))
+        else:
+            messages.error(request, 'Revise los datos del formulario.')
+    else:
+        form = CorregirIngresoForm(transaccion=transaccion)
+
+    return render(request, 'accounts/corregir_ingreso_detalle.html', {
+        'producto': producto,
+        'transaccion': transaccion,
+        'form': form,
+        'lote_sugerido': lote_sugerido,
+        'limites': limites,
+        'observacion_base': Transaccion.observacion_base(transaccion.observacion),
+    })
+
+
+@login_required
+def corregir_ingreso_limites_ajax(request, codigo_barra, transaccion_id):
+    """Recalcula mínimo y datos del lote al cambiar el combo."""
+    if not usuario_puede_corregir_ingreso(request.user):
+        return JsonResponse({'success': False, 'error': 'No autorizado.'}, status=403)
+    producto = get_object_or_404(Producto, codigo_barra=codigo_barra)
+    transaccion = get_object_or_404(Transaccion, pk=transaccion_id, producto=producto, tipo='entrada')
+    lote = None
+    lote_id = request.GET.get('lote_id')
+    if lote_id:
+        lote = producto.lotes.filter(pk=lote_id).first()
+        if lote is None:
+            return JsonResponse({'success': False, 'error': 'Lote no encontrado.'}, status=404)
+    payload = _payload_limites_correccion(transaccion, lote)
+    payload['success'] = True
+    return JsonResponse(payload)
+

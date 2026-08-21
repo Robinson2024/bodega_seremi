@@ -14,7 +14,7 @@
                     <a href="{% url 'exportar-vencimientos-excel' %}" class="btn btn-success btn-sm">
                         <i class="fas fa-file-excel"></i> Exportar Excel
                     </a>
-                    {% if request.user.groups.all.0.name == "Administrador" or request.user.groups.all.0.name == "Usuario de Bodega" %}
+                    {% if request.user.puede_operar_bodega %}
                         <a href="{% url 'agregar-vencimiento' %}" class="btn btn-warning btn-sm">
                             <i class="fas fa-plus"></i> Gestionar Vencimientos
                         </a>

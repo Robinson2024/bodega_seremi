@@ -5,6 +5,30 @@
 <div class="container mt-5">
     <div class="card shadow-sm p-4">
         <h2 class="text-center mb-4">Historial de Movimientos - {{ producto.descripcion }} (Código: {{ producto.codigo_barra }})</h2>
+
+        <div class="row text-center mb-4">
+            <div class="col-md-4 mb-2">
+                <div class="border rounded p-3 h-100" style="background-color: #e8f5e9;">
+                    <div class="text-muted small">Stock vigente (bodega)</div>
+                    <div style="font-size: 1.6rem; font-weight: 700; color: #1a3c5e;">{{ producto.stock }}</div>
+                    <div class="small">unidades a usar en salidas</div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-2">
+                <div class="border rounded p-3 h-100" style="background-color: #f8f9fa;">
+                    <div class="text-muted small">Historial completo</div>
+                    <div style="font-size: 1.1rem; font-weight: 600;">{{ total_entradas }} entradas · {{ total_salidas }} salidas</div>
+                    <div class="small">suma de todas las páginas</div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-2">
+                <div class="border rounded p-3 h-100" style="background-color: #e7f3ff;">
+                    <div class="text-muted small">Saldo del kardex</div>
+                    <div style="font-size: 1.6rem; font-weight: 700; color: #1a3c5e;">{{ saldo_kardex }}</div>
+                    <div class="small">entradas menos salidas (todo el historial)</div>
+                </div>
+            </div>
+        </div>
         
         {% if messages %}
             <div class="mb-3">
@@ -19,45 +43,75 @@
             </div>
         {% endif %}
 
+        {% if saldo_negativo_en_pagina %}
+            <div class="alert alert-warning">
+                En esta página hay filas con saldo histórico negativo (p. ej. salidas posteriores a un ingreso corregido).
+                El historial se muestra igual; el stock a usar en bodega es el vigente ({{ producto.stock }} unidades).
+            </div>
+        {% endif %}
+
         {% if page_obj %}
+            {% if page_obj.paginator.num_pages > 1 %}
+                <p class="text-muted text-center small mb-2">
+                    El saldo de cada fila es acumulado. Esta página termina en <strong>{{ saldo_pagina }}</strong>;
+                    el stock vigente está arriba, no en la columna de saldo.
+                </p>
+            {% endif %}
             <div class="table-responsive">
                 <table class="table table-bordered table-striped">
                     <thead class="table-dark">
                         <tr>
                             <th>Fecha</th>
                             <th>Guía o Factura</th>
+                            <th>OC</th>
                             <th>N° Acta</th>
                             <th>Proveedor (RUT)</th>
                             <th>Programa/Departamento</th>
                             <th>Entrada</th>
                             <th>Salida</th>
                             <th>Saldo</th>
+                            {% if es_administrador %}
+                            <th>Acción</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
                         {% for movimiento in page_obj %}
-                            <tr>
+                            <tr {% if movimiento.saldo < 0 %}class="table-warning"{% endif %}>
                                 <td>{{ movimiento.fecha|date:"d-m-Y H:i" }}</td>
                                 <td>{{ movimiento.guia_o_factura }}</td>
+                                <td>{{ movimiento.orden_compra|default:"-" }}</td>
                                 <td>{{ movimiento.numero_acta|default:"-" }}</td>
                                 <td>{{ movimiento.rut_proveedor|default:"-" }}</td>
                                 <td>{{ movimiento.departamento|default:"-" }}</td>
                                 <td>{{ movimiento.entrada|default:"0" }}</td>
                                 <td>{{ movimiento.salida|default:"0" }}</td>
                                 <td>{{ movimiento.saldo }}</td>
+                                {% if es_administrador %}
+                                <td>
+                                    {% if movimiento.tipo == 'entrada' and movimiento.transaccion_id %}
+                                        <a href="{% url 'corregir-ingreso-detalle' producto.codigo_barra movimiento.transaccion_id %}" class="btn btn-sm btn-warning">Corregir</a>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                {% endif %}
                             </tr>
                         {% empty %}
                             <tr>
-                                <td colspan="8" class="text-center">No se encontraron movimientos para este producto.</td>
+                                <td colspan="{% if es_administrador %}10{% else %}9{% endif %}" class="text-center">No se encontraron movimientos para este producto.</td>
                             </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr class="table-info">
-                            <td colspan="5" class="text-end"><strong>Total:</strong></td>
+                            <td colspan="{% if es_administrador %}7{% else %}6{% endif %}" class="text-end"><strong>Total (todas las páginas):</strong></td>
                             <td><strong>{{ total_entradas }}</strong></td>
                             <td><strong>{{ total_salidas }}</strong></td>
-                            <td><strong>{{ producto.stock }}</strong></td>
+                            <td><strong>Saldo esta página: {{ saldo_pagina }}</strong></td>
+                            {% if es_administrador %}
+                            <td></td>
+                            {% endif %}
                         </tr>
                     </tfoot>
                 </table>

@@ -1,36 +1,51 @@
 from django.db import migrations
-from django.contrib.auth.models import Group, Permission
+
 
 def create_groups(apps, schema_editor):
-    # Crear grupos
+    Group = apps.get_model('auth', 'Group')
+    Permission = apps.get_model('auth', 'Permission')
+    ContentType = apps.get_model('contenttypes', 'ContentType')
+
+    content_type, _ = ContentType.objects.get_or_create(
+        app_label='accounts',
+        model='customuser',
+    )
+
+    permission_specs = [
+        ('can_access_admin', 'Acceso al panel de administración'),
+        ('can_manage_users', 'Gestión de usuarios'),
+        ('can_manage_departments', 'Gestión de departamentos'),
+        ('can_edit', 'Edición de registros'),
+    ]
+    permissions = {}
+    for codename, name in permission_specs:
+        perm, _ = Permission.objects.get_or_create(
+            content_type=content_type,
+            codename=codename,
+            defaults={'name': name},
+        )
+        permissions[codename] = perm
+
     admin_group, _ = Group.objects.get_or_create(name='Administrador')
     bodega_group, _ = Group.objects.get_or_create(name='Usuario de Bodega')
     auditor_group, _ = Group.objects.get_or_create(name='Auditor')
 
-    # Obtener permisos
-    can_access_admin = Permission.objects.get(codename='can_access_admin')
-    can_manage_users = Permission.objects.get(codename='can_manage_users')
-    can_manage_departments = Permission.objects.get(codename='can_manage_departments')
-    can_edit = Permission.objects.get(codename='can_edit')
-
-    # Asignar permisos a Administrador (todos los permisos)
     admin_group.permissions.set([
-        can_access_admin,
-        can_manage_users,
-        can_manage_departments,
-        can_edit,
+        permissions['can_access_admin'],
+        permissions['can_manage_users'],
+        permissions['can_manage_departments'],
+        permissions['can_edit'],
     ])
-
-    # Asignar permisos a Usuario de Bodega (todos excepto gestión de usuarios y departamentos)
     bodega_group.permissions.set([
-        can_edit,
+        permissions['can_edit'],
     ])
-
-    # Asignar permisos a Auditor (sin permisos de edición)
     auditor_group.permissions.set([])
 
+
 def remove_groups(apps, schema_editor):
+    Group = apps.get_model('auth', 'Group')
     Group.objects.filter(name__in=['Administrador', 'Usuario de Bodega', 'Auditor']).delete()
+
 
 class Migration(migrations.Migration):
     dependencies = [

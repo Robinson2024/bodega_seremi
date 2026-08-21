@@ -1,0 +1,16 @@
+.git
+.gitignore
+.gitattributes
+.env
+.env.example
+data
+*.md
+**/__pycache__
+*.pyc
+.venv
+venv
+env
+sistema_bodega/staticfiles
+sistema_bodega/db.sqlite3
+sistema_bodega/**/*.sqlite3
+sistema_bodega/scripts_validadores

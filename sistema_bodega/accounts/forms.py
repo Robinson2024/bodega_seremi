@@ -5,6 +5,16 @@ from .models import Producto, Transaccion, ActaEntrega, Funcionario, Departament
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth.models import Group
 
+GRUPO_ADMINISTRADOR_AUDITOR = 'Administrador Auditor'
+
+
+def _aplicar_acceso_panel(user, grupo):
+    """Solo Administrador Auditor entra al panel Django (is_staff). No toca superusuarios."""
+    if user.is_superuser:
+        return
+    user.is_staff = bool(grupo and grupo.name == GRUPO_ADMINISTRADOR_AUDITOR)
+    user.save(update_fields=['is_staff'])
+
 # Formularios para la gestión de usuarios
 class SearchUserForm(forms.Form):
     rut = forms.CharField(
@@ -51,7 +61,7 @@ class CustomUserCreationForm(UserCreationForm):
     grupo = forms.ModelChoiceField(
         queryset=Group.objects.all(),
         label="Rol",
-        help_text="Seleccione el rol del usuario (Administrador, Usuario de Bodega, Auditor).",
+        help_text="Seleccione el rol: Administrador Auditor, Administrador, Usuario de Bodega o Auditor.",
         widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_grupo'}),
     )
 
@@ -87,6 +97,7 @@ class CustomUserCreationForm(UserCreationForm):
             grupo = self.cleaned_data.get('grupo')
             if grupo:
                 user.groups.add(grupo)
+            _aplicar_acceso_panel(user, grupo)
         return user
 
 class CustomUserEditForm(UserChangeForm):
@@ -100,7 +111,7 @@ class CustomUserEditForm(UserChangeForm):
     grupo = forms.ModelChoiceField(
         queryset=Group.objects.all(),
         label="Rol",
-        help_text="Seleccione el rol del usuario (Administrador, Usuario de Bodega, Auditor).",
+        help_text="Seleccione el rol: Administrador Auditor, Administrador, Usuario de Bodega o Auditor.",
         widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_grupo'}),
     )
     # Campo para establecer una nueva contraseña
@@ -181,9 +192,9 @@ class CustomUserEditForm(UserChangeForm):
             # Actualizar el grupo del usuario
             grupo = self.cleaned_data.get('grupo')
             if grupo:
-                # Limpiar los grupos existentes y asignar el nuevo
                 user.groups.clear()
                 user.groups.add(grupo)
+            _aplicar_acceso_panel(user, grupo)
 
         return user
 
@@ -217,7 +228,7 @@ class ProductoForm(forms.ModelForm):
     # Campo para la descripción del producto
     descripcion = forms.CharField(
         max_length=200,
-        label='Descripción',
+        label='Nombre del producto',
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
@@ -934,7 +945,8 @@ class AgregarStockConVencimientoForm(forms.Form):
                 guia_despacho=self.cleaned_data.get('guia_despacho', ''),
                 numero_factura=self.cleaned_data.get('numero_factura', ''),
                 orden_compra=self.cleaned_data.get('orden_compra', ''),
-                observacion=f"Lote #{lote.numero_lote} - Vence: {fecha_vencimiento}"
+                observacion=f"Lote #{lote.numero_lote} - Vence: {fecha_vencimiento}",
+                lote=lote,
             )
             
             return lote, transaccion
@@ -956,3 +968,82 @@ class AgregarStockConVencimientoForm(forms.Form):
             )
             
             return None, transaccion
+
+
+class CorregirIngresoForm(forms.Form):
+    """Formulario para corregir la cantidad de una entrada (solo administrador)."""
+
+    cantidad_nueva = forms.IntegerField(
+        min_value=0,
+        label='Cantidad correcta',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+    )
+    motivo = forms.CharField(
+        min_length=5,
+        max_length=300,
+        label='Motivo de la corrección',
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Ej. Error de tipeo: se ingresaron 2 unidades en lugar de 20.',
+        }),
+    )
+    lote = forms.ModelChoiceField(
+        queryset=LoteProducto.objects.none(),
+        required=False,
+        label='Lote del ingreso',
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        empty_label='Seleccione el lote',
+    )
+
+    def __init__(self, *args, transaccion=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.transaccion = transaccion
+        if transaccion:
+            self.fields['cantidad_nueva'].initial = transaccion.cantidad
+            producto = transaccion.producto
+            lote_sugerido = transaccion.inferir_lote()
+            if producto.tiene_vencimiento:
+                self.fields['lote'].queryset = producto.lotes.all().order_by('numero_lote')
+                self.fields['lote'].label_from_instance = (
+                    lambda lote: (
+                        f"Lote #{lote.numero_lote} · stock {lote.stock} · "
+                        f"vence {lote.fecha_vencimiento.strftime('%d/%m/%Y') if lote.fecha_vencimiento else '-'}"
+                    )
+                )
+                if lote_sugerido:
+                    self.fields['lote'].initial = lote_sugerido.pk
+            else:
+                self.fields['lote'].widget = forms.HiddenInput()
+                self.fields['lote'].required = False
+            limites = Transaccion.limites_correccion_ingreso(transaccion, lote_sugerido)
+            self.limites = limites
+            self.fields['cantidad_nueva'].widget.attrs['min'] = limites['minimo']
+            self.fields['cantidad_nueva'].help_text = Transaccion.texto_ayuda_limites(limites)
+
+    def clean_lote(self):
+        lote = self.cleaned_data.get('lote')
+        transaccion = self.transaccion
+        if transaccion and transaccion.producto.tiene_vencimiento and not lote:
+            raise ValidationError('Debe indicar el lote de este ingreso.')
+        if lote and transaccion and lote.producto_id != transaccion.producto_id:
+            raise ValidationError('El lote no pertenece a este producto.')
+        return lote
+
+    def clean_cantidad_nueva(self):
+        cantidad = self.cleaned_data.get('cantidad_nueva')
+        if self.transaccion and cantidad == self.transaccion.cantidad:
+            raise ValidationError('La cantidad nueva debe ser distinta a la registrada.')
+        return cantidad
+
+    def clean(self):
+        cleaned_data = super().clean()
+        transaccion = self.transaccion
+        cantidad = cleaned_data.get('cantidad_nueva')
+        lote = cleaned_data.get('lote')
+        if transaccion and cantidad is not None:
+            try:
+                Transaccion.validar_correccion_ingreso(transaccion, cantidad, lote)
+            except ValueError as exc:
+                raise ValidationError(str(exc))
+        return cleaned_data

@@ -17,20 +17,57 @@
                 {% endfor %}
             </div>
         {% endif %}
-        <form method="POST" action="{% url 'bincard-buscar' %}" class="row g-3 justify-content-center">
+        <form method="POST" action="{% url 'bincard-buscar' %}" class="row g-3 justify-content-center" id="form-bincard">
             {% csrf_token %}
-            <div class="col-md-6">
-                <label for="codigo_barra" class="form-label">Código de Barra</label>
-                <input type="text" class="form-control" id="codigo_barra" name="codigo_barra" placeholder="Ingrese el código de barra" required>
+            <div class="col-md-7">
+                <label for="busqueda" class="form-label">Código de barra o nombre</label>
+                <input type="text" class="form-control" id="busqueda" name="busqueda" value="{{ busqueda }}" placeholder="Ej. 100055 o líquido de prueba" required autocomplete="off">
+                <small class="form-text text-muted">Puede buscar por código o por el nombre del producto.</small>
             </div>
             <div class="col-md-2 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search me-2"></i>Buscar</button>
             </div>
             <div class="col-md-2 d-flex align-items-end">
-                <button type="button" class="btn btn-secondary w-100" onclick="document.getElementById('codigo_barra').value = '';"><i class="fas fa-eraser me-2"></i>Limpiar</button>
+                <button type="button" class="btn btn-secondary w-100" id="btn-limpiar-bincard"><i class="fas fa-eraser me-2"></i>Limpiar</button>
             </div>
         </form>
     </div>
+
+    {% if coincidencias %}
+    <div class="card shadow-sm p-4 mt-4">
+        <p class="text-muted mb-3">
+            {% if coincidencias|length == 1 %}
+                Se encontró 1 producto. Seleccione para ver su bincard:
+            {% else %}
+                Se encontraron {{ coincidencias|length }} coincidencias. Elija el producto para ver su bincard:
+            {% endif %}
+        </p>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+                <thead style="background-color: #1a3c5e; color: white;">
+                    <tr>
+                        <th>Código</th>
+                        <th>Descripción</th>
+                        <th>Stock</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for producto in coincidencias %}
+                    <tr>
+                        <td>{{ producto.codigo_barra }}</td>
+                        <td>{{ producto.descripcion }}</td>
+                        <td>{{ producto.stock }}</td>
+                        <td>
+                            <a href="{% url 'bincard-historial' producto.codigo_barra %}" class="btn btn-sm btn-primary">Ver bincard</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Incluir jQuery UI para el autocompletado -->
@@ -39,13 +76,16 @@
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
 <script>
     $(document).ready(function() {
-        $("#codigo_barra").autocomplete({
+        $("#busqueda").autocomplete({
             source: "{% url 'buscar-codigos-barra' %}",
             minLength: 2,
             select: function(event, ui) {
-                $("#codigo_barra").val(ui.item.value);
+                $("#busqueda").val(ui.item.value);
                 return false;
             }
+        });
+        $("#btn-limpiar-bincard").on("click", function () {
+            $("#busqueda").val("").focus();
         });
     });
 </script>

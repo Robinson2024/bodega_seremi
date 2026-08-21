@@ -2,8 +2,17 @@
 venv/
 env/
 ENV/
+.venv/
 
 __pycache__/
 *.pyc
 db.sqlite3
 *.sqlite3
+
+# Secretos y datos persistentes de Docker
+.env
+data/db/*.sqlite3
+data/db/*.sqlite3-journal
+sistema_bodega/db/
+sistema_bodega/staticfiles/
+sistema_bodega/scripts_validadores/

@@ -1,0 +1,178 @@
+{% extends 'accounts/home.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center mb-4" style="color: #1a3c5e; font-weight: 600;">Corregir cantidad de ingreso</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center mb-4" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body" style="background-color: #f8f9fa; border-radius: 8px;">
+            <h5 style="color: #1a3c5e;">{{ producto.descripcion }} ({{ producto.codigo_barra }})</h5>
+            <p class="mb-1"><strong>Cantidad registrada:</strong> {{ transaccion.cantidad }}</p>
+            <p class="mb-1"><strong>Fecha:</strong> {{ transaccion.fecha|date:"d-m-Y H:i" }}</p>
+            <p class="mb-1"><strong>Stock actual del producto:</strong> {{ producto.stock }}</p>
+            {% if observacion_base %}
+                <p class="mb-1"><strong>Observación original:</strong> {{ observacion_base }}</p>
+            {% endif %}
+            <p class="mb-1" id="info-lote">
+                <strong>Lote seleccionado:</strong>
+                <span id="lote-resumen">
+                    {% if limites.lote_numero %}
+                        #{{ limites.lote_numero }} · stock del lote {{ limites.lote_stock }} · vence {{ limites.lote_vence }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </span>
+            </p>
+            <p class="mb-0">
+                <strong>Mínimo permitido:</strong>
+                <span id="minimo-resumen">{{ limites.minimo }} unidades</span>
+                <span id="minimo-detalle" class="text-muted">
+                    {% if limites.debe_aumentar %}
+                        (el bincard está negativo; debe subir al menos a {{ limites.minimo }})
+                    {% elif limites.puede_cero %}
+                        (0 es válido: anula el ingreso y deja el lote en 0)
+                    {% elif limites.puede_reducir %}
+                        (mínimo lote y bincard; no se puede menos)
+                    {% else %}
+                        (este ingreso no se puede reducir, solo aumentar)
+                    {% endif %}
+                </span>
+            </p>
+        </div>
+    </div>
+
+    <div class="card form-card shadow-sm">
+        <div class="card-body">
+            <div class="alert alert-warning">
+                Esta corrección actualiza al mismo tiempo la transacción (bincard), el lote y el stock. El mínimo se calcula con lo que queda en el lote <strong>y</strong> con el historial: no se permite un valor que deje el bincard en negativo. Si cambia el lote, los límites se recalculan al instante.
+            </div>
+            <form method="post" id="form-correccion">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="id_cantidad_nueva">{{ form.cantidad_nueva.label }}</label>
+                    {{ form.cantidad_nueva }}
+                    <small class="form-text text-muted" id="ayuda-cantidad">{{ form.cantidad_nueva.help_text }}</small>
+                    {% if form.cantidad_nueva.errors %}
+                        <div class="text-danger small">{{ form.cantidad_nueva.errors }}</div>
+                    {% endif %}
+                </div>
+                {% if producto.tiene_vencimiento %}
+                    <div class="form-group">
+                        <label for="id_lote">{{ form.lote.label }}</label>
+                        {{ form.lote }}
+                        {% if form.lote.errors %}
+                            <div class="text-danger small">{{ form.lote.errors }}</div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                <div class="form-group">
+                    <label for="id_motivo">{{ form.motivo.label }}</label>
+                    {{ form.motivo }}
+                    {% if form.motivo.errors %}
+                        <div class="text-danger small">{{ form.motivo.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="text-center mt-4">
+                    <button type="submit" name="accion" value="corregir" class="btn btn-warning">Guardar corrección</button>
+                    <button type="submit" name="accion" value="anular" id="btn-anular" class="btn btn-outline-danger" {% if not limites.puede_anular %}disabled{% endif %}>
+                        Anular ingreso
+                    </button>
+                    <a href="{% url 'corregir-ingreso-producto' producto.codigo_barra %}" class="btn btn-secondary">Cancelar</a>
+                </div>
+                <p class="text-muted small text-center mt-2" id="ayuda-anular">{{ limites.ayuda_anular }}</p>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var loteSelect = document.getElementById('id_lote');
+    var cantidadInput = document.getElementById('id_cantidad_nueva');
+    var urlLimites = "{% url 'corregir-ingreso-limites' producto.codigo_barra transaccion.id %}";
+    var form = document.getElementById('form-correccion');
+
+    function aplicarLimites(data) {
+        if (!data || !data.success) {
+            return;
+        }
+        if (cantidadInput) {
+            cantidadInput.setAttribute('min', data.minimo);
+        }
+        var ayudaCantidad = document.getElementById('ayuda-cantidad');
+        if (ayudaCantidad) {
+            ayudaCantidad.textContent = data.ayuda || '';
+        }
+        document.getElementById('minimo-resumen').textContent = data.minimo + ' unidades';
+        var detalle = '';
+        if (data.debe_aumentar) {
+            detalle = ' (el bincard está negativo; debe subir al menos a ' + data.minimo + ')';
+        } else if (data.puede_cero) {
+            detalle = ' (0 es válido: anula el ingreso y deja el lote en 0)';
+        } else if (data.puede_reducir) {
+            detalle = ' (mínimo lote y bincard; no se puede menos)';
+        } else {
+            detalle = ' (este ingreso no se puede reducir, solo aumentar)';
+        }
+        document.getElementById('minimo-detalle').textContent = detalle;
+        var loteResumen = document.getElementById('lote-resumen');
+        if (data.lote_numero) {
+            loteResumen.textContent = '#' + data.lote_numero + ' · stock del lote ' + data.lote_stock +
+                (data.lote_vence ? ' · vence ' + data.lote_vence : '');
+        } else {
+            loteResumen.textContent = '—';
+        }
+        var btnAnular = document.getElementById('btn-anular');
+        if (btnAnular) {
+            btnAnular.disabled = !data.puede_anular;
+        }
+        var ayudaAnular = document.getElementById('ayuda-anular');
+        if (ayudaAnular) {
+            ayudaAnular.textContent = data.ayuda_anular || '';
+        }
+    }
+
+    if (loteSelect) {
+        loteSelect.addEventListener('change', function () {
+            var loteId = loteSelect.value;
+            if (!loteId) {
+                return;
+            }
+            fetch(urlLimites + '?lote_id=' + encodeURIComponent(loteId), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(function (respuesta) { return respuesta.json(); })
+                .then(aplicarLimites);
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', function (event) {
+            var submitter = event.submitter;
+            if (submitter && submitter.value === 'anular') {
+                if (!window.confirm('¿Anular este ingreso? Se eliminará del kardex y se descontará del lote. El stock no quedará negativo. Esta acción no se puede deshacer.')) {
+                    event.preventDefault();
+                }
+            } else if (cantidadInput && cantidadInput.value === '0') {
+                if (!window.confirm('Cantidad 0 anula este ingreso y deja el lote en 0. ¿Continuar?')) {
+                    event.preventDefault();
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

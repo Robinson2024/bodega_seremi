@@ -1,0 +1,106 @@
+{% extends 'accounts/home.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center mb-2" style="color: #1a3c5e; font-weight: 600;">Ingresos de {{ producto.descripcion }}</h2>
+    <p class="text-center text-muted mb-3">Código {{ producto.codigo_barra }} · Stock vigente: <strong>{{ producto.stock }}</strong> unidades</p>
+
+    {% if lotes_resumen %}
+        <div class="row mb-4">
+            {% for lote in lotes_resumen %}
+                <div class="col-md-4 mb-2">
+                    <div class="border rounded p-3 h-100" style="background-color: {% if lote.stock > 0 %}#e8f5e9{% else %}#f8f9fa{% endif %};">
+                        <div class="small text-muted">Lote #{{ lote.numero_lote }}{% if lote.fecha_vencimiento %} · vence {{ lote.fecha_vencimiento|date:"d/m/Y" }}{% endif %}</div>
+                        <div style="font-size: 1.35rem; font-weight: 700; color: #1a3c5e;">
+                            {{ lote.stock }} <span class="small font-weight-normal">disp. hoy</span>
+                        </div>
+                        {% if lote.stock == 0 %}
+                            <div class="small text-muted">Agotado</div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show text-center mb-4" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card table-card shadow-sm">
+        <div class="card-body">
+            {% if entradas_info %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead style="background-color: #1a3c5e; color: white;">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Cantidad ingresada</th>
+                                <th>Lote (disponible hoy)</th>
+                                <th>Factura / Guía</th>
+                                <th>Observación</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in entradas_info %}
+                                <tr>
+                                    <td>{{ item.entrada.fecha|date:"d-m-Y H:i" }}</td>
+                                    <td><strong>{{ item.entrada.cantidad }}</strong></td>
+                                    <td>
+                                        {% if item.lote %}
+                                            <strong>Lote #{{ item.lote.numero_lote }}</strong>
+                                            <br>
+                                            <span class="{% if item.lote.stock > 0 %}text-success{% else %}text-muted{% endif %}">
+                                                {{ item.lote.stock }} disp. hoy
+                                            </span>
+                                            {% if item.lote.fecha_vencimiento %}
+                                                <br><small class="text-muted">Vence {{ item.lote.fecha_vencimiento|date:"d/m/Y" }}</small>
+                                            {% endif %}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+                                    <td>{% firstof item.entrada.numero_factura item.entrada.guia_despacho "-" %}</td>
+                                    <td class="text-left small">
+                                        {% if item.observacion_base %}
+                                            <div>{{ item.observacion_base }}</div>
+                                        {% endif %}
+                                        {% if item.ultima_correccion %}
+                                            <div class="text-muted">{{ item.ultima_correccion }}</div>
+                                        {% endif %}
+                                        {% if not item.observacion_base and not item.ultima_correccion %}
+                                            —
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'corregir-ingreso-detalle' producto.codigo_barra item.entrada.id %}" class="btn btn-sm btn-warning">Corregir</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-muted small mb-0 mt-2">
+                    “Disp. hoy” es el stock actual del lote (el mismo de Control de vencimientos y salidas), no lo que le queda a esa fila de ingreso.
+                </p>
+            {% else %}
+                <div class="alert alert-info text-center">Este producto no tiene ingresos registrados.</div>
+            {% endif %}
+
+            <div class="text-center mt-4">
+                <a href="{% url 'corregir-ingreso' %}" class="btn btn-secondary">Volver a productos</a>
+                <a href="{% url 'bincard-historial' producto.codigo_barra %}" class="btn btn-outline-primary">Ver bincard</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

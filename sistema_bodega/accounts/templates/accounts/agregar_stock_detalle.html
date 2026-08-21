@@ -30,6 +30,13 @@
                             <strong>Stock actual:</strong> {{ producto.stock }} | 
                             <strong>Categoría:</strong> {{ producto.categoria.nombre|default:"Sin categoría" }}
                         </p>
+                        {% if request.user.puede_corregir_ingreso %}
+                        <p class="mb-0 mt-2">
+                            <a href="{% url 'corregir-ingreso-producto' producto.codigo_barra %}" class="btn btn-sm btn-warning">
+                                <i class="fas fa-edit"></i> Corregir ingreso
+                            </a>
+                        </p>
+                        {% endif %}
                     </div>
                     <div class="col-md-4 text-md-right">
                         {% if tiene_vencimiento_actual %}

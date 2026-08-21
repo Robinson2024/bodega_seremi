@@ -36,7 +36,7 @@
                         <div class="input-group input-group-sm">
                             {{ form.descripcion|add_class:"form-control" }}
                             <div class="input-group-append">
-                                <span class="input-group-text">Descripción</span>
+                                <span class="input-group-text">Nombre del producto</span>
                             </div>
                         </div>
                         {% if form.descripcion.errors %}
@@ -131,12 +131,16 @@
                             <div class="card-body">
                                 <div class="row justify-content-center">
                                     <div class="col-md-8">
-                                        <div class="form-check mb-3 text-center">
+                                        <div class="form-check mb-2 text-center">
                                             {{ form.tiene_vencimiento|add_class:"form-check-input" }}
                                             <label class="form-check-label" for="id_tiene_vencimiento">
                                                 <strong>{{ form.tiene_vencimiento.label }}</strong>
                                             </label>
                                         </div>
+                                        <p class="text-muted small text-center mb-3" style="font-size: 0.8rem; line-height: 1.35;">
+                                            La fecha de vencimiento solo es necesaria si marca esta opción.
+                                            Si el producto no vence, no la pulse ni la cambie.
+                                        </p>
                                         
                                         <div id="fecha-vencimiento-container" class="text-center" style="display: none;">
                                             <div class="row justify-content-center">
@@ -152,6 +156,9 @@
                                                     {% if form.fecha_vencimiento.errors %}
                                                         <div class="text-danger small mt-2">{{ form.fecha_vencimiento.errors }}</div>
                                                     {% endif %}
+                                                    <small class="form-text text-muted mt-2">
+                                                        Complete esta fecha solo si el producto tiene vencimiento.
+                                                    </small>
                                                 </div>
                                             </div>
                                         </div>

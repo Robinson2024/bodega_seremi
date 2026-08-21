@@ -19,13 +19,28 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
+def _csv_env(name, default):
+    value = os.environ.get(name, default)
+    return [item.strip() for item in value.split(',') if item.strip()]
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-9gx9)2++ggc-_oe1ldwk0^q)qeij(d1qrj)+u*qhlsv)n&if5n'
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-9gx9)2++ggc-_oe1ldwk0^q)qeij(d1qrj)+u*qhlsv)n&if5n',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.3.184.17', '10.68.209.210']
+ALLOWED_HOSTS = _csv_env(
+    'DJANGO_ALLOWED_HOSTS',
+    'localhost,127.0.0.1,10.3.184.27',
+)
+
+CSRF_TRUSTED_ORIGINS = _csv_env(
+    'DJANGO_CSRF_TRUSTED_ORIGINS',
+    'http://localhost:8008,http://127.0.0.1:8008,http://10.3.184.27:8008',
+)
 # Application definition
 
 INSTALLED_APPS = [
@@ -72,10 +87,12 @@ WSGI_APPLICATION = 'sistema_bodega.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+_default_db_path = BASE_DIR / 'db' / 'db.sqlite3'
+_default_db_path.parent.mkdir(parents=True, exist_ok=True)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': '/app/db/db.sqlite3',
+        'NAME': os.environ.get('DJANGO_DB_PATH', str(_default_db_path)),
     }
 }
 # Password validation
@@ -90,16 +107,16 @@ LANGUAGE_CODE = 'es-cl'
 TIME_ZONE = 'America/Santiago'
 USE_I18N = True
 USE_L10N = True
+USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = '/app/staticfiles'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),  # Apunta a /app/static/ en el contenedor
+    os.path.join(BASE_DIR, 'static'),
 ]
-STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Authentication settings
 LOGIN_REDIRECT_URL = '/'

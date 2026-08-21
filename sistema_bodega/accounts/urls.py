@@ -31,6 +31,13 @@ urlpatterns = [
     path('bincard/buscar/', views.bincard_buscar, name='bincard-buscar'),  # Buscar productos para ver historial
     path('bincard/historial/<str:codigo_barra>/', views.bincard_historial, name='bincard-historial'),  # Ver historial de transacciones de un producto
     path('bincard/buscar-codigos/', views.buscar_codigos_barra, name='buscar-codigos-barra'),  # Búsqueda de códigos de barra (autocompletado)
+    path('bincard/general/', views.bincard_general, name='bincard-general'),
+
+    # Corrección de ingresos (solo administrador)
+    path('corregir-ingreso/', views.corregir_ingreso_buscar, name='corregir-ingreso'),
+    path('corregir-ingreso/<str:codigo_barra>/', views.corregir_ingreso_producto, name='corregir-ingreso-producto'),
+    path('corregir-ingreso/<str:codigo_barra>/<int:transaccion_id>/limites/', views.corregir_ingreso_limites_ajax, name='corregir-ingreso-limites'),
+    path('corregir-ingreso/<str:codigo_barra>/<int:transaccion_id>/', views.corregir_ingreso_detalle, name='corregir-ingreso-detalle'),
 
     # Rutas de Gestión de Departamentos
     path('agregar-departamento/', views.agregar_departamento, name='agregar-departamento'),  # Agregar un nuevo departamento
